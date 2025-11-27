@@ -64,6 +64,7 @@ export interface StudyGroupMessage {
   groupId: string;
   senderEmail: string;
   message: string;
+  attachments?: { name: string; uri: string; type: string }[];
   createdAt: string;
 }
 

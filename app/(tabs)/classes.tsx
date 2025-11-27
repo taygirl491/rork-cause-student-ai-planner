@@ -9,9 +9,11 @@ import {
   TextInput,
   Animated,
   Alert,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Plus, X, BookOpen, Clock, User, Calendar as CalendarIcon, Users, Copy, Send } from 'lucide-react-native';
+import { Plus, X, BookOpen, Clock, User, Calendar as CalendarIcon, Users, Copy, Send, Paperclip, FileText } from 'lucide-react-native';
+import * as DocumentPicker from 'expo-document-picker';
 import colors from '@/constants/colors';
 import { useApp } from '@/contexts/AppContext';
 import { Class, StudyGroup } from '@/types';
@@ -49,6 +51,7 @@ export default function ClassesScreen() {
 
   const [messageText, setMessageText] = useState('');
   const [messageSenderEmail, setMessageSenderEmail] = useState('');
+  const [attachments, setAttachments] = useState<{ name: string; uri: string; type: string }[]>([]);
 
   const scaleAnim = React.useRef(new Animated.Value(0)).current;
 
@@ -154,12 +157,53 @@ export default function ClassesScreen() {
   const handleSendMessage = () => {
     if (!selectedGroup || !messageText || !messageSenderEmail) return;
 
-    sendGroupMessage(selectedGroup.id, messageSenderEmail, messageText);
+    sendGroupMessage(selectedGroup.id, messageSenderEmail, messageText, attachments.length > 0 ? attachments : undefined);
     setMessageText('');
+    setAttachments([]);
     
     const updatedGroup = studyGroups.find(g => g.id === selectedGroup.id);
     if (updatedGroup) {
       setSelectedGroup(updatedGroup);
+    }
+  };
+
+  const pickDocument = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: '*/*',
+        copyToCacheDirectory: true,
+        multiple: true,
+      });
+
+      if (!result.canceled && result.assets) {
+        const newAttachments = result.assets.map(asset => ({
+          name: asset.name,
+          uri: asset.uri,
+          type: asset.mimeType || 'application/octet-stream',
+        }));
+        setAttachments(prev => [...prev, ...newAttachments]);
+      }
+    } catch (err) {
+      console.error('Error picking document:', err);
+      Alert.alert('Error', 'Failed to pick document');
+    }
+  };
+
+  const removeAttachment = (index: number) => {
+    setAttachments(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const openAttachment = async (uri: string) => {
+    try {
+      const supported = await Linking.canOpenURL(uri);
+      if (supported) {
+        await Linking.openURL(uri);
+      } else {
+        Alert.alert('Cannot open file', 'This file type is not supported');
+      }
+    } catch (err) {
+      console.error('Error opening attachment:', err);
+      Alert.alert('Error', 'Failed to open attachment');
     }
   };
 
@@ -546,7 +590,7 @@ export default function ClassesScreen() {
 
             {selectedGroup && (
               <>
-                <View style={styles.groupDetailInfo}>
+                <ScrollView style={styles.groupDetailInfo} showsVerticalScrollIndicator={false}>
                   <Text style={styles.detailLabel}>Class:</Text>
                   <Text style={styles.detailValue}>{selectedGroup.className}</Text>
                   <Text style={styles.detailLabel}>School:</Text>
@@ -566,7 +610,7 @@ export default function ClassesScreen() {
                       </TouchableOpacity>
                     </View>
                   </View>
-                </View>
+                </ScrollView>
 
                 <Text style={styles.sectionTitle}>Members ({selectedGroup.members.length})</Text>
                 <ScrollView style={styles.membersList} showsVerticalScrollIndicator={false}>
@@ -591,6 +635,22 @@ export default function ClassesScreen() {
                       <View key={msg.id} style={styles.messageItem}>
                         <Text style={styles.messageSender}>{msg.senderEmail}</Text>
                         <Text style={styles.messageText}>{msg.message}</Text>
+                        {msg.attachments && msg.attachments.length > 0 && (
+                          <View style={styles.attachmentsList}>
+                            {msg.attachments.map((attachment, idx) => (
+                              <TouchableOpacity
+                                key={idx}
+                                style={styles.attachmentChip}
+                                onPress={() => openAttachment(attachment.uri)}
+                              >
+                                <FileText size={14} color={colors.primary} />
+                                <Text style={styles.attachmentName} numberOfLines={1}>
+                                  {attachment.name}
+                                </Text>
+                              </TouchableOpacity>
+                            ))}
+                          </View>
+                        )}
                         <Text style={styles.messageTime}>
                           {new Date(msg.createdAt).toLocaleString()}
                         </Text>
@@ -609,7 +669,25 @@ export default function ClassesScreen() {
                     keyboardType="email-address"
                     autoCapitalize="none"
                   />
+                  {attachments.length > 0 && (
+                    <ScrollView horizontal style={styles.attachmentsPreview} showsHorizontalScrollIndicator={false}>
+                      {attachments.map((attachment, idx) => (
+                        <View key={idx} style={styles.attachmentPreviewChip}>
+                          <FileText size={14} color={colors.primary} />
+                          <Text style={styles.attachmentPreviewName} numberOfLines={1}>
+                            {attachment.name}
+                          </Text>
+                          <TouchableOpacity onPress={() => removeAttachment(idx)}>
+                            <X size={16} color={colors.textSecondary} />
+                          </TouchableOpacity>
+                        </View>
+                      ))}
+                    </ScrollView>
+                  )}
                   <View style={styles.messageInputRow}>
+                    <TouchableOpacity style={styles.attachButton} onPress={pickDocument}>
+                      <Paperclip size={20} color={colors.primary} />
+                    </TouchableOpacity>
                     <TextInput
                       style={styles.messageInput}
                       placeholder="Type a message..."
@@ -966,7 +1044,8 @@ const styles = StyleSheet.create({
     color: colors.surface,
   },
   groupDetailInfo: {
-    marginBottom: 20,
+    maxHeight: 140,
+    marginBottom: 12,
   },
   detailLabel: {
     fontSize: 13,
@@ -1025,8 +1104,8 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   messagesList: {
-    maxHeight: 150,
-    marginBottom: 16,
+    maxHeight: 180,
+    marginBottom: 12,
   },
   messageItem: {
     backgroundColor: colors.background,
@@ -1078,6 +1157,16 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     maxHeight: 80,
   },
+  attachButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
   sendButton: {
     backgroundColor: colors.primary,
     width: 44,
@@ -1088,5 +1177,47 @@ const styles = StyleSheet.create({
   },
   sendButtonDisabled: {
     opacity: 0.5,
+  },
+  attachmentsPreview: {
+    maxHeight: 60,
+    marginBottom: 8,
+  },
+  attachmentPreviewChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.background,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    marginRight: 8,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: colors.border,
+    maxWidth: 200,
+  },
+  attachmentPreviewName: {
+    fontSize: 12,
+    color: colors.text,
+    flex: 1,
+  },
+  attachmentsList: {
+    marginTop: 8,
+    gap: 6,
+  },
+  attachmentChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary + '10',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    gap: 6,
+    alignSelf: 'flex-start',
+  },
+  attachmentName: {
+    fontSize: 12,
+    color: colors.primary,
+    fontWeight: '600' as const,
+    maxWidth: 150,
   },
 });

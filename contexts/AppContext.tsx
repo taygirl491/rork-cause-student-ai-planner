@@ -245,7 +245,7 @@ export const [AppProvider, useApp] = createContextHook(() => {
     return updatedGroup;
   };
 
-  const sendGroupMessage = (groupId: string, senderEmail: string, message: string) => {
+  const sendGroupMessage = (groupId: string, senderEmail: string, message: string, attachments?: { name: string; uri: string; type: string }[]) => {
     const group = studyGroups.find(g => g.id === groupId);
     if (!group) return;
     
@@ -254,6 +254,7 @@ export const [AppProvider, useApp] = createContextHook(() => {
       groupId,
       senderEmail,
       message,
+      attachments,
       createdAt: new Date().toISOString(),
     };
     
