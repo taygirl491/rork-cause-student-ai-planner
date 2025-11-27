@@ -58,3 +58,23 @@ export interface Note {
   createdAt: string;
   updatedAt: string;
 }
+
+export interface StudyGroupMessage {
+  id: string;
+  groupId: string;
+  senderEmail: string;
+  message: string;
+  createdAt: string;
+}
+
+export interface StudyGroup {
+  id: string;
+  name: string;
+  className: string;
+  school: string;
+  description: string;
+  code: string;
+  members: { email: string; joinedAt: string }[];
+  messages: StudyGroupMessage[];
+  createdAt: string;
+}
