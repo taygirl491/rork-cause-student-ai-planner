@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -8,7 +8,9 @@ import {
   Modal,
   TextInput,
   Animated,
+  Platform,
 } from 'react-native';
+import { WebView } from 'react-native-webview';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Plus, X, CheckCircle, Circle } from 'lucide-react-native';
 import colors from '@/constants/colors';
@@ -49,6 +51,24 @@ export default function TasksScreen() {
   const taskTypes: TaskType[] = ['task', 'event', 'exam', 'paper', 'appointment', 'homework'];
   const priorities: Priority[] = ['low', 'medium', 'high'];
   const reminders: ReminderTime[] = ['1h', '2h', '1d', '2d', 'custom'];
+
+  const educationQuotes = useMemo(() => [
+    "Education is the most powerful weapon which you can use to change the world. - Nelson Mandela",
+    "The beautiful thing about learning is that no one can take it away from you. - B.B. King",
+    "Education is not preparation for life; education is life itself. - John Dewey",
+    "Live as if you were to die tomorrow. Learn as if you were to live forever. - Mahatma Gandhi",
+    "The roots of education are bitter, but the fruit is sweet. - Aristotle",
+    "Intelligence plus character—that is the goal of true education. - Martin Luther King Jr.",
+  ], []);
+
+  const [currentQuote, setCurrentQuote] = useState(educationQuotes[0]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentQuote(educationQuotes[Math.floor(Math.random() * educationQuotes.length)]);
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [educationQuotes]);
 
   const handleAddTask = () => {
     if (!description || !dueDate) return;
@@ -112,73 +132,100 @@ export default function TasksScreen() {
         <LogoButton size={44} />
       </View>
 
-      <View style={styles.heroSection}>
-        <Text style={styles.appTitle}>Cause Student AI Planner</Text>
-        <Text style={styles.heroSubtitle}>Making a difference, one task at a time</Text>
-      </View>
-
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.title}>Upcoming Tasks</Text>
-          <Text style={styles.subtitle}>You have {sortedTasks.filter(t => !t.completed).length} tasks pending</Text>
-        </View>
-        <TouchableOpacity style={styles.addButton} onPress={() => setShowModal(true)}>
-          <Plus size={24} color={colors.surface} />
-        </TouchableOpacity>
-      </View>
-
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {sortedTasks.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Mascot size={80} />
-            <Text style={styles.emptyText}>No tasks yet</Text>
-            <Text style={styles.emptySubtext}>Tap the + button to create your first task</Text>
+        <View style={styles.heroSection}>
+          <Text style={styles.appTitle}>Cause Student AI Planner</Text>
+          <Text style={styles.heroSubtitle}>Making a difference, one task at a time</Text>
+        </View>
+
+        <View style={styles.quoteSection}>
+          <Text style={styles.quoteText}>&ldquo;{currentQuote}&rdquo;</Text>
+        </View>
+
+        <View style={styles.videoSection}>
+          <Text style={styles.sectionTitle}>Student Inspirational Talk</Text>
+          <View style={styles.videoContainer}>
+            {Platform.OS === 'web' ? (
+              <iframe
+                style={{ width: '100%', height: 220, borderRadius: 12, border: 'none' }}
+                src="https://www.youtube.com/embed/dQw4w9WgXcQ"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+            ) : (
+              <WebView
+                style={styles.video}
+                source={{ uri: 'https://www.youtube.com/embed/dQw4w9WgXcQ' }}
+                allowsFullscreenVideo
+              />
+            )}
           </View>
-        ) : (
-          <View style={styles.taskList}>
-            {sortedTasks.map((task) => (
-              <TouchableOpacity
-                key={task.id}
-                style={[
-                  styles.taskCard,
-                  task.completed && styles.taskCardCompleted,
-                ]}
-                onPress={() => toggleTaskComplete(task)}
-                onLongPress={() => deleteTask(task.id)}
-              >
-                <View style={styles.taskLeft}>
-                  <View style={[styles.taskIcon, { backgroundColor: colors.taskColors[task.type] }]}>
-                    {task.completed ? (
-                      <CheckCircle size={24} color={colors.surface} />
-                    ) : (
-                      <Circle size={24} color={colors.surface} />
-                    )}
-                  </View>
-                  <View style={styles.taskContent}>
-                    <Text style={[styles.taskTitle, task.completed && styles.taskTitleCompleted]}>
-                      {task.description}
-                    </Text>
-                    <View style={styles.taskMeta}>
-                      <View style={[styles.typeBadge, { backgroundColor: colors.taskColors[task.type] + '20' }]}>
-                        <Text style={[styles.typeBadgeText, { color: colors.taskColors[task.type] }]}>
-                          {task.type}
-                        </Text>
-                      </View>
-                      {task.className && (
-                        <Text style={styles.taskClass}>{task.className}</Text>
+        </View>
+
+        <View style={styles.tasksSection}>
+          <View style={styles.header}>
+            <View>
+              <Text style={styles.title}>Upcoming Tasks</Text>
+              <Text style={styles.subtitle}>You have {sortedTasks.filter(t => !t.completed).length} tasks pending</Text>
+            </View>
+            <TouchableOpacity style={styles.addButton} onPress={() => setShowModal(true)}>
+              <Plus size={24} color={colors.surface} />
+            </TouchableOpacity>
+          </View>
+        </View>
+        <View style={styles.taskListContainer}>
+          {sortedTasks.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Mascot size={80} />
+              <Text style={styles.emptyText}>No tasks yet</Text>
+              <Text style={styles.emptySubtext}>Tap the + button to create your first task</Text>
+            </View>
+          ) : (
+            <View style={styles.taskList}>
+              {sortedTasks.map((task) => (
+                <TouchableOpacity
+                  key={task.id}
+                  style={[
+                    styles.taskCard,
+                    task.completed && styles.taskCardCompleted,
+                  ]}
+                  onPress={() => toggleTaskComplete(task)}
+                  onLongPress={() => deleteTask(task.id)}
+                >
+                  <View style={styles.taskLeft}>
+                    <View style={[styles.taskIcon, { backgroundColor: colors.taskColors[task.type] }]}>
+                      {task.completed ? (
+                        <CheckCircle size={24} color={colors.surface} />
+                      ) : (
+                        <Circle size={24} color={colors.surface} />
                       )}
                     </View>
-                    <Text style={styles.taskDate}>
-                      {getDaysUntil(task.dueDate)} • {formatDate(task.dueDate)}
-                      {task.dueTime && ` at ${task.dueTime}`}
-                    </Text>
+                    <View style={styles.taskContent}>
+                      <Text style={[styles.taskTitle, task.completed && styles.taskTitleCompleted]}>
+                        {task.description}
+                      </Text>
+                      <View style={styles.taskMeta}>
+                        <View style={[styles.typeBadge, { backgroundColor: colors.taskColors[task.type] + '20' }]}>
+                          <Text style={[styles.typeBadgeText, { color: colors.taskColors[task.type] }]}>
+                            {task.type}
+                          </Text>
+                        </View>
+                        {task.className && (
+                          <Text style={styles.taskClass}>{task.className}</Text>
+                        )}
+                      </View>
+                      <Text style={styles.taskDate}>
+                        {getDaysUntil(task.dueDate)} • {formatDate(task.dueDate)}
+                        {task.dueTime && ` at ${task.dueTime}`}
+                      </Text>
+                    </View>
                   </View>
-                </View>
-                <View style={[styles.priorityDot, { backgroundColor: colors.priorityColors[task.priority] }]} />
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
+                  <View style={[styles.priorityDot, { backgroundColor: colors.priorityColors[task.priority] }]} />
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+        </View>
       </ScrollView>
 
       <Modal visible={showModal} transparent animationType="fade" onRequestClose={() => setShowModal(false)}>
@@ -364,8 +411,9 @@ const styles = StyleSheet.create({
   },
   heroSection: {
     paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 16,
+    paddingTop: 20,
+    paddingBottom: 20,
+    alignItems: 'center',
   },
   appTitle: {
     fontSize: 28,
@@ -379,6 +427,46 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     textAlign: 'center',
     marginBottom: 0,
+  },
+  quoteSection: {
+    paddingHorizontal: 20,
+    paddingVertical: 24,
+    marginHorizontal: 20,
+    marginBottom: 20,
+    backgroundColor: colors.primary + '10',
+    borderRadius: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.primary,
+  },
+  quoteText: {
+    fontSize: 15,
+    lineHeight: 24,
+    color: colors.text,
+    fontStyle: 'italic',
+    textAlign: 'center',
+  },
+  videoSection: {
+    paddingHorizontal: 20,
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: '700' as const,
+    color: colors.text,
+    marginBottom: 12,
+  },
+  videoContainer: {
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: colors.cardShadow,
+  },
+  video: {
+    width: '100%',
+    height: 220,
+    borderRadius: 12,
+  },
+  tasksSection: {
+    paddingTop: 8,
   },
   header: {
     flexDirection: 'row',
@@ -412,6 +500,9 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   scrollView: {
+    flex: 1,
+  },
+  taskListContainer: {
     flex: 1,
   },
   emptyState: {
