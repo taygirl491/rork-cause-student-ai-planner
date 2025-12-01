@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,15 +8,28 @@ import {
   Modal,
   TextInput,
   Animated,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Plus, X, Target, CheckCircle, Circle, Trash2 } from 'lucide-react-native';
+import { Plus, X, Target, CheckCircle, Circle, Trash2, Bell } from 'lucide-react-native';
+import * as Notifications from 'expo-notifications';
 import colors from '@/constants/colors';
 import { useApp } from '@/contexts/AppContext';
 import { Goal, Habit } from '@/types';
 
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+    shouldShowBanner: true,
+    shouldShowList: true,
+  }),
+});
+
 export default function GoalsScreen() {
   const { goals, addGoal, updateGoal, deleteGoal } = useApp();
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -26,7 +39,11 @@ export default function GoalsScreen() {
 
   const scaleAnim = React.useRef(new Animated.Value(0)).current;
 
-  React.useEffect(() => {
+  useEffect(() => {
+    checkNotificationPermissions();
+  }, []);
+
+  useEffect(() => {
     if (showModal) {
       Animated.spring(scaleAnim, {
         toValue: 1,
@@ -39,7 +56,54 @@ export default function GoalsScreen() {
     }
   }, [showModal, scaleAnim]);
 
-  const handleAddGoal = () => {
+  const checkNotificationPermissions = async () => {
+    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    setNotificationsEnabled(existingStatus === 'granted');
+  };
+
+  const requestNotificationPermissions = async () => {  
+    const { status } = await Notifications.requestPermissionsAsync();
+    setNotificationsEnabled(status === 'granted');
+    if (status !== 'granted') {
+      Alert.alert('Permission Required', 'Please enable notifications to receive goal reminders.');
+    }
+    return status === 'granted';
+  };
+
+  const scheduleGoalNotification = async (goal: Goal) => {
+    if (!notificationsEnabled) {
+      const granted = await requestNotificationPermissions();
+      if (!granted) return null;
+    }
+
+    if (!goal.dueDate) return null;
+
+    try {
+      const notificationId = await Notifications.scheduleNotificationAsync({
+        content: {
+          title: 'Goal Reminder',
+          body: goal.title,
+          data: { goalId: goal.id },
+          sound: true,
+        },
+        trigger: null,
+      });
+      return notificationId;
+    } catch (error) {
+      console.error('Error scheduling notification:', error);
+      return null;
+    }
+  };
+
+  const cancelGoalNotification = async (notificationId: string) => {
+    try {
+      await Notifications.cancelScheduledNotificationAsync(notificationId);
+    } catch (error) {
+      console.error('Error canceling notification:', error);
+    }
+  };
+
+  const handleAddGoal = async () => {
     if (!title) return;
 
     const newGoal: Goal = {
@@ -55,6 +119,11 @@ export default function GoalsScreen() {
       })) as Habit[],
       createdAt: new Date().toISOString(),
     };
+
+    const notificationId = await scheduleGoalNotification(newGoal);
+    if (notificationId) {
+      newGoal.notificationId = notificationId;
+    }
 
     addGoal(newGoal);
     resetForm();
@@ -79,7 +148,10 @@ export default function GoalsScreen() {
     setHabits(habits.filter((_, i) => i !== index));
   };
 
-  const toggleGoalComplete = (goal: Goal) => {
+  const toggleGoalComplete = async (goal: Goal) => {
+    if (!goal.completed && goal.notificationId) {
+      await cancelGoalNotification(goal.notificationId);
+    }
     updateGoal(goal.id, { completed: !goal.completed });
   };
 
@@ -218,6 +290,16 @@ export default function GoalsScreen() {
                 value={dueDate}
                 onChangeText={setDueDate}
               />
+
+              {!notificationsEnabled && dueDate && (
+                <TouchableOpacity 
+                  style={styles.permissionBanner}
+                  onPress={requestNotificationPermissions}
+                >
+                  <Bell size={20} color={colors.warning} />
+                  <Text style={styles.permissionText}>Enable notifications to receive goal reminders</Text>
+                </TouchableOpacity>
+              )}
 
               <Text style={styles.label}>Daily Habits</Text>
               <View style={styles.habitInputRow}>
@@ -502,5 +584,22 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700' as const,
     color: colors.surface,
+  },
+  permissionBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.background,
+    borderRadius: 12,
+    padding: 16,
+    marginTop: 16,
+    gap: 12,
+    borderWidth: 1,
+    borderColor: colors.warning + '40',
+  },
+  permissionText: {
+    flex: 1,
+    fontSize: 14,
+    color: colors.text,
+    fontWeight: '500' as const,
   },
 });

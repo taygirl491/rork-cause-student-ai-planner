@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,16 +8,29 @@ import {
   Modal,
   TextInput,
   Animated,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Plus, X, CheckCircle, Circle } from 'lucide-react-native';
+import { Plus, X, CheckCircle, Circle, Bell } from 'lucide-react-native';
+import * as Notifications from 'expo-notifications';
 import colors from '@/constants/colors';
 import { useApp } from '@/contexts/AppContext';
 import { Task, TaskType, Priority, ReminderTime } from '@/types';
 import Mascot from '@/components/Mascot';
 
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+    shouldShowBanner: true,
+    shouldShowList: true,
+  }),
+});
+
 export default function TasksScreen() {
   const { sortedTasks, addTask, updateTask, deleteTask, classes } = useApp();
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [description, setDescription] = useState('');
   const [taskType, setTaskType] = useState<TaskType>('task');
@@ -30,7 +43,11 @@ export default function TasksScreen() {
 
   const scaleAnim = React.useRef(new Animated.Value(0)).current;
 
-  React.useEffect(() => {
+  useEffect(() => {
+    checkNotificationPermissions();
+  }, []);
+
+  useEffect(() => {
     if (showModal) {
       Animated.spring(scaleAnim, {
         toValue: 1,
@@ -43,11 +60,78 @@ export default function TasksScreen() {
     }
   }, [showModal, scaleAnim]);
 
+  const checkNotificationPermissions = async () => {
+    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    setNotificationsEnabled(existingStatus === 'granted');
+  };
+
+  const requestNotificationPermissions = async () => {
+    const { status } = await Notifications.requestPermissionsAsync();
+    setNotificationsEnabled(status === 'granted');
+    if (status !== 'granted') {
+      Alert.alert('Permission Required', 'Please enable notifications to receive task reminders.');
+    }
+    return status === 'granted';
+  };
+
+  const scheduleTaskNotification = async (task: Task) => {
+    if (!notificationsEnabled) {
+      const granted = await requestNotificationPermissions();
+      if (!granted) return null;
+    }
+
+    const dueDateTime = new Date(task.dueDate + (task.dueTime ? ` ${task.dueTime}` : ' 09:00'));
+    let triggerDate = new Date(dueDateTime);
+
+    switch (task.reminder) {
+      case '1h':
+        triggerDate = new Date(dueDateTime.getTime() - 60 * 60 * 1000);
+        break;
+      case '2h':
+        triggerDate = new Date(dueDateTime.getTime() - 2 * 60 * 60 * 1000);
+        break;
+      case '1d':
+        triggerDate = new Date(dueDateTime.getTime() - 24 * 60 * 60 * 1000);
+        break;
+      case '2d':
+        triggerDate = new Date(dueDateTime.getTime() - 2 * 24 * 60 * 60 * 1000);
+        break;
+    }
+
+    if (triggerDate.getTime() <= Date.now()) {
+      return null;
+    }
+
+    try {
+      const notificationId = await Notifications.scheduleNotificationAsync({
+        content: {
+          title: `Task Reminder: ${task.type}`,
+          body: task.description,
+          data: { taskId: task.id },
+          sound: task.alarmEnabled,
+        },
+        trigger: null,
+      });
+      return notificationId;
+    } catch (error) {
+      console.error('Error scheduling notification:', error);
+      return null;
+    }
+  };
+
+  const cancelTaskNotification = async (notificationId: string) => {
+    try {
+      await Notifications.cancelScheduledNotificationAsync(notificationId);
+    } catch (error) {
+      console.error('Error canceling notification:', error);
+    }
+  };
+
   const taskTypes: TaskType[] = ['task', 'event', 'exam', 'paper', 'appointment', 'homework'];
   const priorities: Priority[] = ['low', 'medium', 'high'];
   const reminders: ReminderTime[] = ['1h', '2h', '1d', '2d', 'custom'];
 
-  const handleAddTask = () => {
+  const handleAddTask = async () => {
     if (!description || !dueDate) return;
 
     const newTask: Task = {
@@ -63,6 +147,11 @@ export default function TasksScreen() {
       completed: false,
       createdAt: new Date().toISOString(),
     };
+
+    const notificationId = await scheduleTaskNotification(newTask);
+    if (notificationId) {
+      newTask.notificationId = notificationId;
+    }
 
     addTask(newTask);
     resetForm();
@@ -80,7 +169,10 @@ export default function TasksScreen() {
     setAlarmEnabled(false);
   };
 
-  const toggleTaskComplete = (task: Task) => {
+  const toggleTaskComplete = async (task: Task) => {
+    if (!task.completed && task.notificationId) {
+      await cancelTaskNotification(task.notificationId);
+    }
     updateTask(task.id, { completed: !task.completed });
   };
 
@@ -325,6 +417,16 @@ export default function TasksScreen() {
                 </View>
                 <Text style={styles.checkboxLabel}>Enable alarm sound</Text>
               </TouchableOpacity>
+
+              {!notificationsEnabled && (
+                <TouchableOpacity 
+                  style={styles.permissionBanner}
+                  onPress={requestNotificationPermissions}
+                >
+                  <Bell size={20} color={colors.warning} />
+                  <Text style={styles.permissionText}>Enable notifications to receive task reminders</Text>
+                </TouchableOpacity>
+              )}
 
               <TouchableOpacity
                 style={[styles.createButton, (!description || !dueDate) && styles.createButtonDisabled]}
@@ -579,5 +681,22 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700' as const,
     color: colors.surface,
+  },
+  permissionBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.background,
+    borderRadius: 12,
+    padding: 16,
+    marginTop: 16,
+    gap: 12,
+    borderWidth: 1,
+    borderColor: colors.warning + '40',
+  },
+  permissionText: {
+    flex: 1,
+    fontSize: 14,
+    color: colors.text,
+    fontWeight: '500' as const,
   },
 });
