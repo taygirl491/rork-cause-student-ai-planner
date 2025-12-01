@@ -61,7 +61,7 @@ function MenuButton() {
                 const isActive = pathname === item.route;
                 return (
                   <TouchableOpacity
-                    key={item.route}
+                    key={item.label}
                     style={[menuStyles.menuItem, isActive && menuStyles.menuItemActive]}
                     onPress={() => handleNavigate(item.route)}
                   >
