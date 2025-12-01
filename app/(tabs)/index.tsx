@@ -17,7 +17,6 @@ import colors from '@/constants/colors';
 import { useApp } from '@/contexts/AppContext';
 import { Task, TaskType, Priority, ReminderTime } from '@/types';
 import Mascot from '@/components/Mascot';
-import LogoButton from '@/components/LogoButton';
 
 
 
@@ -127,11 +126,7 @@ export default function TasksScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.logoContainer}>
-        <LogoButton size={44} />
-      </View>
-
+    <SafeAreaView style={styles.container} edges={['bottom']}>
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         <View style={styles.heroSection}>
           <Text style={styles.appTitle}>Cause Student AI Planner</Text>
@@ -403,11 +398,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
-  },
-  logoContainer: {
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 8,
   },
   heroSection: {
     paddingHorizontal: 20,
