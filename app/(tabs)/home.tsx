@@ -47,14 +47,14 @@ export default function HomeScreen() {
             {Platform.OS === 'web' ? (
               <iframe
                 style={{ width: '100%', height: 220, borderRadius: 12, border: 'none' }}
-                src="https://www.youtube.com/embed/dQw4w9WgXcQ"
+                src="https://www.youtube.com/embed/VRSnKzgVTiU"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 allowFullScreen
               />
             ) : (
               <WebView
                 style={styles.video}
-                source={{ uri: 'https://www.youtube.com/embed/dQw4w9WgXcQ' }}
+                source={{ uri: 'https://www.youtube.com/embed/VRSnKzgVTiU' }}
                 allowsFullscreenVideo
               />
             )}
