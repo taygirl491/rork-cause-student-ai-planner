@@ -55,7 +55,13 @@ export default function HomeScreen() {
               <WebView
                 style={styles.video}
                 source={{ uri: 'https://www.youtube.com/embed/VRSnKzgVTiU' }}
-                allowsFullscreenVideo
+                javaScriptEnabled={true}
+                domStorageEnabled={true}
+                allowsFullscreenVideo={true}
+                mediaPlaybackRequiresUserAction={false}
+                allowsInlineMediaPlayback={true}
+                scalesPageToFit={true}
+                startInLoadingState={true}
               />
             )}
           </View>
