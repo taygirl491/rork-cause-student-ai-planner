@@ -24,12 +24,16 @@ import {
 } from 'lucide-react-native';
 import colors from '@/constants/colors';
 import LogoButton from '@/components/LogoButton';
+import { useAuth } from '@/contexts/AuthContext';
+import { useRouter } from 'expo-router';
 
 type SubscriptionTier = 'free' | 'monthly' | 'yearly';
 
 export default function AccountScreen() {
   const [currentSubscription, setCurrentSubscription] = useState<SubscriptionTier>('free');
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const { user, logout } = useAuth();
+  const router = useRouter();
 
   const handleManagePayment = () => {
     setShowPaymentModal(true);
@@ -110,8 +114,9 @@ export default function AccountScreen() {
       {
         text: 'Sign Out',
         style: 'destructive',
-        onPress: () => {
-          Alert.alert('Signed Out', 'You have been signed out successfully.');
+        onPress: async () => {
+          await logout();
+          router.replace('/login');
         },
       },
     ]);
@@ -143,8 +148,8 @@ export default function AccountScreen() {
           <View style={styles.headerIcon}>
             <User size={40} color={colors.primary} />
           </View>
-          <Text style={styles.title}>My Account</Text>
-          <Text style={styles.subtitle}>Manage your subscription and settings</Text>
+          <Text style={styles.title}>{user?.name || 'My Account'}</Text>
+          <Text style={styles.subtitle}>{user?.email || 'Manage your subscription and settings'}</Text>
         </View>
 
         <View style={styles.subscriptionCard}>

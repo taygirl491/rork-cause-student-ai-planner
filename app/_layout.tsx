@@ -6,6 +6,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { View, TouchableOpacity, StyleSheet, Modal, Text, ScrollView, Pressable } from "react-native";
 import { Menu, CheckSquare, Calendar, Target, FileText, BookOpen, Heart, Sparkles, User, Home, X, Users } from "lucide-react-native";
 import { AppProvider } from "@/contexts/AppContext";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import LogoButton from "@/components/LogoButton";
 import colors from "@/constants/colors";
 
@@ -96,8 +97,35 @@ function CustomHeader() {
 }
 
 function RootLayoutNav() {
+  const { isAuthenticated, isLoading } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!isLoading) {
+      if (!isAuthenticated) {
+        router.replace('/login');
+      }
+    }
+  }, [isAuthenticated, isLoading, router]);
+
+  if (isLoading) {
+    return null;
+  }
+
   return (
     <Stack screenOptions={{ headerBackTitle: "Back" }}>
+      <Stack.Screen 
+        name="login" 
+        options={{ 
+          headerShown: false,
+        }} 
+      />
+      <Stack.Screen 
+        name="register" 
+        options={{ 
+          headerShown: false,
+        }} 
+      />
       <Stack.Screen 
         name="(tabs)" 
         options={{ 
@@ -117,9 +145,11 @@ export default function RootLayout() {
   return (
     <QueryClientProvider client={queryClient}>
       <GestureHandlerRootView style={{ flex: 1 }}>
-        <AppProvider>
-          <RootLayoutNav />
-        </AppProvider>
+        <AuthProvider>
+          <AppProvider>
+            <RootLayoutNav />
+          </AppProvider>
+        </AuthProvider>
       </GestureHandlerRootView>
     </QueryClientProvider>
   );
