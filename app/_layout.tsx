@@ -4,7 +4,7 @@ import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { View, TouchableOpacity, StyleSheet, Modal, Text, ScrollView, Pressable } from "react-native";
-import { Menu, CheckSquare, Calendar, Target, FileText, BookOpen, Heart, Sparkles, User, Home, X } from "lucide-react-native";
+import { Menu, CheckSquare, Calendar, Target, FileText, BookOpen, Heart, Sparkles, User, Home, X, Users } from "lucide-react-native";
 import { AppProvider } from "@/contexts/AppContext";
 import LogoButton from "@/components/LogoButton";
 import colors from "@/constants/colors";
@@ -19,10 +19,11 @@ function MenuButton() {
   const pathname = usePathname();
 
   const menuItems = [
-    { label: 'Home', icon: Home, route: '/' },
-    { label: 'Tasks', icon: CheckSquare, route: '/' },
+    { label: 'Home', icon: Home, route: '/home' },
+    { label: 'Tasks', icon: CheckSquare, route: '/tasks' },
     { label: 'Calendar', icon: Calendar, route: '/calendar' },
     { label: 'Classes', icon: BookOpen, route: '/classes' },
+    { label: 'Study Groups', icon: Users, route: '/study-groups' },
     { label: 'Goals', icon: Target, route: '/goals' },
     { label: 'Notes', icon: FileText, route: '/notes' },
     { label: 'AI Buddy', icon: Sparkles, route: '/ai-buddy' },
