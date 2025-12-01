@@ -15,7 +15,6 @@ export interface Task {
   customReminderDate?: string;
   alarmEnabled: boolean;
   alarmDates?: string[];
-  notificationId?: string;
   completed: boolean;
   createdAt: string;
 }
@@ -38,7 +37,6 @@ export interface Goal {
   title: string;
   description?: string;
   dueDate?: string;
-  notificationId?: string;
   completed: boolean;
   habits: Habit[];
   createdAt: string;
@@ -49,7 +47,6 @@ export interface Habit {
   title: string;
   dueDate?: string;
   dueTime?: string;
-  notificationId?: string;
   completed: boolean;
 }
 
