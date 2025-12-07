@@ -1,3 +1,5 @@
+import { readAsStringAsync } from "expo-file-system/legacy";
+
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:3000";
 const API_KEY = process.env.EXPO_PUBLIC_API_KEY || "";
 
@@ -143,10 +145,20 @@ class ApiService {
 						return file;
 					}
 
-					// For React Native file URIs, we'll need to read them
-					// This is a placeholder - you may need to use react-native-fs or expo-file-system
-					console.log(`[API] File URI: ${file.uri}`);
-					return file;
+					// For React Native file URIs, read them as base64
+					console.log(`[API] Reading file: ${file.uri}`);
+					try {
+						const base64 = await readAsStringAsync(file.uri, {
+							encoding: "base64",
+						});
+						return {
+							...file,
+							uri: base64, // Send base64 string
+						};
+					} catch (readError) {
+						console.error(`[API] Error reading file ${file.uri}:`, readError);
+						return file; // Return original if read fails (will likely fail on backend but handled there)
+					}
 				})
 			);
 

@@ -10,6 +10,7 @@ import {
 	Animated,
 	Alert,
 	Linking,
+	Share,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
@@ -21,6 +22,7 @@ import {
 	Paperclip,
 	FileText,
 	User,
+	Share2,
 } from "lucide-react-native";
 import * as DocumentPicker from "expo-document-picker";
 import colors from "@/constants/colors";
@@ -40,7 +42,14 @@ export default function StudyGroupsScreen() {
 	const { user } = useAuth();
 	const [showCreateGroupModal, setShowCreateGroupModal] = useState(false);
 	const [showJoinGroupModal, setShowJoinGroupModal] = useState(false);
-	const [selectedGroup, setSelectedGroup] = useState<StudyGroup | null>(null);
+	const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+
+	// Derive selectedGroup from the real-time studyGroups data
+	const selectedGroup = React.useMemo(() =>
+		studyGroups.find(g => g.id === selectedGroupId) || null,
+		[studyGroups, selectedGroupId]
+	);
+
 	const [showGroupDetailModal, setShowGroupDetailModal] = useState(false);
 
 	const [groupName, setGroupName] = useState("");
@@ -91,7 +100,10 @@ export default function StudyGroupsScreen() {
 			Alert.alert(
 				"Group Created!",
 				`Group Code: ${newGroup.code}\n\nShare this code with others to join the group.`,
-				[{ text: "OK" }]
+				[
+					{ text: "Share Link", onPress: () => shareGroupCode(newGroup.code) },
+					{ text: "OK" }
+				]
 			);
 			schedulePushNotification({
 				title: "Group Created!",
@@ -103,6 +115,22 @@ export default function StudyGroupsScreen() {
 			setShowCreateGroupModal(false);
 		} else {
 			Alert.alert("Error", "Failed to create group. Please try again.");
+		}
+	};
+
+	const shareGroupCode = async (code: string) => {
+		// TODO: Replace with your production backend URL
+		const baseUrl = process.env.EXPO_PUBLIC_API_URL || "http://192.168.1.5:3000";
+		const url = `${baseUrl}/join/${code}`;
+
+		try {
+			await Share.share({
+				message: `Join my study group on CauseAI! Click here: ${url}`,
+				url: url,
+				title: 'Join Study Group'
+			});
+		} catch (error) {
+			console.error(error);
 		}
 	};
 
@@ -122,7 +150,7 @@ export default function StudyGroupsScreen() {
 			Alert.alert("Error", "Invalid group code. Please check and try again.");
 			return;
 		}
-	schedulePushNotification({
+		schedulePushNotification({
 			title: "Group Join Notification",
 			body: `You have joined the group: ${group.name}`,
 			data: { group },
@@ -135,7 +163,7 @@ export default function StudyGroupsScreen() {
 	};
 
 	const openGroupDetail = (group: StudyGroup) => {
-		setSelectedGroup(group);
+		setSelectedGroupId(group.id);
 		setShowGroupDetailModal(true);
 	};
 
@@ -348,7 +376,7 @@ export default function StudyGroupsScreen() {
 								style={[
 									styles.createButton,
 									(!groupName || !groupClass || !groupSchool) &&
-										styles.createButtonDisabled,
+									styles.createButtonDisabled,
 								]}
 								onPress={handleCreateGroup}
 								disabled={!groupName || !groupClass || !groupSchool}
@@ -467,6 +495,12 @@ export default function StudyGroupsScreen() {
 											>
 												<Copy size={20} color={colors.primary} />
 											</TouchableOpacity>
+											<TouchableOpacity
+												onPress={() => shareGroupCode(selectedGroup.code)}
+												style={styles.copyButton}
+											>
+												<Share2 size={20} color={colors.primary} />
+											</TouchableOpacity>
 										</View>
 									</View>
 								</ScrollView>
@@ -532,7 +566,7 @@ export default function StudyGroupsScreen() {
 								</ScrollView>
 
 								<View style={styles.sendMessageContainer}>
-									<TextInput
+									{/* <TextInput
 										style={styles.emailInput}
 										placeholder="Your email"
 										placeholderTextColor={colors.textLight}
@@ -540,7 +574,7 @@ export default function StudyGroupsScreen() {
 										onChangeText={setMessageSenderEmail}
 										keyboardType="email-address"
 										autoCapitalize="none"
-									/>
+									/> */}
 									{attachments.length > 0 && (
 										<ScrollView
 											horizontal
