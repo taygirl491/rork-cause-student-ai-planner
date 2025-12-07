@@ -30,6 +30,7 @@ import { useApp } from "@/contexts/AppContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { StudyGroup } from "@/types";
 import { schedulePushNotification } from "@/functions/Notify";
+import SearchBar from "@/components/SearchBar";
 
 export default function StudyGroupsScreen() {
 	const {
@@ -43,6 +44,19 @@ export default function StudyGroupsScreen() {
 	const [showCreateGroupModal, setShowCreateGroupModal] = useState(false);
 	const [showJoinGroupModal, setShowJoinGroupModal] = useState(false);
 	const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+	const [searchQuery, setSearchQuery] = useState("");
+
+	// Filter groups based on search query
+	const filteredGroups = React.useMemo(() => {
+		if (!searchQuery) return studyGroups;
+		const query = searchQuery.toLowerCase();
+		return studyGroups.filter(
+			(group) =>
+				group.name.toLowerCase().includes(query) ||
+				group.className.toLowerCase().includes(query) ||
+				group.code.toLowerCase().includes(query)
+		);
+	}, [studyGroups, searchQuery]);
 
 	// Derive selectedGroup from the real-time studyGroups data
 	const selectedGroup = React.useMemo(() =>
@@ -268,21 +282,33 @@ export default function StudyGroupsScreen() {
 				</TouchableOpacity>
 			</View>
 
+			<View style={styles.searchContainer}>
+				<SearchBar
+					value={searchQuery}
+					onChangeText={setSearchQuery}
+					placeholder="Search groups, classes, or codes..."
+				/>
+			</View>
+
 			<ScrollView
 				style={styles.scrollView}
 				showsVerticalScrollIndicator={false}
 			>
-				{studyGroups.length === 0 ? (
+				{filteredGroups.length === 0 ? (
 					<View style={styles.emptyState}>
 						<Users size={64} color={colors.textLight} />
-						<Text style={styles.emptyText}>No study groups yet</Text>
+						<Text style={styles.emptyText}>
+							{searchQuery ? "No groups match your search" : "No study groups yet"}
+						</Text>
 						<Text style={styles.emptySubtext}>
-							Create or join a study group
+							{searchQuery
+								? "Try a different search term"
+								: "Create or join a study group"}
 						</Text>
 					</View>
 				) : (
 					<View style={styles.classList}>
-						{studyGroups.map((group) => (
+						{filteredGroups.map((group) => (
 							<TouchableOpacity
 								key={group.id}
 								style={styles.groupCard}
@@ -631,7 +657,7 @@ export default function StudyGroupsScreen() {
 					</Animated.View>
 				</View>
 			</Modal>
-		</SafeAreaView>
+		</SafeAreaView >
 	);
 }
 
@@ -788,6 +814,11 @@ const styles = StyleSheet.create({
 		color: colors.primary,
 		fontWeight: "700" as const,
 		marginRight: 8,
+	},
+
+	searchContainer: {
+		paddingHorizontal: 20,
+		marginBottom: 16,
 	},
 	modalOverlay: {
 		flex: 1,
