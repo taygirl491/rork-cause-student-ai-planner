@@ -139,9 +139,6 @@ export default function AccountScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.logoContainer}>
-        <LogoButton size={44} />
-      </View>
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>

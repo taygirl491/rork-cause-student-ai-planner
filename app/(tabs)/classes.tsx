@@ -103,7 +103,18 @@ export default function ClassesScreen() {
   };
 
   const handleAddClass = () => {
-    if (!name || selectedDays.length === 0) return;
+    if (!name.trim()) {
+      Alert.alert('Required Field', 'Please enter a name for the class.');
+      return;
+    }
+
+    if (selectedDays.length === 0) {
+      Alert.alert('Required Field', 'Please select at least one day.');
+      return;
+    }
+
+    // section is optional, so no check for it.
+    // Times and Dates default to values, so they are always present.
 
     const formattedStartDate = startDate.toISOString().split('T')[0];
     const formattedEndDate = endDate.toISOString().split('T')[0];
@@ -429,11 +440,7 @@ export default function ClassesScreen() {
 
               {/* SUBMIT BUTTON */}
               <TouchableOpacity
-                style={[
-                  styles.createButton,
-                  (!name || selectedDays.length === 0) && styles.createButtonDisabled,
-                ]}
-                disabled={!name || selectedDays.length === 0}
+                style={styles.createButton}
                 onPress={handleAddClass}
               >
                 <Text style={styles.createButtonText}>{isEditing ? 'Update Class' : 'Add Class'}</Text>
