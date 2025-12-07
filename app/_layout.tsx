@@ -118,15 +118,21 @@ function RootLayoutNav() {
     }
   };
 
+  const segments = usePathname();
+
   useEffect(() => {
     if (!isLoading && onboardingComplete !== null) {
-      if (onboardingComplete === false) {
+      const inAuthGroup = segments === '/login' || segments === '/register' || segments === '/onboarding';
+      const isInvite = segments?.startsWith('/invite');
+
+      if (onboardingComplete === false && !inAuthGroup) {
         router.replace('/onboarding');
-      } else if (!isAuthenticated) {
+      } else if (!isAuthenticated && !inAuthGroup && !isInvite) {
+        // Redirect to login only if not in auth group AND not trying to view an invite
         router.replace('/login');
       }
     }
-  }, [isAuthenticated, isLoading, onboardingComplete, router]);
+  }, [isAuthenticated, isLoading, onboardingComplete, router, segments]);
 
   if (isLoading || onboardingComplete === null) {
     return null;
@@ -150,6 +156,14 @@ function RootLayoutNav() {
         name="register"
         options={{
           headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="invite/[code]"
+        options={{
+          headerShown: true,
+          title: "Join Group",
+          headerBackTitle: "Back"
         }}
       />
       <Stack.Screen

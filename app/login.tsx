@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Alert } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Mail, Lock, GraduationCap, Eye, EyeOff } from 'lucide-react-native';
@@ -14,6 +14,7 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const { login, isLoggingIn, loginError } = useAuth();
   const router = useRouter();
+  const { returnTo } = useLocalSearchParams<{ returnTo: string }>();
 
   const handleLogin = async () => {
     if (!email.trim() || !password.trim()) {
@@ -27,7 +28,12 @@ export default function LoginScreen() {
       if (user && token) {
         await savePushToken(user.uid, token, user.email || undefined);
       }
-      router.replace('/home');
+
+      if (returnTo) {
+        router.replace(returnTo as any);
+      } else {
+        router.replace('/home');
+      }
     } catch {
       Alert.alert('Login Failed', loginError?.message || 'Invalid credentials');
     }

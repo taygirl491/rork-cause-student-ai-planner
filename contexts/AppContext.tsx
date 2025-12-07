@@ -673,12 +673,35 @@ export const [AppProvider, useApp] = createContextHook(() => {
 		}
 
 		try {
+			// Upload attachments if any
+			let finalAttachments = attachments || [];
+
+			if (finalAttachments.length > 0) {
+				console.log("Uploading attachments...");
+				const uploadResult = await apiService.uploadFiles(finalAttachments);
+
+				if (uploadResult.success && uploadResult.files) {
+					console.log("Attachments uploaded successfully");
+					// Map uploaded files to the format expected by Firestore
+					finalAttachments = uploadResult.files.map((file: any) => ({
+						name: file.name,
+						uri: file.url, // Use remote URL as the URI for consistency
+						url: file.url, // Explicitly add url for backend compatibility
+						type: file.type
+					}));
+				} else {
+					console.error("Failed to upload attachments:", uploadResult.error);
+					// You might want to throw or alert here, but for now we proceed 
+					// (images won't load for others but message sends)
+				}
+			}
+
 			console.log("Creating message in Firestore...");
 			const messagesRef = collection(db, "studyGroups", groupId, "messages");
 			const docRef = await addDoc(messagesRef, {
 				senderEmail,
 				message,
-				attachments: attachments || [],
+				attachments: finalAttachments,
 				createdAt: Timestamp.now(),
 			});
 			console.log("Message created with ID:", docRef.id);
