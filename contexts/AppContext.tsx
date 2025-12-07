@@ -31,7 +31,7 @@ import apiService from "@/utils/apiService";
 const STORAGE_KEYS = {
 	TASKS: "cause-student-tasks",
 	CLASSES: "cause-student-classes",
-	GOALS: "cause-student-goals",
+
 	NOTES: "cause-student-notes",
 	STUDY_GROUPS: "cause-student-study-groups",
 	CALENDAR_SYNC_ENABLED: "cause-student-calendar-sync-enabled",
@@ -48,6 +48,7 @@ export const [AppProvider, useApp] = createContextHook(() => {
 	const [studyGroups, setStudyGroups] = useState<StudyGroup[]>([]);
 	const [tasksLoading, setTasksLoading] = useState(true);
 	const [classesLoading, setClassesLoading] = useState(true);
+	const [goalsLoading, setGoalsLoading] = useState(true);
 	const [calendarSyncEnabled, setCalendarSyncEnabled] = useState(false);
 	const [appCalendarId, setAppCalendarId] = useState<string | null>(null);
 
@@ -245,6 +246,49 @@ export const [AppProvider, useApp] = createContextHook(() => {
 		return () => unsubscribe();
 	}, [user?.uid, user?.email]);
 
+	// Real-time Firestore listener for goals
+	useEffect(() => {
+		if (!user?.uid) {
+			setGoals([]);
+			setGoalsLoading(false);
+			return;
+		}
+
+		const goalsRef = collection(db, "goals");
+		const q = query(
+			goalsRef,
+			where("userId", "==", user.uid),
+			orderBy("createdAt", "desc")
+		);
+
+		const unsubscribe = onSnapshot(
+			q,
+			(snapshot) => {
+				const goalsData: Goal[] = [];
+				snapshot.forEach((doc) => {
+					const data = doc.data();
+					goalsData.push({
+						id: doc.id,
+						title: data.title,
+						description: data.description,
+						dueDate: data.dueDate,
+						completed: data.completed,
+						habits: data.habits || [],
+						createdAt: data.createdAt,
+					});
+				});
+				setGoals(goalsData);
+				setGoalsLoading(false);
+			},
+			(error) => {
+				console.error("Firestore goals listener error:", error);
+				setGoalsLoading(false);
+			}
+		);
+
+		return () => unsubscribe();
+	}, [user?.uid]);
+
 	const tasksQuery = useQuery({
 		queryKey: ["tasks"],
 		queryFn: async () => {
@@ -263,13 +307,7 @@ export const [AppProvider, useApp] = createContextHook(() => {
 		enabled: false, // Disabled since we're using Firestore listener
 	});
 
-	const goalsQuery = useQuery({
-		queryKey: ["goals"],
-		queryFn: async () => {
-			const stored = await AsyncStorage.getItem(STORAGE_KEYS.GOALS);
-			return stored ? JSON.parse(stored) : [];
-		},
-	});
+
 
 	const notesQuery = useQuery({
 		queryKey: ["notes"],
@@ -283,11 +321,7 @@ export const [AppProvider, useApp] = createContextHook(() => {
 
 	// Removed: classes are now managed by Firestore listener
 
-	useEffect(() => {
-		if (goalsQuery.data) {
-			setGoals(goalsQuery.data);
-		}
-	}, [goalsQuery.data]);
+
 
 	useEffect(() => {
 		if (notesQuery.data) {
@@ -326,15 +360,7 @@ export const [AppProvider, useApp] = createContextHook(() => {
 
 	// Removed: syncClassesMutation (Firestore handles persistence)
 
-	const syncGoalsMutation = useMutation({
-		mutationFn: async (newGoals: Goal[]) => {
-			await AsyncStorage.setItem(STORAGE_KEYS.GOALS, JSON.stringify(newGoals));
-			return newGoals;
-		},
-		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ["goals"] });
-		},
-	});
+
 
 	const syncNotesMutation = useMutation({
 		mutationFn: async (newNotes: Note[]) => {
@@ -503,22 +529,45 @@ export const [AppProvider, useApp] = createContextHook(() => {
 		}
 	};
 
-	const addGoal = (goal: Goal) => {
-		const updated = [...goals, goal];
-		setGoals(updated);
-		syncGoalsMutation.mutate(updated);
+	const addGoal = async (goal: Goal) => {
+		if (!user?.uid) return;
+
+		try {
+			const goalsRef = collection(db, "goals");
+			await addDoc(goalsRef, {
+				userId: user.uid,
+				title: goal.title,
+				description: goal.description || "",
+				dueDate: goal.dueDate || "",
+				completed: goal.completed,
+				habits: goal.habits,
+				createdAt: goal.createdAt,
+			});
+		} catch (error) {
+			console.error("Error adding goal:", error);
+		}
 	};
 
-	const updateGoal = (id: string, updates: Partial<Goal>) => {
-		const updated = goals.map((g) => (g.id === id ? { ...g, ...updates } : g));
-		setGoals(updated);
-		syncGoalsMutation.mutate(updated);
+	const updateGoal = async (id: string, updates: Partial<Goal>) => {
+		if (!user?.uid) return;
+
+		try {
+			const goalRef = doc(db, "goals", id);
+			await updateDoc(goalRef, updates as any);
+		} catch (error) {
+			console.error("Error updating goal:", error);
+		}
 	};
 
-	const deleteGoal = (id: string) => {
-		const updated = goals.filter((g) => g.id !== id);
-		setGoals(updated);
-		syncGoalsMutation.mutate(updated);
+	const deleteGoal = async (id: string) => {
+		if (!user?.uid) return;
+
+		try {
+			const goalRef = doc(db, "goals", id);
+			await deleteDoc(goalRef);
+		} catch (error) {
+			console.error("Error deleting goal:", error);
+		}
 	};
 
 	const addNote = (note: Note) => {
@@ -852,7 +901,7 @@ export const [AppProvider, useApp] = createContextHook(() => {
 		isLoading:
 			tasksLoading ||
 			classesLoading ||
-			goalsQuery.isLoading ||
+			goalsLoading ||
 			notesQuery.isLoading,
 	};
 });

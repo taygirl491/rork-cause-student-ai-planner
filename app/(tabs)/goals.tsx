@@ -8,9 +8,12 @@ import {
   Modal,
   TextInput,
   Animated,
+  Platform,
+  Alert,
 } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Plus, X, Target, CheckCircle, Circle, Trash2 } from 'lucide-react-native';
+import { Plus, X, Target, CheckCircle, Circle, Trash2, Edit2 } from 'lucide-react-native';
 import colors from '@/constants/colors';
 import { useApp } from '@/contexts/AppContext';
 import { Goal, Habit } from '@/types';
@@ -20,9 +23,15 @@ export default function GoalsScreen() {
   const [showModal, setShowModal] = useState(false);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [dueDate, setDueDate] = useState('');
+  const [dueDate, setDueDate] = useState(new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [habits, setHabits] = useState<Partial<Habit>[]>([]);
   const [habitTitle, setHabitTitle] = useState('');
+
+  // Edit/Delete state
+  const [showActionSheet, setShowActionSheet] = useState(false);
+  const [selectedGoal, setSelectedGoal] = useState<Goal | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
 
   const scaleAnim = React.useRef(new Animated.Value(0)).current;
 
@@ -40,31 +49,60 @@ export default function GoalsScreen() {
   }, [showModal, scaleAnim]);
 
   const handleAddGoal = () => {
-    if (!title) return;
+    if (!title.trim()) {
+      Alert.alert('Required Field', 'Please enter a title for your goal.');
+      return;
+    }
 
-    const newGoal: Goal = {
-      id: Date.now().toString(),
-      title,
-      description,
-      dueDate,
-      completed: false,
-      habits: habits.map((h, i) => ({
-        id: `${Date.now()}-${i}`,
-        title: h.title || '',
+    if (habits.length === 0) {
+      Alert.alert('Required Field', 'Please add at least one daily habit.');
+      return;
+    }
+
+    if (!dueDate) {
+      Alert.alert('Required Field', 'Please select a due date.');
+      return;
+    }
+
+    if (isEditing && selectedGoal) {
+      const updatedGoal: Partial<Goal> = {
+        title,
+        description,
+        dueDate: dueDate.toISOString(),
+        habits: habits.map((h, i) => ({
+          id: h.id || `${Date.now()}-${i}`,
+          title: h.title || '',
+          completed: h.completed || false,
+        })) as Habit[],
+      };
+      updateGoal(selectedGoal.id, updatedGoal);
+    } else {
+      const newGoal: Goal = {
+        id: Date.now().toString(),
+        title,
+        description,
+        dueDate: dueDate.toISOString(),
         completed: false,
-      })) as Habit[],
-      createdAt: new Date().toISOString(),
-    };
+        habits: habits.map((h, i) => ({
+          id: `${Date.now()}-${i}`,
+          title: h.title || '',
+          completed: false,
+        })) as Habit[],
+        createdAt: new Date().toISOString(),
+      };
+      addGoal(newGoal);
+    }
 
-    addGoal(newGoal);
     resetForm();
     setShowModal(false);
+    setIsEditing(false);
+    setSelectedGoal(null);
   };
 
   const resetForm = () => {
     setTitle('');
     setDescription('');
-    setDueDate('');
+    setDueDate(new Date());
     setHabits([]);
     setHabitTitle('');
   };
@@ -77,6 +115,34 @@ export default function GoalsScreen() {
 
   const removeHabit = (index: number) => {
     setHabits(habits.filter((_, i) => i !== index));
+  };
+
+  const handleLongPress = (goal: Goal) => {
+    setSelectedGoal(goal);
+    setShowActionSheet(true);
+  };
+
+  const handleEdit = () => {
+    if (!selectedGoal) return;
+
+    setTitle(selectedGoal.title);
+    setDescription(selectedGoal.description || '');
+    setDueDate(selectedGoal.dueDate ? new Date(selectedGoal.dueDate) : new Date());
+    setHabits(selectedGoal.habits || []);
+
+    setIsEditing(true);
+    setShowActionSheet(false);
+    setShowModal(true);
+  };
+
+  const handleDelete = () => {
+    if (!selectedGoal) return;
+
+    // Simple confirmation could be added here if desired, 
+    // strictly following the task request to "add delete function"
+    deleteGoal(selectedGoal.id);
+    setShowActionSheet(false);
+    setSelectedGoal(null);
   };
 
   const toggleGoalComplete = (goal: Goal) => {
@@ -122,7 +188,7 @@ export default function GoalsScreen() {
                 <TouchableOpacity
                   style={styles.goalHeader}
                   onPress={() => toggleGoalComplete(goal)}
-                  onLongPress={() => deleteGoal(goal.id)}
+                  onLongPress={() => handleLongPress(goal)}
                 >
                   <View style={styles.goalHeaderLeft}>
                     {goal.completed ? (
@@ -183,8 +249,15 @@ export default function GoalsScreen() {
         <View style={styles.modalOverlay}>
           <Animated.View style={[styles.modalContent, { transform: [{ scale: scaleAnim }] }]}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Create Goal</Text>
-              <TouchableOpacity onPress={() => setShowModal(false)}>
+              <Text style={styles.modalTitle}>{isEditing ? 'Edit Goal' : 'Create Goal'}</Text>
+              <TouchableOpacity onPress={() => {
+                setShowModal(false);
+                if (isEditing) {
+                  setIsEditing(false);
+                  setSelectedGoal(null);
+                  resetForm();
+                }
+              }}>
                 <X size={24} color={colors.text} />
               </TouchableOpacity>
             </View>
@@ -211,13 +284,27 @@ export default function GoalsScreen() {
               />
 
               <Text style={styles.label}>Due Date</Text>
-              <TextInput
+              <TouchableOpacity
                 style={styles.input}
-                placeholder="YYYY-MM-DD"
-                placeholderTextColor={colors.textLight}
-                value={dueDate}
-                onChangeText={setDueDate}
-              />
+                onPress={() => setShowDatePicker(true)}
+              >
+                <Text style={{ color: colors.text }}>
+                  {dueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                </Text>
+              </TouchableOpacity>
+              {showDatePicker && (
+                <DateTimePicker
+                  value={dueDate}
+                  mode="date"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  onChange={(event, selectedDate) => {
+                    setShowDatePicker(Platform.OS === 'ios');
+                    if (selectedDate) {
+                      setDueDate(selectedDate);
+                    }
+                  }}
+                />
+              )}
 
               <Text style={styles.label}>Daily Habits</Text>
               <View style={styles.habitInputRow}>
@@ -247,15 +334,40 @@ export default function GoalsScreen() {
               )}
 
               <TouchableOpacity
-                style={[styles.createButton, !title && styles.createButtonDisabled]}
+                style={styles.createButton}
                 onPress={handleAddGoal}
-                disabled={!title}
               >
-                <Text style={styles.createButtonText}>Create Goal</Text>
+                <Text style={styles.createButtonText}>{isEditing ? 'Update Goal' : 'Create Goal'}</Text>
               </TouchableOpacity>
             </ScrollView>
           </Animated.View>
         </View>
+      </Modal>
+
+      {/* Action Sheet Modal */}
+      <Modal
+        visible={showActionSheet}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowActionSheet(false)}
+      >
+        <TouchableOpacity
+          style={styles.actionSheetOverlay}
+          activeOpacity={1}
+          onPress={() => setShowActionSheet(false)}
+        >
+          <View style={styles.actionSheetContent}>
+            <TouchableOpacity style={styles.actionButton} onPress={handleEdit}>
+              <Edit2 size={20} color={colors.primary} />
+              <Text style={styles.actionButtonText}>Edit Goal</Text>
+            </TouchableOpacity>
+            <View style={styles.actionDivider} />
+            <TouchableOpacity style={styles.actionButton} onPress={handleDelete}>
+              <Trash2 size={20} color="#FF3B30" />
+              <Text style={[styles.actionButtonText, { color: '#FF3B30' }]}>Delete Goal</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
       </Modal>
     </SafeAreaView>
   );
@@ -271,7 +383,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: 20,
     paddingBottom: 16,
   },
   title: {
@@ -502,5 +613,32 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700' as const,
     color: colors.surface,
+  },
+  actionSheetOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  actionSheetContent: {
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    paddingBottom: 40,
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+  },
+  actionButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+    marginLeft: 12,
+  },
+  actionDivider: {
+    height: 1,
+    backgroundColor: colors.border,
   },
 });
