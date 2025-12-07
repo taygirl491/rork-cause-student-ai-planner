@@ -2,12 +2,19 @@ const admin = require("firebase-admin");
 const path = require("path");
 
 // Initialize Firebase Admin
-const serviceAccountPath =
-	process.env.FIREBASE_SERVICE_ACCOUNT_PATH ||
-	path.join(__dirname, "serviceAccountKey.json");
+let serviceAccount;
 
 try {
-	const serviceAccount = require(serviceAccountPath);
+	if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+		// Use environment variable if available (Render)
+		serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+	} else {
+		// Fallback to local file
+		const serviceAccountPath =
+			process.env.FIREBASE_SERVICE_ACCOUNT_PATH ||
+			path.join(__dirname, "serviceAccountKey.json");
+		serviceAccount = require(serviceAccountPath);
+	}
 
 	admin.initializeApp({
 		credential: admin.credential.cert(serviceAccount),
