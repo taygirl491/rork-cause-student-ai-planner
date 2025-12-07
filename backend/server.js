@@ -232,12 +232,12 @@ app.post("/api/notify/new-message", authenticate, async (req, res) => {
 			});
 		}
 
-		// Send email notifications
-		const result = await emailService.sendMessageNotification(
+		// Send email notifications (fire and forget to avoid blocking response)
+		emailService.sendMessageNotification(
 			groupData,
 			messageData,
 			recipients
-		);
+		).catch(err => console.error("Email notification error:", err));
 
 		// Send push notifications (fire and forget)
 		notificationService.sendMessageNotification(
@@ -248,8 +248,8 @@ app.post("/api/notify/new-message", authenticate, async (req, res) => {
 
 		res.json({
 			success: true,
-			message: "Message notifications sent successfully",
-			emailsSent: result.emailsSent,
+			message: "Message notifications initiated",
+			emailsSent: "processing_async",
 		});
 	} catch (error) {
 		console.error("Error in new-message notification:", error);
@@ -296,6 +296,62 @@ app.post("/api/notify/group-created", authenticate, async (req, res) => {
 			details: error.message,
 		});
 	}
+});
+
+/**
+ * GET /join/:code
+ * Public endpoint to handle deep linking for group invites.
+ * Redirects to the app if installed, or shows a fallback page.
+ */
+app.get("/join/:code", (req, res) => {
+	const { code } = req.params;
+	const deepLink = `causeai://invite/${code}`;
+	// You should replace this with your actual Play Store / App Store URLs
+	const downloadLink = "https://play.google.com/store/apps/details?id=com.minato.causeai";
+
+	const html = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <title>Join Study Group - CauseAI</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta property="og:title" content="Join my Study Group on CauseAI" />
+        <meta property="og:description" content="Click to join the study group with code: ${code}" />
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; background-color: #f9fafb; text-align: center; padding: 20px; }
+          .logo { width: 100px; height: 100px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 20px; margin-bottom: 20px; display: flex; align-items: center; justify-content: center; color: white; font-size: 40px; font-weight: bold; }
+          h1 { margin-bottom: 10px; color: #1f2937; }
+          p { margin-bottom: 30px; color: #6b7280; max-width: 400px; line-height: 1.5; }
+          .btn { background: #667eea; color: white; padding: 15px 30px; border-radius: 30px; text-decoration: none; font-weight: bold; font-size: 18px; margin-bottom: 15px; display: inline-block; box-shadow: 0 4px 6px rgba(102, 126, 234, 0.3); transition: transform 0.1s; }
+          .btn:active { transform: scale(0.98); }
+          .secondary-link { color: #667eea; text-decoration: none; font-size: 14px; }
+        </style>
+      </head>
+      <body>
+        <div class="logo">C</div>
+        <h1>Join Study Group</h1>
+        <p>You've been invited to join a study group on CauseAI. If you have the app, the button below will open it.</p>
+        
+        <a id="openApp" href="${deepLink}" class="btn">Open App & Join</a>
+        
+        <div>
+          <a href="${downloadLink}" class="secondary-link">Don't have the app? Download it here</a>
+        </div>
+
+        <script>
+          // Automatic redirect attempt
+          window.location.href = "${deepLink}";
+          
+          // Optional: If you want to detect failure and redirect to store automatically after a timeout:
+          // setTimeout(function() {
+          //   window.location.href = "${downloadLink}";
+          // }, 2000);
+        </script>
+      </body>
+    </html>
+  `;
+
+	res.send(html);
 });
 
 /**

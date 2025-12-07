@@ -9,7 +9,6 @@ import { db } from "@/firebaseConfig";
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldPlaySound: true,
-    shouldShowAlert: true,
     shouldSetBadge: false,
     shouldShowBanner: true,
     shouldShowList: true,
