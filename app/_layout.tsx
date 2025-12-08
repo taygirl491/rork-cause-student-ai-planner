@@ -7,6 +7,8 @@ import { View, TouchableOpacity, StyleSheet, Modal, Text, ScrollView, Pressable,
 import { Menu, CheckSquare, Calendar, Target, FileText, BookOpen, Heart, Sparkles, User, Home, X, Users } from "lucide-react-native";
 import { AppProvider } from "@/contexts/AppContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import * as NotificationService from "@/utils/notificationService";
+import * as Notifications from "expo-notifications";
 import LogoButton from "@/components/LogoButton";
 import colors from "@/constants/colors";
 
@@ -133,6 +135,26 @@ function RootLayoutNav() {
       }
     }
   }, [isAuthenticated, isLoading, onboardingComplete, router, segments]);
+
+  // Request notification permissions and setup handler
+  useEffect(() => {
+    // Request permissions on app start
+    NotificationService.requestNotificationPermissions();
+
+    // Handle notification tap
+    const subscription = Notifications.addNotificationResponseReceivedListener(
+      (response) => {
+        const data = response.notification.request.content.data;
+
+        if (data.type === 'task_reminder' && data.taskId) {
+          // Navigate to tasks tab
+          router.push('/(tabs)/tasks');
+        }
+      }
+    );
+
+    return () => subscription.remove();
+  }, [router]);
 
   if (isLoading || onboardingComplete === null) {
     return null;

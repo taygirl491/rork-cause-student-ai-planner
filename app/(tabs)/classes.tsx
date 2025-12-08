@@ -11,7 +11,7 @@ import {
   Platform,
   Alert,
 } from 'react-native';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Plus, X, BookOpen, Clock, User, Calendar as CalendarIcon, Edit2, Trash2 } from 'lucide-react-native';
 import colors from '@/constants/colors';
@@ -344,33 +344,31 @@ export default function ClassesScreen() {
               <TouchableOpacity style={styles.input} onPress={() => setShowStartTimePicker(true)}>
                 <Text style={styles.inputText}>{formatTime12H(startTime)}</Text>
               </TouchableOpacity>
-              {showStartTimePicker && (
-                <DateTimePicker
-                  value={startTime}
-                  mode="time"
-                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                  onChange={(event, date) => {
-                    setShowStartTimePicker(Platform.OS === 'ios');
-                    if (date) setStartTime(date);
-                  }}
-                />
-              )}
+              <DateTimePickerModal
+                isVisible={showStartTimePicker}
+                mode="time"
+                date={startTime}
+                onConfirm={(time) => {
+                  setShowStartTimePicker(false);
+                  setStartTime(time);
+                }}
+                onCancel={() => setShowStartTimePicker(false)}
+              />
 
               <Text style={styles.label}>End Time *</Text>
               <TouchableOpacity style={styles.input} onPress={() => setShowEndTimePicker(true)}>
                 <Text style={styles.inputText}>{formatTime12H(endTime)}</Text>
               </TouchableOpacity>
-              {showEndTimePicker && (
-                <DateTimePicker
-                  value={endTime}
-                  mode="time"
-                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                  onChange={(event, date) => {
-                    setShowEndTimePicker(Platform.OS === 'ios');
-                    if (date) setEndTime(date);
-                  }}
-                />
-              )}
+              <DateTimePickerModal
+                isVisible={showEndTimePicker}
+                mode="time"
+                date={endTime}
+                onConfirm={(time) => {
+                  setShowEndTimePicker(false);
+                  setEndTime(time);
+                }}
+                onCancel={() => setShowEndTimePicker(false)}
+              />
 
               {/* PROFESSOR */}
               <Text style={styles.label}>Professor</Text>
@@ -390,17 +388,16 @@ export default function ClassesScreen() {
                 </Text>
               </TouchableOpacity>
 
-              {showStartDatePicker && (
-                <DateTimePicker
-                  value={startDate}
-                  mode="date"
-                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                  onChange={(event, date) => {
-                    setShowStartDatePicker(Platform.OS === 'ios');
-                    if (date) setStartDate(date);
-                  }}
-                />
-              )}
+              <DateTimePickerModal
+                isVisible={showStartDatePicker}
+                mode="date"
+                date={startDate}
+                onConfirm={(date) => {
+                  setShowStartDatePicker(false);
+                  setStartDate(date);
+                }}
+                onCancel={() => setShowStartDatePicker(false)}
+              />
 
               {/* END DATE */}
               <Text style={styles.label}>End Date *</Text>
@@ -410,17 +407,16 @@ export default function ClassesScreen() {
                 </Text>
               </TouchableOpacity>
 
-              {showEndDatePicker && (
-                <DateTimePicker
-                  value={endDate}
-                  mode="date"
-                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                  onChange={(event, date) => {
-                    setShowEndDatePicker(Platform.OS === 'ios');
-                    if (date) setEndDate(date);
-                  }}
-                />
-              )}
+              <DateTimePickerModal
+                isVisible={showEndDatePicker}
+                mode="date"
+                date={endDate}
+                onConfirm={(date) => {
+                  setShowEndDatePicker(false);
+                  setEndDate(date);
+                }}
+                onCancel={() => setShowEndDatePicker(false)}
+              />
 
               {/* COLOR PICKER */}
               <Text style={styles.label}>Color</Text>

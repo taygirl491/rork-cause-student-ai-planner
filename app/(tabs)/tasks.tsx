@@ -12,7 +12,7 @@ import {
   Alert,
   Pressable,
 } from 'react-native';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Plus, X, CheckCircle, Circle, Edit2, Trash2 } from 'lucide-react-native';
 import colors from '@/constants/colors';
@@ -36,8 +36,10 @@ export default function TasksScreen() {
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [priority, setPriority] = useState<Priority>('medium');
   const [reminder, setReminder] = useState<ReminderTime>('1d');
+  const [customReminderDate, setCustomReminderDate] = useState(new Date());
+  const [showCustomReminderPicker, setShowCustomReminderPicker] = useState(false);
   const [alarmEnabled, setAlarmEnabled] = useState(false);
-  
+
   // Search and filter states
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<'all' | 'active' | 'completed' | TaskType>('all');
@@ -66,7 +68,7 @@ export default function TasksScreen() {
     return sortedTasks.filter(task => {
       // Search filter (always active)
       const matchesSearch = task.description.toLowerCase().includes(searchQuery.toLowerCase());
-      
+
       // Single active filter
       let matchesFilter = true;
       if (activeFilter === 'active') {
@@ -77,7 +79,7 @@ export default function TasksScreen() {
         // It's a task type filter
         matchesFilter = task.type === activeFilter;
       }
-      
+
       return matchesSearch && matchesFilter;
     });
   }, [sortedTasks, searchQuery, activeFilter]);
@@ -98,6 +100,7 @@ export default function TasksScreen() {
         dueTime: formattedTime,
         priority,
         reminder,
+        customReminderDate: reminder === 'custom' ? customReminderDate.toISOString() : undefined,
         alarmEnabled,
       });
     } else {
@@ -111,6 +114,7 @@ export default function TasksScreen() {
         dueTime: formattedTime,
         priority,
         reminder,
+        customReminderDate: reminder === 'custom' ? customReminderDate.toISOString() : undefined,
         alarmEnabled,
         completed: false,
         createdAt: new Date().toISOString(),
@@ -132,6 +136,7 @@ export default function TasksScreen() {
     setDueTime(new Date());
     setPriority('medium');
     setReminder('1d');
+    setCustomReminderDate(new Date());
     setAlarmEnabled(false);
   };
 
@@ -146,14 +151,17 @@ export default function TasksScreen() {
 
   const handleEdit = () => {
     if (!selectedTask) return;
-    
+
     setDescription(selectedTask.description);
     setTaskType(selectedTask.type);
-    setSelectedClass(selectedTask.className);
+    setSelectedClass(selectedTask.className || '');
     setDueDate(new Date(selectedTask.dueDate));
     setDueTime(new Date(`2000-01-01 ${selectedTask.dueTime}`));
     setPriority(selectedTask.priority);
-    setReminder(selectedTask.reminder);
+    setReminder(selectedTask.reminder || '1d');
+    if (selectedTask.customReminderDate) {
+      setCustomReminderDate(new Date(selectedTask.customReminderDate));
+    }
     setAlarmEnabled(selectedTask.alarmEnabled);
     setIsEditing(true);
     setShowActionSheet(false);
@@ -162,7 +170,7 @@ export default function TasksScreen() {
 
   const handleDelete = () => {
     if (!selectedTask) return;
-    
+
     Alert.alert(
       'Delete Task',
       'Are you sure you want to delete this task?',
@@ -192,7 +200,7 @@ export default function TasksScreen() {
     today.setHours(0, 0, 0, 0);
     date.setHours(0, 0, 0, 0);
     const diff = Math.ceil((date.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-    
+
     if (diff === 0) return 'Today';
     if (diff === 1) return 'Tomorrow';
     if (diff === -1) return 'Yesterday';
@@ -415,19 +423,16 @@ export default function TasksScreen() {
                   {dueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                 </Text>
               </TouchableOpacity>
-              {showDatePicker && (
-                <DateTimePicker
-                  value={dueDate}
-                  mode="date"
-                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                  onChange={(event, selectedDate) => {
-                    setShowDatePicker(Platform.OS === 'ios');
-                    if (selectedDate) {
-                      setDueDate(selectedDate);
-                    }
-                  }}
-                />
-              )}
+              <DateTimePickerModal
+                isVisible={showDatePicker}
+                mode="date"
+                date={dueDate}
+                onConfirm={(date) => {
+                  setShowDatePicker(false);
+                  setDueDate(date);
+                }}
+                onCancel={() => setShowDatePicker(false)}
+              />
 
               <Text style={styles.label}>Due Time</Text>
               <TouchableOpacity
@@ -438,19 +443,16 @@ export default function TasksScreen() {
                   {dueTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
                 </Text>
               </TouchableOpacity>
-              {showTimePicker && (
-                <DateTimePicker
-                  value={dueTime}
-                  mode="time"
-                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                  onChange={(event, selectedTime) => {
-                    setShowTimePicker(Platform.OS === 'ios');
-                    if (selectedTime) {
-                      setDueTime(selectedTime);
-                    }
-                  }}
-                />
-              )}
+              <DateTimePickerModal
+                isVisible={showTimePicker}
+                mode="time"
+                date={dueTime}
+                onConfirm={(time) => {
+                  setShowTimePicker(false);
+                  setDueTime(time);
+                }}
+                onCancel={() => setShowTimePicker(false)}
+              />
 
               <Text style={styles.label}>Priority</Text>
               <View style={styles.optionGrid}>
@@ -484,7 +486,16 @@ export default function TasksScreen() {
                       styles.optionChip,
                       reminder === r && { backgroundColor: colors.primary },
                     ]}
-                    onPress={() => setReminder(r)}
+                    onPress={() => {
+                      setReminder(r);
+                      if (r === 'custom') {
+                        // Set minimum date to current time + 1 minute
+                        const minDate = new Date();
+                        minDate.setMinutes(minDate.getMinutes() + 1);
+                        setCustomReminderDate(minDate);
+                        setShowCustomReminderPicker(true);
+                      }
+                    }}
                   >
                     <Text
                       style={[
@@ -497,6 +508,43 @@ export default function TasksScreen() {
                   </TouchableOpacity>
                 ))}
               </View>
+
+              {reminder === 'custom' && (
+                <TouchableOpacity
+                  style={[styles.input, { marginTop: 8 }]}
+                  onPress={() => setShowCustomReminderPicker(true)}
+                >
+                  <Text style={styles.inputText}>
+                    {customReminderDate.toLocaleString('en-US', {
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </Text>
+                </TouchableOpacity>
+              )}
+              <DateTimePickerModal
+                isVisible={showCustomReminderPicker}
+                mode="datetime"
+                date={customReminderDate}
+                minimumDate={new Date()}
+                onConfirm={(date) => {
+                  if (date > new Date()) {
+                    setShowCustomReminderPicker(false);
+                    setCustomReminderDate(date);
+                  } else {
+                    setShowCustomReminderPicker(false);
+                    Alert.alert(
+                      'Invalid Date',
+                      'Reminder must be set for a future date and time.',
+                      [{ text: 'OK' }]
+                    );
+                  }
+                }}
+                onCancel={() => setShowCustomReminderPicker(false)}
+              />
 
               <TouchableOpacity
                 style={[styles.checkboxRow, alarmEnabled && styles.checkboxRowActive]}

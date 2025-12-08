@@ -7,6 +7,7 @@ require("dotenv").config();
 const { db } = require("./firebase");
 const emailService = require("./emailService");
 const notificationService = require("./notificationService");
+const { startReminderScheduler } = require("./reminderScheduler");
 const { uploadFromBuffer } = require("./cloudinaryConfig");
 
 const app = express();
@@ -411,6 +412,9 @@ app.listen(PORT, "0.0.0.0", () => {
 ║   Environment: ${process.env.NODE_ENV || "development"}                ║
 ╚═══════════════════════════════════════════╝
   `);
+
+	// Start the reminder scheduler
+	startReminderScheduler();
 });
 
 module.exports = app;
