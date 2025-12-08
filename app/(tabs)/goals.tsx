@@ -11,7 +11,7 @@ import {
   Platform,
   Alert,
 } from 'react-native';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Plus, X, Target, CheckCircle, Circle, Trash2, Edit2 } from 'lucide-react-native';
 import colors from '@/constants/colors';
@@ -292,19 +292,16 @@ export default function GoalsScreen() {
                   {dueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                 </Text>
               </TouchableOpacity>
-              {showDatePicker && (
-                <DateTimePicker
-                  value={dueDate}
-                  mode="date"
-                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                  onChange={(event, selectedDate) => {
-                    setShowDatePicker(Platform.OS === 'ios');
-                    if (selectedDate) {
-                      setDueDate(selectedDate);
-                    }
-                  }}
-                />
-              )}
+              <DateTimePickerModal
+                isVisible={showDatePicker}
+                mode="date"
+                date={dueDate}
+                onConfirm={(date) => {
+                  setShowDatePicker(false);
+                  setDueDate(date);
+                }}
+                onCancel={() => setShowDatePicker(false)}
+              />
 
               <Text style={styles.label}>Daily Habits</Text>
               <View style={styles.habitInputRow}>

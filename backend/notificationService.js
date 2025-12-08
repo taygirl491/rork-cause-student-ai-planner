@@ -177,7 +177,40 @@ async function sendMessageNotification(groupData, message, recipients) {
     }
 }
 
+/**
+ * Send notification for task reminder
+ */
+async function sendTaskReminder(userId, taskData) {
+    try {
+        const userDoc = await db.collection('users').doc(userId).get();
+
+        if (!userDoc.exists) {
+            console.log('User not found:', userId);
+            return;
+        }
+
+        const userData = userDoc.data();
+
+        if (!userData?.pushToken || !Expo.isExpoPushToken(userData.pushToken)) {
+            console.log('No valid push token for user:', userId);
+            return;
+        }
+
+        await sendPushNotifications(
+            [userData.pushToken],
+            `Reminder: ${taskData.type.toUpperCase()}`,
+            taskData.description,
+            { taskId: taskData.id, type: 'task_reminder', className: taskData.className }
+        );
+
+        console.log('Sent task reminder to user:', userId);
+    } catch (error) {
+        console.error('Error sending task reminder:', error);
+    }
+}
+
 module.exports = {
     sendJoinNotification,
     sendMessageNotification,
+    sendTaskReminder,
 };
