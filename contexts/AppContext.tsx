@@ -26,6 +26,7 @@ import {
 } from "firebase/firestore";
 import { useAuth } from "./AuthContext";
 import * as calendarSync from "@/utils/calendarSync";
+import * as NotificationService from "@/utils/notificationService";
 import apiService from "@/utils/apiService";
 
 const STORAGE_KEYS = {
@@ -49,6 +50,7 @@ export const [AppProvider, useApp] = createContextHook(() => {
 	const [tasksLoading, setTasksLoading] = useState(true);
 	const [classesLoading, setClassesLoading] = useState(true);
 	const [goalsLoading, setGoalsLoading] = useState(true);
+	const [notesLoading, setNotesLoading] = useState(true);
 	const [calendarSyncEnabled, setCalendarSyncEnabled] = useState(false);
 	const [appCalendarId, setAppCalendarId] = useState<string | null>(null);
 
@@ -289,6 +291,50 @@ export const [AppProvider, useApp] = createContextHook(() => {
 		return () => unsubscribe();
 	}, [user?.uid]);
 
+	// Notes Firestore listener
+	useEffect(() => {
+		if (!user?.uid) {
+			setNotes([]);
+			return;
+		}
+
+		const notesRef = collection(db, "notes");
+		const q = query(
+			notesRef,
+			where("userId", "==", user.uid),
+			orderBy("updatedAt", "desc")
+		);
+
+		const unsubscribe = onSnapshot(
+			q,
+			(snapshot) => {
+				const notesData: Note[] = [];
+				snapshot.forEach((doc) => {
+					const data = doc.data();
+					notesData.push({
+						id: doc.id,
+						title: data.title,
+						className: data.className || "",
+						content: data.content,
+						createdAt:
+							data.createdAt?.toDate?.()?.toISOString() ||
+							new Date().toISOString(),
+						updatedAt:
+							data.updatedAt?.toDate?.()?.toISOString() ||
+							new Date().toISOString(),
+					});
+				});
+				setNotes(notesData);
+				setNotesLoading(false);
+			},
+			(error) => {
+				console.error("Firestore notes listener error:", error);
+			}
+		);
+
+		return () => unsubscribe();
+	}, [user?.uid]);
+
 	const tasksQuery = useQuery({
 		queryKey: ["tasks"],
 		queryFn: async () => {
@@ -307,27 +353,7 @@ export const [AppProvider, useApp] = createContextHook(() => {
 		enabled: false, // Disabled since we're using Firestore listener
 	});
 
-
-
-	const notesQuery = useQuery({
-		queryKey: ["notes"],
-		queryFn: async () => {
-			const stored = await AsyncStorage.getItem(STORAGE_KEYS.NOTES);
-			return stored ? JSON.parse(stored) : [];
-		},
-	});
-
-	// Removed: tasks are now managed by Firestore listener
-
-	// Removed: classes are now managed by Firestore listener
-
-
-
-	useEffect(() => {
-		if (notesQuery.data) {
-			setNotes(notesQuery.data);
-		}
-	}, [notesQuery.data]);
+	// Removed: notes are now managed by Firestore listener
 
 	// Removed: study groups now managed by Firestore listener
 
@@ -360,17 +386,7 @@ export const [AppProvider, useApp] = createContextHook(() => {
 
 	// Removed: syncClassesMutation (Firestore handles persistence)
 
-
-
-	const syncNotesMutation = useMutation({
-		mutationFn: async (newNotes: Note[]) => {
-			await AsyncStorage.setItem(STORAGE_KEYS.NOTES, JSON.stringify(newNotes));
-			return newNotes;
-		},
-		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ["notes"] });
-		},
-	});
+	// Removed: syncNotesMutation (Firestore handles persistence)
 
 	const addTask = async (task: Task) => {
 		if (!user?.uid) return;
@@ -390,7 +406,7 @@ export const [AppProvider, useApp] = createContextHook(() => {
 			}
 
 			const tasksRef = collection(db, "tasks");
-			await addDoc(tasksRef, {
+			const docRef = await addDoc(tasksRef, {
 				userId: user.uid,
 				description: task.description,
 				type: task.type,
@@ -399,11 +415,20 @@ export const [AppProvider, useApp] = createContextHook(() => {
 				dueTime: task.dueTime,
 				priority: task.priority,
 				reminder: task.reminder,
+				customReminderDate: task.customReminderDate || null,
 				alarmEnabled: task.alarmEnabled,
 				completed: task.completed,
 				createdAt: task.createdAt,
 				calendarEventId: calendarEventId || null,
 			});
+
+			// Schedule notification if reminder is set and task is not completed
+			if (task.reminder && !task.completed) {
+				await NotificationService.scheduleTaskReminder({
+					...task,
+					id: docRef.id,
+				});
+			}
 		} catch (error) {
 			console.error("Error adding task:", error);
 		}
@@ -415,6 +440,10 @@ export const [AppProvider, useApp] = createContextHook(() => {
 		try {
 			// Find the task to get its calendar event ID
 			const task = tasks.find((t) => t.id === id);
+			if (!task) return;
+
+			// Cancel existing notifications for this task
+			await NotificationService.cancelAllTaskNotifications(id);
 
 			// Update calendar event if synced
 			if (calendarSyncEnabled && task?.calendarEventId) {
@@ -427,6 +456,12 @@ export const [AppProvider, useApp] = createContextHook(() => {
 
 			const taskRef = doc(db, "tasks", id);
 			await updateDoc(taskRef, updates as any);
+
+			// Reschedule notification if task is not completed and has reminder
+			const updatedTask = { ...task, ...updates };
+			if (updatedTask.reminder && !updatedTask.completed) {
+				await NotificationService.scheduleTaskReminder(updatedTask);
+			}
 		} catch (error) {
 			console.error("Error updating task:", error);
 		}
@@ -438,6 +473,9 @@ export const [AppProvider, useApp] = createContextHook(() => {
 		try {
 			// Find the task to get its calendar event ID
 			const task = tasks.find((t) => t.id === id);
+
+			// Cancel all notifications for this task
+			await NotificationService.cancelAllTaskNotifications(id);
 
 			// Delete calendar event if synced
 			if (task?.calendarEventId) {
@@ -570,22 +608,47 @@ export const [AppProvider, useApp] = createContextHook(() => {
 		}
 	};
 
-	const addNote = (note: Note) => {
-		const updated = [...notes, note];
-		setNotes(updated);
-		syncNotesMutation.mutate(updated);
+	const addNote = async (note: Omit<Note, "id">) => {
+		if (!user?.uid) return;
+
+		try {
+			const notesRef = collection(db, "notes");
+			await addDoc(notesRef, {
+				userId: user.uid,
+				title: note.title,
+				className: note.className || "",
+				content: note.content,
+				createdAt: Timestamp.now(),
+				updatedAt: Timestamp.now(),
+			});
+		} catch (error) {
+			console.error("Error adding note:", error);
+		}
 	};
 
-	const updateNote = (id: string, updates: Partial<Note>) => {
-		const updated = notes.map((n) => (n.id === id ? { ...n, ...updates } : n));
-		setNotes(updated);
-		syncNotesMutation.mutate(updated);
+	const updateNote = async (id: string, updates: Partial<Note>) => {
+		if (!user?.uid) return;
+
+		try {
+			const noteRef = doc(db, "notes", id);
+			await updateDoc(noteRef, {
+				...updates,
+				updatedAt: Timestamp.now(),
+			} as any);
+		} catch (error) {
+			console.error("Error updating note:", error);
+		}
 	};
 
-	const deleteNote = (id: string) => {
-		const updated = notes.filter((n) => n.id !== id);
-		setNotes(updated);
-		syncNotesMutation.mutate(updated);
+	const deleteNote = async (id: string) => {
+		if (!user?.uid) return;
+
+		try {
+			const noteRef = doc(db, "notes", id);
+			await deleteDoc(noteRef);
+		} catch (error) {
+			console.error("Error deleting note:", error);
+		}
 	};
 
 	const createStudyGroup = async (
@@ -736,11 +799,11 @@ export const [AppProvider, useApp] = createContextHook(() => {
 						name: file.name,
 						uri: file.url, // Use remote URL as the URI for consistency
 						url: file.url, // Explicitly add url for backend compatibility
-						type: file.type
+						type: file.type,
 					}));
 				} else {
 					console.error("Failed to upload attachments:", uploadResult.error);
-					// You might want to throw or alert here, but for now we proceed 
+					// You might want to throw or alert here, but for now we proceed
 					// (images won't load for others but message sends)
 				}
 			}
@@ -898,10 +961,6 @@ export const [AppProvider, useApp] = createContextHook(() => {
 		calendarSyncEnabled,
 		toggleCalendarSync,
 		syncAllTasksToCalendar,
-		isLoading:
-			tasksLoading ||
-			classesLoading ||
-			goalsLoading ||
-			notesQuery.isLoading,
+		isLoading: tasksLoading || classesLoading || goalsLoading || notesLoading,
 	};
 });
