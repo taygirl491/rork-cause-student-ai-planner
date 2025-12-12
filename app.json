@@ -60,6 +60,14 @@
         {
           "iCloudContainerEnvironment": "Production"
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "sounds": [
+            "./assets/sound/alarm_clock_90867.wav"
+          ]
+        }
       ]
     ],
     "experiments": {

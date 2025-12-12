@@ -23,6 +23,9 @@ import {
 	orderBy,
 	Timestamp,
 	getDocs,
+	limit,
+	startAfter,
+	DocumentSnapshot,
 } from "firebase/firestore";
 import { useAuth } from "./AuthContext";
 import * as calendarSync from "@/utils/calendarSync";
@@ -54,11 +57,31 @@ export const [AppProvider, useApp] = createContextHook(() => {
 	const [calendarSyncEnabled, setCalendarSyncEnabled] = useState(false);
 	const [appCalendarId, setAppCalendarId] = useState<string | null>(null);
 
+	// Pagination state for tasks
+	const TASKS_PAGE_SIZE = 20;
+	const [lastTaskDoc, setLastTaskDoc] = useState<DocumentSnapshot | null>(null);
+	const [hasMoreTasks, setHasMoreTasks] = useState(true);
+	const [loadingMoreTasks, setLoadingMoreTasks] = useState(false);
+
+	// Video Configuration State
+	const [videoConfig, setVideoConfig] = useState({
+		homeVideoId: "VRSnKzgVTiU", // Default Home Video
+		causesVideoId: "dQw4w9WgXcQ" // Default Causes Video
+	});
+
+	// Pagination state for classes
+	const CLASSES_PAGE_SIZE = 20;
+	const [lastClassDoc, setLastClassDoc] = useState<DocumentSnapshot | null>(null);
+	const [hasMoreClasses, setHasMoreClasses] = useState(true);
+	const [loadingMoreClasses, setLoadingMoreClasses] = useState(false);
+
 	// Real-time Firestore listener for tasks
 	useEffect(() => {
 		if (!user?.uid) {
 			setTasks([]);
 			setTasksLoading(false);
+			setLastTaskDoc(null);
+			setHasMoreTasks(true);
 			return;
 		}
 
@@ -66,7 +89,8 @@ export const [AppProvider, useApp] = createContextHook(() => {
 		const q = query(
 			tasksRef,
 			where("userId", "==", user.uid),
-			orderBy("createdAt", "desc")
+			orderBy("createdAt", "desc"),
+			limit(TASKS_PAGE_SIZE)
 		);
 
 		const unsubscribe = onSnapshot(
@@ -91,6 +115,14 @@ export const [AppProvider, useApp] = createContextHook(() => {
 				});
 				setTasks(tasksData);
 				setTasksLoading(false);
+
+				// Set last document for pagination
+				if (snapshot.docs.length > 0) {
+					setLastTaskDoc(snapshot.docs[snapshot.docs.length - 1]);
+					setHasMoreTasks(snapshot.docs.length === TASKS_PAGE_SIZE);
+				} else {
+					setHasMoreTasks(false);
+				}
 			},
 			(error) => {
 				console.error("Firestore listener error:", error);
@@ -101,11 +133,60 @@ export const [AppProvider, useApp] = createContextHook(() => {
 		return () => unsubscribe();
 	}, [user?.uid]);
 
+	// Load more tasks function
+	const loadMoreTasks = async () => {
+		if (!user?.uid || !lastTaskDoc || !hasMoreTasks || loadingMoreTasks) {
+			return;
+		}
+		setLoadingMoreTasks(true);
+		try {
+			const tasksRef = collection(db, "tasks");
+			const q = query(
+				tasksRef,
+				where("userId", "==", user.uid),
+				orderBy("createdAt", "desc"),
+				startAfter(lastTaskDoc),
+				limit(TASKS_PAGE_SIZE)
+			);
+			const snapshot = await getDocs(q);
+			const newTasks: Task[] = [];
+			snapshot.forEach((doc) => {
+				const data = doc.data();
+				newTasks.push({
+					id: doc.id,
+					description: data.description,
+					type: data.type,
+					className: data.className,
+					dueDate: data.dueDate,
+					dueTime: data.dueTime,
+					priority: data.priority,
+					reminder: data.reminder,
+					alarmEnabled: data.alarmEnabled,
+					completed: data.completed,
+					createdAt: data.createdAt,
+				});
+			});
+			setTasks((prev) => [...prev, ...newTasks]);
+			if (snapshot.docs.length > 0) {
+				setLastTaskDoc(snapshot.docs[snapshot.docs.length - 1]);
+				setHasMoreTasks(snapshot.docs.length === TASKS_PAGE_SIZE);
+			} else {
+				setHasMoreTasks(false);
+			}
+		} catch (error) {
+			console.error("Error loading more tasks:", error);
+		} finally {
+			setLoadingMoreTasks(false);
+		}
+	};
+
 	// Real-time Firestore listener for classes
 	useEffect(() => {
 		if (!user?.uid) {
 			setClasses([]);
 			setClassesLoading(false);
+			setLastClassDoc(null);
+			setHasMoreClasses(true);
 			return;
 		}
 
@@ -113,7 +194,8 @@ export const [AppProvider, useApp] = createContextHook(() => {
 		const q = query(
 			classesRef,
 			where("userId", "==", user.uid),
-			orderBy("createdAt", "desc")
+			orderBy("createdAt", "desc"),
+			limit(CLASSES_PAGE_SIZE)
 		);
 
 		const unsubscribe = onSnapshot(
@@ -138,6 +220,13 @@ export const [AppProvider, useApp] = createContextHook(() => {
 				});
 				setClasses(classesData);
 				setClassesLoading(false);
+
+				if (snapshot.docs.length > 0) {
+					setLastClassDoc(snapshot.docs[snapshot.docs.length - 1]);
+					setHasMoreClasses(snapshot.docs.length === CLASSES_PAGE_SIZE);
+				} else {
+					setHasMoreClasses(false);
+				}
 			},
 			(error) => {
 				console.error("Firestore classes listener error:", error);
@@ -147,6 +236,61 @@ export const [AppProvider, useApp] = createContextHook(() => {
 
 		return () => unsubscribe();
 	}, [user?.uid]);
+
+	// Load more classes function
+	const loadMoreClasses = async () => {
+		if (
+			!user?.uid ||
+			!lastClassDoc ||
+			!hasMoreClasses ||
+			loadingMoreClasses
+		) {
+			return;
+		}
+		setLoadingMoreClasses(true);
+		try {
+			const classesRef = collection(db, "classes");
+			const q = query(
+				classesRef,
+				where("userId", "==", user.uid),
+				orderBy("createdAt", "desc"),
+				startAfter(lastClassDoc),
+				limit(CLASSES_PAGE_SIZE)
+			);
+
+			const snapshot = await getDocs(q);
+			const newClasses: Class[] = [];
+			snapshot.forEach((doc) => {
+				const data = doc.data();
+				newClasses.push({
+					id: doc.id,
+					name: data.name,
+					section: data.section,
+					daysOfWeek: data.daysOfWeek,
+					time: data.time,
+					professor: data.professor,
+					startDate: data.startDate,
+					endDate: data.endDate,
+					color: data.color,
+					createdAt: data.createdAt,
+					calendarEventId: data.calendarEventId,
+				});
+			});
+
+			setClasses((prev) => [...prev, ...newClasses]);
+
+			if (snapshot.docs.length > 0) {
+				setLastClassDoc(snapshot.docs[snapshot.docs.length - 1]);
+				setHasMoreClasses(snapshot.docs.length === CLASSES_PAGE_SIZE);
+			} else {
+				setHasMoreClasses(false);
+			}
+		} catch (error) {
+			console.error("Error loading more classes:", error);
+		} finally {
+			setLoadingMoreClasses(false);
+		}
+	};
 
 	// Real-time Firestore listener for study groups
 	useEffect(() => {
@@ -158,11 +302,16 @@ export const [AppProvider, useApp] = createContextHook(() => {
 		const studyGroupsRef = collection(db, "studyGroups");
 		const q = query(studyGroupsRef, orderBy("createdAt", "desc"));
 
+		let messageUnsubscribers: (() => void)[] = [];
+
 		const unsubscribe = onSnapshot(
 			q,
 			(snapshot) => {
+				// Clean up previous message listeners
+				messageUnsubscribers.forEach((unsub) => unsub());
+				messageUnsubscribers = [];
+
 				const groupsData: StudyGroup[] = [];
-				const messageUnsubscribers: (() => void)[] = [];
 
 				snapshot.forEach((groupDoc) => {
 					const data = groupDoc.data();
@@ -234,18 +383,16 @@ export const [AppProvider, useApp] = createContextHook(() => {
 				});
 
 				setStudyGroups(groupsData);
-
-				// Clean up message listeners when groups change
-				return () => {
-					messageUnsubscribers.forEach((unsub) => unsub());
-				};
 			},
 			(error) => {
 				console.error("Firestore study groups listener error:", error);
 			}
 		);
 
-		return () => unsubscribe();
+		return () => {
+			unsubscribe();
+			messageUnsubscribers.forEach((unsub) => unsub());
+		};
 	}, [user?.uid, user?.email]);
 
 	// Real-time Firestore listener for goals
@@ -335,6 +482,24 @@ export const [AppProvider, useApp] = createContextHook(() => {
 		return () => unsubscribe();
 	}, [user?.uid]);
 
+	// Video Configuration Listener
+	useEffect(() => {
+		const videoDocRef = doc(db, 'content', 'videos');
+		const unsubscribe = onSnapshot(videoDocRef, (docSnap) => {
+			if (docSnap.exists()) {
+				const data = docSnap.data();
+				setVideoConfig({
+					homeVideoId: data.homeVideoId || "VRSnKzgVTiU",
+					causesVideoId: data.causesVideoId || "dQw4w9WgXcQ"
+				});
+			}
+		}, (error) => {
+			console.error("Error listening to video config:", error);
+		});
+
+		return () => unsubscribe();
+	}, []);
+
 	const tasksQuery = useQuery({
 		queryKey: ["tasks"],
 		queryFn: async () => {
@@ -352,10 +517,6 @@ export const [AppProvider, useApp] = createContextHook(() => {
 		},
 		enabled: false, // Disabled since we're using Firestore listener
 	});
-
-	// Removed: notes are now managed by Firestore listener
-
-	// Removed: study groups now managed by Firestore listener
 
 	// Load calendar sync settings
 	useEffect(() => {
@@ -381,12 +542,6 @@ export const [AppProvider, useApp] = createContextHook(() => {
 
 		loadCalendarSettings();
 	}, []);
-
-	// Removed: syncTasksMutation (Firestore handles persistence)
-
-	// Removed: syncClassesMutation (Firestore handles persistence)
-
-	// Removed: syncNotesMutation (Firestore handles persistence)
 
 	const addTask = async (task: Task) => {
 		if (!user?.uid) return;
@@ -961,6 +1116,13 @@ export const [AppProvider, useApp] = createContextHook(() => {
 		calendarSyncEnabled,
 		toggleCalendarSync,
 		syncAllTasksToCalendar,
+		loadMoreTasks,
+		hasMoreTasks,
+		loadingMoreTasks,
+		loadMoreClasses,
+		hasMoreClasses,
+		loadingMoreClasses,
 		isLoading: tasksLoading || classesLoading || goalsLoading || notesLoading,
+		videoConfig,
 	};
 });

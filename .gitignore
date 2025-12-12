@@ -43,5 +43,6 @@ bun.lock
 !package.json
 !tsconfig.json
 !babel.config.json
+!google-services.json
 backend/serviceAccountKey.json
 causeai-*.json

@@ -10,6 +10,11 @@ import {
   Animated,
   Platform,
   Alert,
+  ActivityIndicator,
+  FlatList,
+  KeyboardAvoidingView,
+  TouchableWithoutFeedback,
+  Keyboard,
   Pressable,
 } from 'react-native';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
@@ -22,7 +27,9 @@ import Mascot from '@/components/Mascot';
 import SearchBar from '@/components/SearchBar';
 
 export default function TasksScreen() {
-  const { sortedTasks, addTask, updateTask, deleteTask, classes } = useApp();
+  const { sortedTasks, addTask, updateTask, deleteTask, classes, loadMoreTasks,
+    hasMoreTasks,
+    loadingMoreTasks, } = useApp();
   const [showModal, setShowModal] = useState(false);
   const [showActionSheet, setShowActionSheet] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
@@ -208,364 +215,398 @@ export default function TasksScreen() {
     return `In ${diff} days`;
   };
 
-  return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.title}>Upcoming Tasks</Text>
-            <Text style={styles.subtitle}>You have {filteredTasks.filter(t => !t.completed).length} tasks pending</Text>
-          </View>
-          <TouchableOpacity style={styles.addButton} onPress={() => setShowModal(true)}>
-            <Plus size={24} color={colors.surface} />
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.searchContainer}>
-          <SearchBar
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            placeholder="Search tasks..."
-          />
-        </View>
-
-        <View style={styles.filtersContainer}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filtersScroll}>
-            <TouchableOpacity
-              style={[styles.filterChip, activeFilter === 'all' && styles.filterChipActive]}
-              onPress={() => setActiveFilter('all')}
-            >
-              <Text style={[styles.filterChipText, activeFilter === 'all' && styles.filterChipTextActive]}>All</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.filterChip, activeFilter === 'active' && styles.filterChipActive]}
-              onPress={() => setActiveFilter('active')}
-            >
-              <Text style={[styles.filterChipText, activeFilter === 'active' && styles.filterChipTextActive]}>Active</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.filterChip, activeFilter === 'completed' && styles.filterChipActive]}
-              onPress={() => setActiveFilter('completed')}
-            >
-              <Text style={[styles.filterChipText, activeFilter === 'completed' && styles.filterChipTextActive]}>Completed</Text>
-            </TouchableOpacity>
-            <View style={styles.filterDivider} />
-            {taskTypes.map((type) => (
-              <TouchableOpacity
-                key={type}
-                style={[styles.filterChip, activeFilter === type && styles.filterChipActive]}
-                onPress={() => setActiveFilter(type)}
-              >
-                <Text style={[styles.filterChipText, activeFilter === type && styles.filterChipTextActive]}>
-                  {type.charAt(0).toUpperCase() + type.slice(1)}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
-
-        <View style={styles.taskListContainer}>
-          {filteredTasks.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Mascot size={80} />
-              <Text style={styles.emptyText}>
-                {searchQuery || activeFilter !== 'all'
-                  ? 'No tasks match your filters'
-                  : 'No tasks yet'}
-              </Text>
-              <Text style={styles.emptySubtext}>
-                {searchQuery || activeFilter !== 'all'
-                  ? 'Try adjusting your search or filters'
-                  : 'Tap the + button to create your first task'}
-              </Text>
-            </View>
+  const renderTaskItem = ({ item: task }: { item: Task }) => (
+    <Pressable
+      style={[
+        styles.taskCard,
+        task.completed && styles.taskCardCompleted,
+      ]}
+      onPress={() => toggleTaskComplete(task)}
+      onLongPress={() => handleLongPress(task)}
+    >
+      <View style={styles.taskLeft}>
+        <View style={[styles.taskIcon, { backgroundColor: colors.taskColors[task.type] }]}>
+          {task.completed ? (
+            <CheckCircle size={24} color={colors.surface} />
           ) : (
-            <View style={styles.taskList}>
-              {filteredTasks.map((task) => (
-                <Pressable
-                  key={task.id}
-                  style={[
-                    styles.taskCard,
-                    task.completed && styles.taskCardCompleted,
-                  ]}
-                  onPress={() => toggleTaskComplete(task)}
-                  onLongPress={() => handleLongPress(task)}
-                >
-                  <View style={styles.taskLeft}>
-                    <View style={[styles.taskIcon, { backgroundColor: colors.taskColors[task.type] }]}>
-                      {task.completed ? (
-                        <CheckCircle size={24} color={colors.surface} />
-                      ) : (
-                        <Circle size={24} color={colors.surface} />
-                      )}
-                    </View>
-                    <View style={styles.taskContent}>
-                      <Text style={[styles.taskTitle, task.completed && styles.taskTitleCompleted]}>
-                        {task.description}
-                      </Text>
-                      <View style={styles.taskMeta}>
-                        <View style={[styles.typeBadge, { backgroundColor: colors.taskColors[task.type] + '20' }]}>
-                          <Text style={[styles.typeBadgeText, { color: colors.taskColors[task.type] }]}>
-                            {task.type}
-                          </Text>
-                        </View>
-                        {task.className && (
-                          <Text style={styles.taskClass}>{task.className}</Text>
-                        )}
-                      </View>
-                      <Text style={styles.taskDate}>
-                        {getDaysUntil(task.dueDate)} • {formatDate(task.dueDate)}
-                        {task.dueTime && ` at ${task.dueTime}`}
-                      </Text>
-                    </View>
-                  </View>
-                  <View style={[styles.priorityDot, { backgroundColor: colors.priorityColors[task.priority] }]} />
-                </Pressable>
-              ))}
-            </View>
+            <Circle size={24} color={colors.surface} />
           )}
         </View>
-      </ScrollView>
-
-      <Modal visible={showModal} transparent animationType="fade" onRequestClose={() => setShowModal(false)}>
-        <View style={styles.modalOverlay}>
-          <Animated.View style={[styles.modalContent, { transform: [{ scale: scaleAnim }] }]}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>{isEditing ? 'Edit Task' : 'Create Task'}</Text>
-              <TouchableOpacity onPress={() => {
-                setShowModal(false);
-                setIsEditing(false);
-                setSelectedTask(null);
-                resetForm();
-              }}>
-                <X size={24} color={colors.text} />
+        <View style={styles.taskContent}>
+          <Text style={[styles.taskTitle, task.completed && styles.taskTitleCompleted]}>
+            {task.description}
+          </Text>
+          <View style={styles.taskMeta}>
+            <View style={[styles.typeBadge, { backgroundColor: colors.taskColors[task.type] + '20' }]}>
+              <Text style={[styles.typeBadgeText, { color: colors.taskColors[task.type] }]}>
+                {task.type}
+              </Text>
+            </View>
+            {task.className && (
+              <Text style={styles.taskClass}>{task.className}</Text>
+            )}
+          </View>
+          <Text style={styles.taskDate}>
+            {getDaysUntil(task.dueDate)} • {formatDate(task.dueDate)}
+            {task.dueTime && ` at ${task.dueTime}`}
+          </Text>
+        </View>
+      </View>
+      <View style={[styles.priorityDot, { backgroundColor: colors.priorityColors[task.priority] }]} />
+    </Pressable>
+  );
+  // Footer component for loading indicator
+  const renderFooter = () => {
+    if (!loadingMoreTasks) return null;
+    return (
+      <View style={styles.footerLoader}>
+        <ActivityIndicator size="small" color={colors.primary} />
+        <Text style={styles.footerText}>Loading more tasks...</Text>
+      </View>
+    );
+  };
+  return (
+    <SafeAreaView style={styles.container} edges={['bottom']}>
+      <FlatList
+        data={filteredTasks}
+        renderItem={renderTaskItem}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={styles.taskListContent}
+        ListHeaderComponent={
+          <>
+            <View style={styles.header}>
+              <View>
+                <Text style={styles.title}>Upcoming Tasks</Text>
+                <Text style={styles.subtitle}>You have {filteredTasks.filter(t => !t.completed).length} tasks pending</Text>
+              </View>
+              <TouchableOpacity style={styles.addButton} onPress={() => setShowModal(true)}>
+                <Plus size={24} color={colors.surface} />
               </TouchableOpacity>
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false}>
-              <Text style={styles.label}>Description *</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Enter task description"
-                placeholderTextColor={colors.textLight}
-                value={description}
-                onChangeText={setDescription}
+            <View style={styles.searchContainer}>
+              <SearchBar
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                placeholder="Search tasks..."
               />
+            </View>
 
-              <Text style={styles.label}>Type *</Text>
-              <View style={styles.optionGrid}>
+            <View style={styles.filtersContainer}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filtersScroll}>
+                <TouchableOpacity
+                  style={[styles.filterChip, activeFilter === 'all' && styles.filterChipActive]}
+                  onPress={() => setActiveFilter('all')}
+                >
+                  <Text style={[styles.filterChipText, activeFilter === 'all' && styles.filterChipTextActive]}>All</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.filterChip, activeFilter === 'active' && styles.filterChipActive]}
+                  onPress={() => setActiveFilter('active')}
+                >
+                  <Text style={[styles.filterChipText, activeFilter === 'active' && styles.filterChipTextActive]}>Active</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.filterChip, activeFilter === 'completed' && styles.filterChipActive]}
+                  onPress={() => setActiveFilter('completed')}
+                >
+                  <Text style={[styles.filterChipText, activeFilter === 'completed' && styles.filterChipTextActive]}>Completed</Text>
+                </TouchableOpacity>
+                <View style={styles.filterDivider} />
                 {taskTypes.map((type) => (
                   <TouchableOpacity
                     key={type}
-                    style={[
-                      styles.optionChip,
-                      taskType === type && { backgroundColor: colors.taskColors[type] },
-                    ]}
-                    onPress={() => setTaskType(type)}
+                    style={[styles.filterChip, activeFilter === type && styles.filterChipActive]}
+                    onPress={() => setActiveFilter(type)}
                   >
-                    <Text
-                      style={[
-                        styles.optionChipText,
-                        taskType === type && { color: colors.surface },
-                      ]}
-                    >
-                      {type}
+                    <Text style={[styles.filterChipText, activeFilter === type && styles.filterChipTextActive]}>
+                      {type.charAt(0).toUpperCase() + type.slice(1)}
                     </Text>
                   </TouchableOpacity>
                 ))}
-              </View>
+              </ScrollView>
+            </View>
+          </>
+        }
+        ListEmptyComponent={() => (
+          <View style={styles.emptyState}>
+            <Mascot size={80} />
+            <Text style={styles.emptyText}>
+              {searchQuery || activeFilter !== 'all'
+                ? 'No tasks match your filters'
+                : 'No tasks yet'}
+            </Text>
+            <Text style={styles.emptySubtext}>
+              {searchQuery || activeFilter !== 'all'
+                ? 'Try adjusting your search or filters'
+                : 'Tap the + button to create your first task'}
+            </Text>
+          </View>
+        )}
+        ListFooterComponent={renderFooter}
+        onEndReached={() => {
+          if (hasMoreTasks && !loadingMoreTasks) {
+            loadMoreTasks();
+          }
+        }}
+        onEndReachedThreshold={0.5}
+        showsVerticalScrollIndicator={false}
+      />
 
-              <Text style={styles.label}>Class</Text>
-              <View style={styles.optionGrid}>
-                <TouchableOpacity
-                  style={[
-                    styles.optionChip,
-                    !selectedClass && { backgroundColor: colors.primary },
-                  ]}
-                  onPress={() => setSelectedClass('')}
-                >
-                  <Text
-                    style={[
-                      styles.optionChipText,
-                      !selectedClass && { color: colors.surface },
-                    ]}
-                  >
-                    None
-                  </Text>
-                </TouchableOpacity>
-                {classes.map((cls) => (
-                  <TouchableOpacity
-                    key={cls.id}
-                    style={[
-                      styles.optionChip,
-                      selectedClass === cls.name && { backgroundColor: cls.color },
-                    ]}
-                    onPress={() => setSelectedClass(cls.name)}
-                  >
-                    <Text
+      <Modal visible={showModal} transparent animationType="fade" onRequestClose={() => setShowModal(false)}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.keyboardAvoidingView}
+        >
+          <TouchableOpacity
+            style={styles.modalOverlay}
+            activeOpacity={1}
+            onPress={() => setShowModal(false)}
+          >
+            <TouchableOpacity
+              activeOpacity={1}
+              onPress={(e) => e.stopPropagation()}
+              style={{ width: '100%', alignItems: 'center' }}
+            >
+              <Animated.View style={[styles.modalContent, { transform: [{ scale: scaleAnim }] }]}>
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>{isEditing ? 'Edit Task' : 'Create Task'}</Text>
+                  <TouchableOpacity onPress={() => {
+                    setShowModal(false);
+                    setIsEditing(false);
+                    setSelectedTask(null);
+                    resetForm();
+                  }}>
+                    <X size={24} color={colors.text} />
+                  </TouchableOpacity>
+                </View>
+
+                <ScrollView showsVerticalScrollIndicator={false}>
+                  <Text style={styles.label}>Description *</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Enter task description"
+                    placeholderTextColor={colors.textLight}
+                    value={description}
+                    onChangeText={setDescription}
+                  />
+
+                  <Text style={styles.label}>Type *</Text>
+                  <View style={styles.optionGrid}>
+                    {taskTypes.map((type) => (
+                      <TouchableOpacity
+                        key={type}
+                        style={[
+                          styles.optionChip,
+                          taskType === type && { backgroundColor: colors.taskColors[type] },
+                        ]}
+                        onPress={() => setTaskType(type)}
+                      >
+                        <Text
+                          style={[
+                            styles.optionChipText,
+                            taskType === type && { color: colors.surface },
+                          ]}
+                        >
+                          {type}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+
+                  <Text style={styles.label}>Class</Text>
+                  <View style={styles.optionGrid}>
+                    <TouchableOpacity
                       style={[
-                        styles.optionChipText,
-                        selectedClass === cls.name && { color: colors.surface },
+                        styles.optionChip,
+                        !selectedClass && { backgroundColor: colors.primary },
                       ]}
+                      onPress={() => setSelectedClass('')}
                     >
-                      {cls.name}
+                      <Text
+                        style={[
+                          styles.optionChipText,
+                          !selectedClass && { color: colors.surface },
+                        ]}
+                      >
+                        None
+                      </Text>
+                    </TouchableOpacity>
+                    {classes.map((cls) => (
+                      <TouchableOpacity
+                        key={cls.id}
+                        style={[
+                          styles.optionChip,
+                          selectedClass === cls.name && { backgroundColor: cls.color },
+                        ]}
+                        onPress={() => setSelectedClass(cls.name)}
+                      >
+                        <Text
+                          style={[
+                            styles.optionChipText,
+                            selectedClass === cls.name && { color: colors.surface },
+                          ]}
+                        >
+                          {cls.name}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+
+                  <Text style={styles.label}>Due Date *</Text>
+                  <TouchableOpacity
+                    style={styles.input}
+                    onPress={() => setShowDatePicker(true)}
+                  >
+                    <Text style={styles.inputText}>
+                      {dueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                     </Text>
                   </TouchableOpacity>
-                ))}
-              </View>
+                  <DateTimePickerModal
+                    isVisible={showDatePicker}
+                    mode="date"
+                    date={dueDate}
+                    onConfirm={(date) => {
+                      setShowDatePicker(false);
+                      setDueDate(date);
+                    }}
+                    onCancel={() => setShowDatePicker(false)}
+                  />
 
-              <Text style={styles.label}>Due Date *</Text>
-              <TouchableOpacity
-                style={styles.input}
-                onPress={() => setShowDatePicker(true)}
-              >
-                <Text style={styles.inputText}>
-                  {dueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                </Text>
-              </TouchableOpacity>
-              <DateTimePickerModal
-                isVisible={showDatePicker}
-                mode="date"
-                date={dueDate}
-                onConfirm={(date) => {
-                  setShowDatePicker(false);
-                  setDueDate(date);
-                }}
-                onCancel={() => setShowDatePicker(false)}
-              />
-
-              <Text style={styles.label}>Due Time</Text>
-              <TouchableOpacity
-                style={styles.input}
-                onPress={() => setShowTimePicker(true)}
-              >
-                <Text style={styles.inputText}>
-                  {dueTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
-                </Text>
-              </TouchableOpacity>
-              <DateTimePickerModal
-                isVisible={showTimePicker}
-                mode="time"
-                date={dueTime}
-                onConfirm={(time) => {
-                  setShowTimePicker(false);
-                  setDueTime(time);
-                }}
-                onCancel={() => setShowTimePicker(false)}
-              />
-
-              <Text style={styles.label}>Priority</Text>
-              <View style={styles.optionGrid}>
-                {priorities.map((p) => (
+                  <Text style={styles.label}>Due Time</Text>
                   <TouchableOpacity
-                    key={p}
-                    style={[
-                      styles.optionChip,
-                      priority === p && { backgroundColor: colors.priorityColors[p] },
-                    ]}
-                    onPress={() => setPriority(p)}
+                    style={styles.input}
+                    onPress={() => setShowTimePicker(true)}
                   >
-                    <Text
-                      style={[
-                        styles.optionChipText,
-                        priority === p && { color: colors.surface },
-                      ]}
-                    >
-                      {p}
+                    <Text style={styles.inputText}>
+                      {dueTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
                     </Text>
                   </TouchableOpacity>
-                ))}
-              </View>
+                  <DateTimePickerModal
+                    isVisible={showTimePicker}
+                    mode="time"
+                    date={dueTime}
+                    onConfirm={(time) => {
+                      setShowTimePicker(false);
+                      setDueTime(time);
+                    }}
+                    onCancel={() => setShowTimePicker(false)}
+                  />
 
-              <Text style={styles.label}>Reminder</Text>
-              <View style={styles.optionGrid}>
-                {reminders.map((r) => (
-                  <TouchableOpacity
-                    key={r}
-                    style={[
-                      styles.optionChip,
-                      reminder === r && { backgroundColor: colors.primary },
-                    ]}
-                    onPress={() => {
-                      setReminder(r);
-                      if (r === 'custom') {
-                        // Set minimum date to current time + 1 minute
-                        const minDate = new Date();
-                        minDate.setMinutes(minDate.getMinutes() + 1);
-                        setCustomReminderDate(minDate);
-                        setShowCustomReminderPicker(true);
+                  <Text style={styles.label}>Priority</Text>
+                  <View style={styles.optionGrid}>
+                    {priorities.map((p) => (
+                      <TouchableOpacity
+                        key={p}
+                        style={[
+                          styles.optionChip,
+                          priority === p && { backgroundColor: colors.priorityColors[p] },
+                        ]}
+                        onPress={() => setPriority(p)}
+                      >
+                        <Text
+                          style={[
+                            styles.optionChipText,
+                            priority === p && { color: colors.surface },
+                          ]}
+                        >
+                          {p}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+
+                  <Text style={styles.label}>Reminder</Text>
+                  <View style={styles.optionGrid}>
+                    {reminders.map((r) => (
+                      <TouchableOpacity
+                        key={r}
+                        style={[
+                          styles.optionChip,
+                          reminder === r && { backgroundColor: colors.primary },
+                        ]}
+                        onPress={() => {
+                          setReminder(r);
+                          if (r === 'custom') {
+                            // Set minimum date to current time + 1 minute
+                            const minDate = new Date();
+                            minDate.setMinutes(minDate.getMinutes() + 1);
+                            setCustomReminderDate(minDate);
+                            setShowCustomReminderPicker(true);
+                          }
+                        }}
+                      >
+                        <Text
+                          style={[
+                            styles.optionChipText,
+                            reminder === r && { color: colors.surface },
+                          ]}
+                        >
+                          {r}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+
+                  {reminder === 'custom' && (
+                    <TouchableOpacity
+                      style={[styles.input, { marginTop: 8 }]}
+                      onPress={() => setShowCustomReminderPicker(true)}
+                    >
+                      <Text style={styles.inputText}>
+                        {customReminderDate.toLocaleString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                  <DateTimePickerModal
+                    isVisible={showCustomReminderPicker}
+                    mode="datetime"
+                    date={customReminderDate}
+                    minimumDate={new Date()}
+                    onConfirm={(date) => {
+                      if (date > new Date()) {
+                        setShowCustomReminderPicker(false);
+                        setCustomReminderDate(date);
+                      } else {
+                        setShowCustomReminderPicker(false);
+                        Alert.alert(
+                          'Invalid Date',
+                          'Reminder must be set for a future date and time.',
+                          [{ text: 'OK' }]
+                        );
                       }
                     }}
+                    onCancel={() => setShowCustomReminderPicker(false)}
+                  />
+
+                  <TouchableOpacity
+                    style={[styles.checkboxRow, alarmEnabled && styles.checkboxRowActive]}
+                    onPress={() => setAlarmEnabled(!alarmEnabled)}
                   >
-                    <Text
-                      style={[
-                        styles.optionChipText,
-                        reminder === r && { color: colors.surface },
-                      ]}
-                    >
-                      {r}
-                    </Text>
+                    <View style={[styles.checkbox, alarmEnabled && styles.checkboxChecked]}>
+                      {alarmEnabled && <CheckCircle size={20} color={colors.surface} />}
+                    </View>
+                    <Text style={styles.checkboxLabel}>Enable alarm sound</Text>
                   </TouchableOpacity>
-                ))}
-              </View>
 
-              {reminder === 'custom' && (
-                <TouchableOpacity
-                  style={[styles.input, { marginTop: 8 }]}
-                  onPress={() => setShowCustomReminderPicker(true)}
-                >
-                  <Text style={styles.inputText}>
-                    {customReminderDate.toLocaleString('en-US', {
-                      month: 'short',
-                      day: 'numeric',
-                      year: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-                  </Text>
-                </TouchableOpacity>
-              )}
-              <DateTimePickerModal
-                isVisible={showCustomReminderPicker}
-                mode="datetime"
-                date={customReminderDate}
-                minimumDate={new Date()}
-                onConfirm={(date) => {
-                  if (date > new Date()) {
-                    setShowCustomReminderPicker(false);
-                    setCustomReminderDate(date);
-                  } else {
-                    setShowCustomReminderPicker(false);
-                    Alert.alert(
-                      'Invalid Date',
-                      'Reminder must be set for a future date and time.',
-                      [{ text: 'OK' }]
-                    );
-                  }
-                }}
-                onCancel={() => setShowCustomReminderPicker(false)}
-              />
-
-              <TouchableOpacity
-                style={[styles.checkboxRow, alarmEnabled && styles.checkboxRowActive]}
-                onPress={() => setAlarmEnabled(!alarmEnabled)}
-              >
-                <View style={[styles.checkbox, alarmEnabled && styles.checkboxChecked]}>
-                  {alarmEnabled && <CheckCircle size={20} color={colors.surface} />}
-                </View>
-                <Text style={styles.checkboxLabel}>Enable alarm sound</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.createButton, !description && styles.createButtonDisabled]}
-                onPress={handleAddTask}
-                disabled={!description}
-              >
-                <Text style={styles.createButtonText}>{isEditing ? 'Update Task' : 'Create Task'}</Text>
-              </TouchableOpacity>
-            </ScrollView>
-          </Animated.View>
-        </View>
+                  <TouchableOpacity
+                    style={[styles.createButton, !description && styles.createButtonDisabled]}
+                    onPress={handleAddTask}
+                    disabled={!description}
+                  >
+                    <Text style={styles.createButtonText}>{isEditing ? 'Update Task' : 'Create Task'}</Text>
+                  </TouchableOpacity>
+                </ScrollView>
+              </Animated.View>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Action Sheet Modal */}
@@ -636,8 +677,18 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
-  taskListContainer: {
-    flex: 1,
+  taskListContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  footerLoader: {
+    paddingVertical: 20,
+    alignItems: 'center',
+  },
+  footerText: {
+    marginTop: 8,
+    fontSize: 14,
+    color: colors.textSecondary,
   },
   emptyState: {
     alignItems: 'center',
@@ -903,5 +954,21 @@ const styles = StyleSheet.create({
     height: 24,
     backgroundColor: colors.border,
     marginHorizontal: 4,
+  },
+  taskListContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  footerLoader: {
+    paddingVertical: 20,
+    alignItems: 'center',
+  },
+  footerText: {
+    marginTop: 8,
+    fontSize: 14,
+    color: colors.text,
+  },
+  keyboardAvoidingView: {
+    flex: 1,
   },
 });

@@ -49,12 +49,12 @@ export async function requestNotificationPermissions(): Promise<boolean> {
  */
 export async function setupNotificationChannels() {
   if (Platform.OS === 'android') {
-    await Notifications.setNotificationChannelAsync('task-reminders', {
+    await Notifications.setNotificationChannelAsync('task-reminders-v2', {
       name: 'Task Reminders',
       importance: Notifications.AndroidImportance.HIGH,
       vibrationPattern: [0, 250, 250, 250],
       lightColor: '#6366F1',
-      sound: 'default',
+      sound: 'alarm_clock_90867.wav',
       enableVibrate: true,
     });
   }
@@ -167,7 +167,10 @@ export async function scheduleTaskReminder(task: Task): Promise<string | null> {
         },
         sound: task.alarmEnabled ? 'default' : undefined,
         badge: 1,
-      },
+        color: '#6366F1',
+        // @ts-ignore
+        channelId: 'task-reminders-v2',
+      } as Notifications.NotificationContentInput, // Cast to any to allow channelId on Android if needed, though usually part of content
       trigger: {
         type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
         seconds: secondsUntilTrigger > 0 ? secondsUntilTrigger : 1,
