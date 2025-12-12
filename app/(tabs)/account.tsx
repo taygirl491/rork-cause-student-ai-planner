@@ -5,9 +5,13 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
   Modal,
   Linking,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
+  TouchableWithoutFeedback,
+  Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
@@ -21,19 +25,96 @@ import {
   Crown,
   Heart,
   CheckCircle2,
+  Lock,
 } from 'lucide-react-native';
 import colors from '@/constants/colors';
 import LogoButton from '@/components/LogoButton';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'expo-router';
+// TextInput is imported from react-native above
+import { TERMS_AND_CONDITIONS, PRIVACY_POLICY } from '@/constants/LegalText';
 
 type SubscriptionTier = 'free' | 'monthly' | 'yearly';
 
 export default function AccountScreen() {
   const [currentSubscription, setCurrentSubscription] = useState<SubscriptionTier>('free');
   const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const { user, logout } = useAuth();
+  const { user, logout, changePassword } = useAuth();
   const router = useRouter();
+
+  // Change Password State
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+
+  // Specific field errors
+  const [currPassError, setCurrPassError] = useState('');
+  const [newPassError, setNewPassError] = useState('');
+  const [confirmPassError, setConfirmPassError] = useState('');
+
+  // Legal Modals State
+  const [showTermsModal, setShowTermsModal] = useState(false);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+
+  const clearErrors = () => {
+    setCurrPassError('');
+    setNewPassError('');
+    setConfirmPassError('');
+  };
+
+  const handleChangePassword = async () => {
+    clearErrors();
+    let hasError = false;
+
+    if (!currentPassword) {
+      setCurrPassError('Current password is required');
+      hasError = true;
+    }
+
+    if (!newPassword) {
+      setNewPassError('New password is required');
+      hasError = true;
+    } else if (newPassword.length < 6) {
+      setNewPassError('Password must be at least 6 characters');
+      hasError = true;
+    }
+
+    if (!confirmPassword) {
+      setConfirmPassError('Please confirm your new password');
+      hasError = true;
+    } else if (newPassword !== confirmPassword) {
+      setConfirmPassError('Passwords do not match');
+      hasError = true;
+    }
+
+    if (hasError) return;
+
+    setIsChangingPassword(true);
+    try {
+      await changePassword(currentPassword, newPassword);
+      setShowPasswordModal(false);
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      clearErrors();
+      Alert.alert('Success', 'Password changed successfully');
+    } catch (error: any) {
+      console.log('Password change error:', error.code, error.message);
+      if (error.code === 'auth/wrong-password' || error.message.includes('invalid-credential')) {
+        setCurrPassError('Incorrect current password');
+      } else if (error.code === 'auth/weak-password') {
+        setNewPassError('Password is too weak');
+      } else if (error.code === 'auth/requires-recent-login') {
+        Alert.alert('Security Update', 'Please log out and log back in to change your password.');
+      } else {
+        Alert.alert('Error', error.message || 'Failed to change password. Please try again.');
+      }
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
 
   const handleManagePayment = () => {
     setShowPaymentModal(true);
@@ -59,36 +140,16 @@ export default function AccountScreen() {
     );
   };
 
+
+
   const handleViewPrivacyPolicy = () => {
-    Alert.alert(
-      'Privacy Policy',
-      'Our privacy policy ensures your data is protected. We never share your personal information without consent.\n\nFor the full privacy policy, visit our website.',
-      [
-        { text: 'OK' },
-        {
-          text: 'Visit Website',
-          onPress: () => {
-            Linking.openURL('https://example.com/privacy');
-          },
-        },
-      ]
-    );
+    console.log('Opening Privacy Modal');
+    setShowPrivacyModal(true);
   };
 
   const handleViewTerms = () => {
-    Alert.alert(
-      'Terms & Conditions',
-      'By using Cause Student AI, you agree to our terms of service. Subscriptions auto-renew unless cancelled.\n\nFor full terms, visit our website.',
-      [
-        { text: 'OK' },
-        {
-          text: 'Visit Website',
-          onPress: () => {
-            Linking.openURL('https://example.com/terms');
-          },
-        },
-      ]
-    );
+    console.log('Opening Terms Modal');
+    setShowTermsModal(true);
   };
 
   const handleDeleteAccount = () => {
@@ -223,6 +284,17 @@ export default function AccountScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Account Actions</Text>
 
+
+          <TouchableOpacity style={styles.menuItem} onPress={() => setShowPasswordModal(true)}>
+            <View style={styles.menuItemLeft}>
+              <View style={[styles.menuIcon, { backgroundColor: colors.accent + '15' }]}>
+                <Lock size={20} color={colors.accent} />
+              </View>
+              <Text style={styles.menuItemText}>Change Password</Text>
+            </View>
+            <ChevronRight size={20} color={colors.textLight} />
+          </TouchableOpacity>
+
           <TouchableOpacity style={styles.menuItem} onPress={handleSignOut}>
             <View style={styles.menuItemLeft}>
               <View style={[styles.menuIcon, { backgroundColor: colors.textSecondary + '15' }]}>
@@ -328,6 +400,145 @@ export default function AccountScreen() {
                 more!
               </Text>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={showPasswordModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowPasswordModal(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={{ flex: 1 }}
+        >
+          <TouchableOpacity
+            activeOpacity={1}
+            onPress={() => setShowPasswordModal(false)}
+            style={styles.modalOverlay}
+          >
+            <TouchableOpacity
+              activeOpacity={1}
+              onPress={(e) => {
+                e.stopPropagation();
+                Keyboard.dismiss();
+              }}
+            >
+              <View style={styles.modalContent}>
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>Change Password</Text>
+                  <TouchableOpacity onPress={() => setShowPasswordModal(false)}>
+                    <Text style={styles.modalClose}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <TextInput
+                    style={[styles.modalInput, currPassError ? styles.inputError : null]}
+                    placeholder="Current Password"
+                    placeholderTextColor={colors.textSecondary}
+                    value={currentPassword}
+                    onChangeText={(text) => {
+                      setCurrentPassword(text);
+                      if (currPassError) setCurrPassError('');
+                    }}
+                    secureTextEntry
+                  />
+                  {currPassError ? <Text style={styles.errorText}>{currPassError}</Text> : null}
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <TextInput
+                    style={[styles.modalInput, newPassError ? styles.inputError : null]}
+                    placeholder="New Password"
+                    placeholderTextColor={colors.textSecondary}
+                    value={newPassword}
+                    onChangeText={(text) => {
+                      setNewPassword(text);
+                      if (newPassError) setNewPassError('');
+                    }}
+                    secureTextEntry
+                  />
+                  {newPassError ? <Text style={styles.errorText}>{newPassError}</Text> : null}
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <TextInput
+                    style={[styles.modalInput, confirmPassError ? styles.inputError : null]}
+                    placeholder="Confirm New Password"
+                    placeholderTextColor={colors.textSecondary}
+                    value={confirmPassword}
+                    onChangeText={(text) => {
+                      setConfirmPassword(text);
+                      if (confirmPassError) setConfirmPassError('');
+                    }}
+                    secureTextEntry
+                  />
+                  {confirmPassError ? <Text style={styles.errorText}>{confirmPassError}</Text> : null}
+                </View>
+
+                <TouchableOpacity
+                  style={[
+                    styles.saveButton,
+                    isChangingPassword && styles.saveButtonDisabled
+                  ]}
+                  onPress={handleChangePassword}
+                  disabled={isChangingPassword}
+                >
+                  {isChangingPassword ? (
+                    <Text style={styles.saveButtonText}>Updating...</Text>
+                  ) : (
+                    <Text style={styles.saveButtonText}>Update Password</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Terms Modal */}
+      <Modal
+        visible={showTermsModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowTermsModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, styles.legalModalContent]}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Terms & Conditions</Text>
+              <TouchableOpacity onPress={() => setShowTermsModal(false)}>
+                <Text style={styles.modalClose}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.legalScrollView} showsVerticalScrollIndicator={true}>
+              <Text style={styles.legalText}>{TERMS_AND_CONDITIONS}</Text>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Privacy Modal */}
+      <Modal
+        visible={showPrivacyModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowPrivacyModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, styles.legalModalContent]}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Privacy Policy</Text>
+              <TouchableOpacity onPress={() => setShowPrivacyModal(false)}>
+                <Text style={styles.modalClose}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.legalScrollView} showsVerticalScrollIndicator={true}>
+              <Text style={styles.legalText}>{PRIVACY_POLICY}</Text>
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -613,5 +824,56 @@ const styles = StyleSheet.create({
     fontWeight: '600' as const,
     color: colors.secondary,
     lineHeight: 18,
+  },
+  modalInput: {
+    backgroundColor: colors.background,
+    borderRadius: 12,
+    padding: 16,
+    fontSize: 16,
+    color: colors.text,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginBottom: 16,
+  },
+  saveButton: {
+    backgroundColor: colors.primary,
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  saveButtonDisabled: {
+    opacity: 0.7,
+  },
+  saveButtonText: {
+    color: colors.surface,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  inputGroup: {
+    marginBottom: 16,
+  },
+  inputError: {
+    borderColor: '#FF3B30',
+    borderWidth: 1,
+    marginBottom: 4,
+  },
+  errorText: {
+    color: '#FF3B30',
+    fontSize: 12,
+    marginLeft: 4,
+  },
+  legalModalContent: {
+    height: '80%',
+    paddingBottom: 40,
+  },
+  legalScrollView: {
+    flex: 1,
+  },
+  legalText: {
+    fontSize: 14,
+    color: colors.text,
+    lineHeight: 22,
+    paddingBottom: 24,
   },
 });

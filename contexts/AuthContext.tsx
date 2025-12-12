@@ -2,15 +2,19 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import createContextHook from '@nkzw/create-context-hook';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, useEffect } from 'react';
-import { 
-  signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword, 
-  signOut, 
+import {
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut,
   onAuthStateChanged,
   updateProfile,
   User as FirebaseUser,
   initializeAuth,
-  getReactNativePersistence
+  getReactNativePersistence,
+  sendPasswordResetEmail,
+  updatePassword,
+  reauthenticateWithCredential,
+  EmailAuthProvider
 } from 'firebase/auth';
 import { auth } from '@/firebaseConfig';
 
@@ -85,17 +89,17 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
   const registerMutation = useMutation({
     mutationFn: async (data: { email: string; password: string; name: string }) => {
       const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
-      
+
       // Update profile with name
       if (userCredential.user) {
         await updateProfile(userCredential.user, {
           displayName: data.name,
         });
-        
+
         // Reload user to get updated profile
         await userCredential.user.reload();
       }
-      
+
       return auth.currentUser;
     },
     onSuccess: () => {
@@ -131,6 +135,17 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     login,
     register,
     logout,
+    resetPassword: async (email: string) => {
+      await sendPasswordResetEmail(auth, email);
+    },
+    changePassword: async (currentPassword: string, newPassword: string) => {
+      const user = auth.currentUser;
+      if (!user || !user.email) throw new Error('No user authenticated');
+
+      const credential = EmailAuthProvider.credential(user.email, currentPassword);
+      await reauthenticateWithCredential(user, credential);
+      await updatePassword(user, newPassword);
+    },
     loginError: loginMutation.error,
     registerError: registerMutation.error,
     isLoggingIn: loginMutation.isPending,

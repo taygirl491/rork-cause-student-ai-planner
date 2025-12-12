@@ -11,6 +11,7 @@ import * as NotificationService from "@/utils/notificationService";
 import * as Notifications from "expo-notifications";
 import LogoButton from "@/components/LogoButton";
 import colors from "@/constants/colors";
+import { auth } from "@/firebaseConfig";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -127,7 +128,12 @@ function RootLayoutNav() {
       const inAuthGroup = segments === '/login' || segments === '/register' || segments === '/onboarding';
       const isInvite = segments?.startsWith('/invite');
 
-      if (onboardingComplete === false && !inAuthGroup) {
+      if (isAuthenticated && auth.currentUser?.email === 'minatoventuresinc@gmail.com' && !segments?.startsWith('/admin')) {
+        router.replace('/admin' as any);
+        return;
+      }
+
+      if (onboardingComplete === false && !inAuthGroup && !isAuthenticated) {
         router.replace('/onboarding');
       } else if (!isAuthenticated && !inAuthGroup && !isInvite) {
         // Redirect to login only if not in auth group AND not trying to view an invite

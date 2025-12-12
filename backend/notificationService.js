@@ -73,7 +73,7 @@ async function sendPushNotifications(tokens, title, body, data = {}) {
     for (const token of tokens) {
         messages.push({
             to: token,
-            sound: "default",
+            sound: "alarm_clock_90867.wav",
             title,
             body,
             data,

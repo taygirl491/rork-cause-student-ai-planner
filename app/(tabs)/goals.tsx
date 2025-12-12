@@ -10,6 +10,9 @@ import {
   Animated,
   Platform,
   Alert,
+  KeyboardAvoidingView,
+  TouchableWithoutFeedback,
+  Keyboard,
 } from 'react-native';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -246,99 +249,114 @@ export default function GoalsScreen() {
       </ScrollView>
 
       <Modal visible={showModal} transparent animationType="fade" onRequestClose={() => setShowModal(false)}>
-        <View style={styles.modalOverlay}>
-          <Animated.View style={[styles.modalContent, { transform: [{ scale: scaleAnim }] }]}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>{isEditing ? 'Edit Goal' : 'Create Goal'}</Text>
-              <TouchableOpacity onPress={() => {
-                setShowModal(false);
-                if (isEditing) {
-                  setIsEditing(false);
-                  setSelectedGoal(null);
-                  resetForm();
-                }
-              }}>
-                <X size={24} color={colors.text} />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView showsVerticalScrollIndicator={false}>
-              <Text style={styles.label}>Goal Title *</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Enter your goal"
-                placeholderTextColor={colors.textLight}
-                value={title}
-                onChangeText={setTitle}
-              />
-
-              <Text style={styles.label}>Description</Text>
-              <TextInput
-                style={[styles.input, styles.textArea]}
-                placeholder="Describe your goal"
-                placeholderTextColor={colors.textLight}
-                value={description}
-                onChangeText={setDescription}
-                multiline
-                numberOfLines={3}
-              />
-
-              <Text style={styles.label}>Due Date</Text>
-              <TouchableOpacity
-                style={styles.input}
-                onPress={() => setShowDatePicker(true)}
-              >
-                <Text style={{ color: colors.text }}>
-                  {dueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                </Text>
-              </TouchableOpacity>
-              <DateTimePickerModal
-                isVisible={showDatePicker}
-                mode="date"
-                date={dueDate}
-                onConfirm={(date) => {
-                  setShowDatePicker(false);
-                  setDueDate(date);
-                }}
-                onCancel={() => setShowDatePicker(false)}
-              />
-
-              <Text style={styles.label}>Daily Habits</Text>
-              <View style={styles.habitInputRow}>
-                <TextInput
-                  style={[styles.input, styles.habitInput]}
-                  placeholder="Add a daily habit"
-                  placeholderTextColor={colors.textLight}
-                  value={habitTitle}
-                  onChangeText={setHabitTitle}
-                />
-                <TouchableOpacity style={styles.addHabitButton} onPress={addHabit}>
-                  <Plus size={20} color={colors.surface} />
-                </TouchableOpacity>
-              </View>
-
-              {habits.length > 0 && (
-                <View style={styles.habitsList}>
-                  {habits.map((habit, index) => (
-                    <View key={index} style={styles.habitChip}>
-                      <Text style={styles.habitChipText}>{habit.title}</Text>
-                      <TouchableOpacity onPress={() => removeHabit(index)}>
-                        <Trash2 size={16} color={colors.error} />
-                      </TouchableOpacity>
-                    </View>
-                  ))}
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={{ flex: 1 }}
+        >
+          <TouchableOpacity
+            style={styles.modalOverlay}
+            activeOpacity={1}
+            onPress={() => setShowModal(false)}
+          >
+            <TouchableOpacity
+              activeOpacity={1}
+              onPress={(e) => e.stopPropagation()}
+              style={{ width: '100%', alignItems: 'center' }}
+            >
+              <Animated.View style={[styles.modalContent, { transform: [{ scale: scaleAnim }] }]}>
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>{isEditing ? 'Edit Goal' : 'Create Goal'}</Text>
+                  <TouchableOpacity onPress={() => {
+                    setShowModal(false);
+                    if (isEditing) {
+                      setIsEditing(false);
+                      setSelectedGoal(null);
+                      resetForm();
+                    }
+                  }}>
+                    <X size={24} color={colors.text} />
+                  </TouchableOpacity>
                 </View>
-              )}
 
-              <TouchableOpacity
-                style={styles.createButton}
-                onPress={handleAddGoal}
-              >
-                <Text style={styles.createButtonText}>{isEditing ? 'Update Goal' : 'Create Goal'}</Text>
-              </TouchableOpacity>
-            </ScrollView>
-          </Animated.View>
-        </View>
+                <ScrollView showsVerticalScrollIndicator={false}>
+                  <Text style={styles.label}>Goal Title *</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Enter your goal"
+                    placeholderTextColor={colors.textLight}
+                    value={title}
+                    onChangeText={setTitle}
+                  />
+
+                  <Text style={styles.label}>Description</Text>
+                  <TextInput
+                    style={[styles.input, styles.textArea]}
+                    placeholder="Describe your goal"
+                    placeholderTextColor={colors.textLight}
+                    value={description}
+                    onChangeText={setDescription}
+                    multiline
+                    numberOfLines={3}
+                  />
+
+                  <Text style={styles.label}>Due Date</Text>
+                  <TouchableOpacity
+                    style={styles.input}
+                    onPress={() => setShowDatePicker(true)}
+                  >
+                    <Text style={{ color: colors.text }}>
+                      {dueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </Text>
+                  </TouchableOpacity>
+                  <DateTimePickerModal
+                    isVisible={showDatePicker}
+                    mode="date"
+                    date={dueDate}
+                    onConfirm={(date) => {
+                      setShowDatePicker(false);
+                      setDueDate(date);
+                    }}
+                    onCancel={() => setShowDatePicker(false)}
+                  />
+
+                  <Text style={styles.label}>Daily Habits</Text>
+                  <View style={styles.habitInputRow}>
+                    <TextInput
+                      style={[styles.input, styles.habitInput]}
+                      placeholder="Add a daily habit"
+                      placeholderTextColor={colors.textLight}
+                      value={habitTitle}
+                      onChangeText={setHabitTitle}
+                    />
+                    <TouchableOpacity style={styles.addHabitButton} onPress={addHabit}>
+                      <Plus size={20} color={colors.surface} />
+                    </TouchableOpacity>
+                  </View>
+
+                  {habits.length > 0 && (
+                    <View style={styles.habitsList}>
+                      {habits.map((habit, index) => (
+                        <View key={index} style={styles.habitChip}>
+                          <Text style={styles.habitChipText}>{habit.title}</Text>
+                          <TouchableOpacity onPress={() => removeHabit(index)}>
+                            <Trash2 size={16} color={colors.error} />
+                          </TouchableOpacity>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+
+                  <TouchableOpacity
+                    style={styles.createButton}
+                    onPress={handleAddGoal}
+                  >
+                    <Text style={styles.createButtonText}>{isEditing ? 'Update Goal' : 'Create Goal'}</Text>
+                  </TouchableOpacity>
+                </ScrollView>
+              </Animated.View>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Action Sheet Modal */}
