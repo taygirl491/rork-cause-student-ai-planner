@@ -13,6 +13,11 @@ const { uploadFromBuffer } = require("./cloudinaryConfig");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Trust proxy - required for Render and other cloud platforms
+// This allows Express to trust the X-Forwarded-For header from the proxy
+app.set('trust proxy', 1);
+
+
 // Middleware
 app.use(helmet());
 app.use(cors());
