@@ -5,6 +5,7 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
 import YoutubePlayer from 'react-native-youtube-iframe';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -14,7 +15,7 @@ import colors from '@/constants/colors';
 import { useApp } from '@/contexts/AppContext';
 
 export default function HomeScreen() {
-  const { sortedTasks } = useApp();
+  const { sortedTasks, videoConfig, isLoading } = useApp();
   const router = useRouter();
 
   const educationQuotes = useMemo(() => [
@@ -56,6 +57,14 @@ export default function HomeScreen() {
     if (diff < 0) return `${Math.abs(diff)} days ago`;
     return `In ${diff} days`;
   };
+
+  if (isLoading) {
+    return (
+      <View style={[styles.container, styles.loadingContainer]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
@@ -124,7 +133,7 @@ export default function HomeScreen() {
             <YoutubePlayer
               height={190}
               width={"100%"}
-              videoId="VRSnKzgVTiU"
+              videoId={videoConfig?.homeVideoId || "VRSnKzgVTiU"}
               play={false}
             />
           </View>
@@ -138,6 +147,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  loadingContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   scrollView: {
     flex: 1,

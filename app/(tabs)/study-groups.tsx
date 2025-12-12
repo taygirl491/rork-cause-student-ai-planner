@@ -9,12 +9,15 @@ import {
 	TextInput,
 	Animated,
 	Alert,
-	Linking,
+	KeyboardAvoidingView,
+	Platform,
+	TouchableWithoutFeedback,
+	Keyboard,
 	Share,
+	Linking,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
-	Plus,
 	X,
 	Users,
 	Copy,
@@ -23,6 +26,7 @@ import {
 	FileText,
 	User,
 	Share2,
+	Plus,
 } from "lucide-react-native";
 import * as DocumentPicker from "expo-document-picker";
 import colors from "@/constants/colors";
@@ -348,70 +352,85 @@ export default function StudyGroupsScreen() {
 				animationType="fade"
 				onRequestClose={() => setShowCreateGroupModal(false)}
 			>
-				<View style={styles.modalOverlay}>
-					<Animated.View
-						style={[styles.modalContent, { transform: [{ scale: scaleAnim }] }]}
+				<KeyboardAvoidingView
+					behavior={Platform.OS === "ios" ? "padding" : "height"}
+					style={{ flex: 1 }}
+				>
+					<TouchableOpacity
+						style={styles.modalOverlay}
+						activeOpacity={1}
+						onPress={() => setShowCreateGroupModal(false)}
 					>
-						<View style={styles.modalHeader}>
-							<Text style={styles.modalTitle}>Create Study Group</Text>
-							<TouchableOpacity onPress={() => setShowCreateGroupModal(false)}>
-								<X size={24} color={colors.text} />
-							</TouchableOpacity>
-						</View>
-
-						<ScrollView showsVerticalScrollIndicator={false}>
-							<Text style={styles.label}>Group Name *</Text>
-							<TextInput
-								style={styles.input}
-								placeholder="e.g., Calculus Study Group"
-								placeholderTextColor={colors.textLight}
-								value={groupName}
-								onChangeText={setGroupName}
-							/>
-
-							<Text style={styles.label}>Class *</Text>
-							<TextInput
-								style={styles.input}
-								placeholder="e.g., MATH 101"
-								placeholderTextColor={colors.textLight}
-								value={groupClass}
-								onChangeText={setGroupClass}
-							/>
-
-							<Text style={styles.label}>School or University *</Text>
-							<TextInput
-								style={styles.input}
-								placeholder="e.g., University of California"
-								placeholderTextColor={colors.textLight}
-								value={groupSchool}
-								onChangeText={setGroupSchool}
-							/>
-
-							<Text style={styles.label}>Description</Text>
-							<TextInput
-								style={[styles.input, styles.textArea]}
-								placeholder="Describe the purpose of this study group"
-								placeholderTextColor={colors.textLight}
-								value={groupDescription}
-								onChangeText={setGroupDescription}
-								multiline
-								numberOfLines={4}
-							/>
-
-							<TouchableOpacity
-								style={[
-									styles.createButton,
-									(!groupName || !groupClass || !groupSchool) &&
-									styles.createButtonDisabled,
-								]}
-								onPress={handleCreateGroup}
-								disabled={!groupName || !groupClass || !groupSchool}
+						<TouchableOpacity
+							activeOpacity={1}
+							onPress={(e) => e.stopPropagation()}
+							style={{ width: '100%', alignItems: 'center' }}
+						>
+							<Animated.View
+								style={[styles.modalContent, { transform: [{ scale: scaleAnim }] }]}
 							>
-								<Text style={styles.createButtonText}>Create Group</Text>
-							</TouchableOpacity>
-						</ScrollView>
-					</Animated.View>
-				</View>
+								<View style={styles.modalHeader}>
+									<Text style={styles.modalTitle}>Create Study Group</Text>
+									<TouchableOpacity onPress={() => setShowCreateGroupModal(false)}>
+										<X size={24} color={colors.text} />
+									</TouchableOpacity>
+								</View>
+
+								<ScrollView showsVerticalScrollIndicator={false}>
+									<Text style={styles.label}>Group Name *</Text>
+									<TextInput
+										style={styles.input}
+										placeholder="e.g., Calculus Study Group"
+										placeholderTextColor={colors.textLight}
+										value={groupName}
+										onChangeText={setGroupName}
+									/>
+
+									<Text style={styles.label}>Class *</Text>
+									<TextInput
+										style={styles.input}
+										placeholder="e.g., MATH 101"
+										placeholderTextColor={colors.textLight}
+										value={groupClass}
+										onChangeText={setGroupClass}
+									/>
+
+									<Text style={styles.label}>School or University *</Text>
+									<TextInput
+										style={styles.input}
+										placeholder="e.g., University of California"
+										placeholderTextColor={colors.textLight}
+										value={groupSchool}
+										onChangeText={setGroupSchool}
+									/>
+
+									<Text style={styles.label}>Description</Text>
+									<TextInput
+										style={[styles.input, styles.textArea]}
+										placeholder="Describe the purpose of this study group"
+										placeholderTextColor={colors.textLight}
+										value={groupDescription}
+										onChangeText={setGroupDescription}
+										multiline
+										numberOfLines={4}
+									/>
+
+									<TouchableOpacity
+										style={[
+											styles.createButton,
+											(!groupName || !groupClass || !groupSchool) &&
+											styles.createButtonDisabled,
+										]}
+										onPress={handleCreateGroup}
+										disabled={!groupName || !groupClass || !groupSchool}
+									>
+										<Text style={styles.createButtonText}>Create Group</Text>
+									</TouchableOpacity>
+								</ScrollView>
+							</Animated.View>
+						</TouchableOpacity>
+					</TouchableOpacity>
+				</KeyboardAvoidingView>
 			</Modal>
 
 			<Modal
@@ -420,52 +439,67 @@ export default function StudyGroupsScreen() {
 				animationType="fade"
 				onRequestClose={() => setShowJoinGroupModal(false)}
 			>
-				<View style={styles.modalOverlay}>
-					<Animated.View
-						style={[styles.modalContent, { transform: [{ scale: scaleAnim }] }]}
+				<KeyboardAvoidingView
+					behavior={Platform.OS === "ios" ? "padding" : "height"}
+					style={{ flex: 1 }}
+				>
+					<TouchableOpacity
+						style={styles.modalOverlay}
+						activeOpacity={1}
+						onPress={() => setShowJoinGroupModal(false)}
 					>
-						<View style={styles.modalHeader}>
-							<Text style={styles.modalTitle}>Join Study Group</Text>
-							<TouchableOpacity onPress={() => setShowJoinGroupModal(false)}>
-								<X size={24} color={colors.text} />
-							</TouchableOpacity>
-						</View>
-
-						<ScrollView showsVerticalScrollIndicator={false}>
-							<Text style={styles.label}>Group Code *</Text>
-							<TextInput
-								style={styles.input}
-								placeholder="Enter group code"
-								placeholderTextColor={colors.textLight}
-								value={joinCode}
-								onChangeText={setJoinCode}
-								autoCapitalize="characters"
-							/>
-
-							<Text style={styles.label}>Your Email *</Text>
-							<TextInput
-								style={styles.input}
-								placeholder="your.email@example.com"
-								placeholderTextColor={colors.textLight}
-								value={joinEmail}
-								onChangeText={setJoinEmail}
-								keyboardType="email-address"
-								autoCapitalize="none"
-							/>
-
-							<TouchableOpacity
-								style={[
-									styles.createButton,
-									(!joinCode || !joinEmail) && styles.createButtonDisabled,
-								]}
-								onPress={handleJoinGroup}
-								disabled={!joinCode || !joinEmail}
+						<TouchableOpacity
+							activeOpacity={1}
+							onPress={(e) => e.stopPropagation()}
+							style={{ width: '100%', alignItems: 'center' }}
+						>
+							<Animated.View
+								style={[styles.modalContent, { transform: [{ scale: scaleAnim }] }]}
 							>
-								<Text style={styles.createButtonText}>Join Group</Text>
-							</TouchableOpacity>
-						</ScrollView>
-					</Animated.View>
-				</View>
+								<View style={styles.modalHeader}>
+									<Text style={styles.modalTitle}>Join Study Group</Text>
+									<TouchableOpacity onPress={() => setShowJoinGroupModal(false)}>
+										<X size={24} color={colors.text} />
+									</TouchableOpacity>
+								</View>
+
+								<ScrollView showsVerticalScrollIndicator={false}>
+									<Text style={styles.label}>Group Code *</Text>
+									<TextInput
+										style={styles.input}
+										placeholder="Enter group code"
+										placeholderTextColor={colors.textLight}
+										value={joinCode}
+										onChangeText={setJoinCode}
+										autoCapitalize="characters"
+									/>
+
+									<Text style={styles.label}>Your Email *</Text>
+									<TextInput
+										style={styles.input}
+										placeholder="your.email@example.com"
+										placeholderTextColor={colors.textLight}
+										value={joinEmail}
+										onChangeText={setJoinEmail}
+										keyboardType="email-address"
+										autoCapitalize="none"
+									/>
+
+									<TouchableOpacity
+										style={[
+											styles.createButton,
+											(!joinCode || !joinEmail) && styles.createButtonDisabled,
+										]}
+										onPress={handleJoinGroup}
+										disabled={!joinCode || !joinEmail}
+									>
+										<Text style={styles.createButtonText}>Join Group</Text>
+									</TouchableOpacity>
+								</ScrollView>
+							</Animated.View>
+						</TouchableOpacity>
+					</TouchableOpacity>
+				</KeyboardAvoidingView>
 			</Modal>
 
 			<Modal
@@ -474,125 +508,138 @@ export default function StudyGroupsScreen() {
 				animationType="fade"
 				onRequestClose={() => setShowGroupDetailModal(false)}
 			>
-				<View style={styles.modalOverlay}>
-					<Animated.View
-						style={[
-							styles.modalContent,
-							styles.detailModalContent,
-							{ transform: [{ scale: scaleAnim }] },
-						]}
+				<KeyboardAvoidingView
+					behavior={Platform.OS === "ios" ? "padding" : "height"}
+					style={{ flex: 1 }}
+				>
+					<TouchableOpacity
+						style={styles.modalOverlay}
+						activeOpacity={1}
+						onPress={() => setShowGroupDetailModal(false)}
 					>
-						<View style={styles.modalHeader}>
-							<Text style={styles.modalTitle}>{selectedGroup?.name}</Text>
-							<TouchableOpacity onPress={() => setShowGroupDetailModal(false)}>
-								<X size={24} color={colors.text} />
-							</TouchableOpacity>
-						</View>
+						<TouchableOpacity
+							activeOpacity={1}
+							onPress={(e) => e.stopPropagation()}
+							style={{ width: '100%', alignItems: 'center' }}
+						>
+							<Animated.View
+								style={[
+									styles.modalContent,
+									styles.detailModalContent,
+									{ transform: [{ scale: scaleAnim }] },
+								]}
+							>
+								<View style={styles.modalHeader}>
+									<Text style={styles.modalTitle}>{selectedGroup?.name}</Text>
+									<TouchableOpacity onPress={() => setShowGroupDetailModal(false)}>
+										<X size={24} color={colors.text} />
+									</TouchableOpacity>
+								</View>
 
-						{selectedGroup && (
-							<>
-								<ScrollView
-									style={styles.groupDetailInfo}
-									showsVerticalScrollIndicator={false}
-								>
-									<Text style={styles.detailLabel}>Class:</Text>
-									<Text style={styles.detailValue}>
-										{selectedGroup.className}
-									</Text>
-									<Text style={styles.detailLabel}>School:</Text>
-									<Text style={styles.detailValue}>{selectedGroup.school}</Text>
-									{selectedGroup.description && (
-										<>
-											<Text style={styles.detailLabel}>Description:</Text>
+								{selectedGroup && (
+									<>
+										<ScrollView
+											style={styles.groupDetailInfo}
+											showsVerticalScrollIndicator={false}
+										>
+											<Text style={styles.detailLabel}>Class:</Text>
 											<Text style={styles.detailValue}>
-												{selectedGroup.description}
+												{selectedGroup.className}
 											</Text>
-										</>
-									)}
-									<View style={styles.codeContainerLarge}>
-										<Text style={styles.detailLabel}>Group Code:</Text>
-										<View style={styles.codeRow}>
-											<Text style={styles.codeTextLarge}>
-												{selectedGroup.code}
-											</Text>
-											<TouchableOpacity
-												onPress={() => copyGroupCode(selectedGroup.code)}
-												style={styles.copyButton}
-											>
-												<Copy size={20} color={colors.primary} />
-											</TouchableOpacity>
-											<TouchableOpacity
-												onPress={() => shareGroupCode(selectedGroup.code)}
-												style={styles.copyButton}
-											>
-												<Share2 size={20} color={colors.primary} />
-											</TouchableOpacity>
-										</View>
-									</View>
-								</ScrollView>
-
-								<Text style={styles.sectionTitle}>
-									Members ({selectedGroup.members.length})
-								</Text>
-								<ScrollView
-									style={styles.membersList}
-									showsVerticalScrollIndicator={false}
-								>
-									{selectedGroup.members.length === 0 ? (
-										<Text style={styles.emptySubtext}>No members yet</Text>
-									) : (
-										selectedGroup.members.map((member, index) => (
-											<View key={index} style={styles.memberItem}>
-												<User size={16} color={colors.textSecondary} />
-												<Text style={styles.memberEmail}>{member.email}</Text>
+											<Text style={styles.detailLabel}>School:</Text>
+											<Text style={styles.detailValue}>{selectedGroup.school}</Text>
+											{selectedGroup.description && (
+												<>
+													<Text style={styles.detailLabel}>Description:</Text>
+													<Text style={styles.detailValue}>
+														{selectedGroup.description}
+													</Text>
+												</>
+											)}
+											<View style={styles.codeContainerLarge}>
+												<Text style={styles.detailLabel}>Group Code:</Text>
+												<View style={styles.codeRow}>
+													<Text style={styles.codeTextLarge}>
+														{selectedGroup.code}
+													</Text>
+													<TouchableOpacity
+														onPress={() => copyGroupCode(selectedGroup.code)}
+														style={styles.copyButton}
+													>
+														<Copy size={20} color={colors.primary} />
+													</TouchableOpacity>
+													<TouchableOpacity
+														onPress={() => shareGroupCode(selectedGroup.code)}
+														style={styles.copyButton}
+													>
+														<Share2 size={20} color={colors.primary} />
+													</TouchableOpacity>
+												</View>
 											</View>
-										))
-									)}
-								</ScrollView>
+										</ScrollView>
 
-								<Text style={styles.sectionTitle}>Messages</Text>
-								<ScrollView
-									style={styles.messagesList}
-									showsVerticalScrollIndicator={false}
-								>
-									{selectedGroup.messages.length === 0 ? (
-										<Text style={styles.emptySubtext}>No messages yet</Text>
-									) : (
-										selectedGroup.messages.map((msg) => (
-											<View key={msg.id} style={styles.messageItem}>
-												<Text style={styles.messageSender}>
-													{msg.senderEmail}
-												</Text>
-												<Text style={styles.messageText}>{msg.message}</Text>
-												{msg.attachments && msg.attachments.length > 0 && (
-													<View style={styles.attachmentsList}>
-														{msg.attachments.map((attachment, idx) => (
-															<TouchableOpacity
-																key={idx}
-																style={styles.attachmentChip}
-																onPress={() => openAttachment(attachment.uri)}
-															>
-																<FileText size={14} color={colors.primary} />
-																<Text
-																	style={styles.attachmentName}
-																	numberOfLines={1}
-																>
-																	{attachment.name}
-																</Text>
-															</TouchableOpacity>
-														))}
+										<Text style={styles.sectionTitle}>
+											Members ({selectedGroup.members.length})
+										</Text>
+										<ScrollView
+											style={styles.membersList}
+											showsVerticalScrollIndicator={false}
+										>
+											{selectedGroup.members.length === 0 ? (
+												<Text style={styles.emptySubtext}>No members yet</Text>
+											) : (
+												selectedGroup.members.map((member, index) => (
+													<View key={index} style={styles.memberItem}>
+														<User size={16} color={colors.textSecondary} />
+														<Text style={styles.memberEmail}>{member.email}</Text>
 													</View>
-												)}
-												<Text style={styles.messageTime}>
-													{new Date(msg.createdAt).toLocaleString()}
-												</Text>
-											</View>
-										))
-									)}
-								</ScrollView>
+												))
+											)}
+										</ScrollView>
 
-								<View style={styles.sendMessageContainer}>
-									{/* <TextInput
+										<Text style={styles.sectionTitle}>Messages</Text>
+										<ScrollView
+											style={styles.messagesList}
+											showsVerticalScrollIndicator={false}
+										>
+											{selectedGroup.messages.length === 0 ? (
+												<Text style={styles.emptySubtext}>No messages yet</Text>
+											) : (
+												selectedGroup.messages.map((msg) => (
+													<View key={msg.id} style={styles.messageItem}>
+														<Text style={styles.messageSender}>
+															{msg.senderEmail}
+														</Text>
+														<Text style={styles.messageText}>{msg.message}</Text>
+														{msg.attachments && msg.attachments.length > 0 && (
+															<View style={styles.attachmentsList}>
+																{msg.attachments.map((attachment, idx) => (
+																	<TouchableOpacity
+																		key={idx}
+																		style={styles.attachmentChip}
+																		onPress={() => openAttachment(attachment.uri)}
+																	>
+																		<FileText size={14} color={colors.primary} />
+																		<Text
+																			style={styles.attachmentName}
+																			numberOfLines={1}
+																		>
+																			{attachment.name}
+																		</Text>
+																	</TouchableOpacity>
+																))}
+															</View>
+														)}
+														<Text style={styles.messageTime}>
+															{new Date(msg.createdAt).toLocaleString()}
+														</Text>
+													</View>
+												))
+											)}
+										</ScrollView>
+
+										<View style={styles.sendMessageContainer}>
+											{/* <TextInput
 										style={styles.emailInput}
 										placeholder="Your email"
 										placeholderTextColor={colors.textLight}
@@ -601,61 +648,63 @@ export default function StudyGroupsScreen() {
 										keyboardType="email-address"
 										autoCapitalize="none"
 									/> */}
-									{attachments.length > 0 && (
-										<ScrollView
-											horizontal
-											style={styles.attachmentsPreview}
-											showsHorizontalScrollIndicator={false}
-										>
-											{attachments.map((attachment, idx) => (
-												<View key={idx} style={styles.attachmentPreviewChip}>
-													<FileText size={14} color={colors.primary} />
-													<Text
-														style={styles.attachmentPreviewName}
-														numberOfLines={1}
-													>
-														{attachment.name}
-													</Text>
-													<TouchableOpacity
-														onPress={() => removeAttachment(idx)}
-													>
-														<X size={16} color={colors.textSecondary} />
-													</TouchableOpacity>
-												</View>
-											))}
-										</ScrollView>
-									)}
-									<View style={styles.messageInputRow}>
-										<TouchableOpacity
-											style={styles.attachButton}
-											onPress={pickDocument}
-										>
-											<Paperclip size={20} color={colors.primary} />
-										</TouchableOpacity>
-										<TextInput
-											style={styles.messageInput}
-											placeholder="Type a message..."
-											placeholderTextColor={colors.textLight}
-											value={messageText}
-											onChangeText={setMessageText}
-											multiline
-										/>
-										<TouchableOpacity
-											style={[
-												styles.sendButton,
-												!messageText.trim() && styles.sendButtonDisabled,
-											]}
-											onPress={handleSendMessage}
-											disabled={!messageText.trim()}
-										>
-											<Send size={20} color={colors.surface} />
-										</TouchableOpacity>
-									</View>
-								</View>
-							</>
-						)}
-					</Animated.View>
-				</View>
+											{attachments.length > 0 && (
+												<ScrollView
+													horizontal
+													style={styles.attachmentsPreview}
+													showsHorizontalScrollIndicator={false}
+												>
+													{attachments.map((attachment, idx) => (
+														<View key={idx} style={styles.attachmentPreviewChip}>
+															<FileText size={14} color={colors.primary} />
+															<Text
+																style={styles.attachmentPreviewName}
+																numberOfLines={1}
+															>
+																{attachment.name}
+															</Text>
+															<TouchableOpacity
+																onPress={() => removeAttachment(idx)}
+															>
+																<X size={16} color={colors.textSecondary} />
+															</TouchableOpacity>
+														</View>
+													))}
+												</ScrollView>
+											)}
+											<View style={styles.messageInputRow}>
+												<TouchableOpacity
+													style={styles.attachButton}
+													onPress={pickDocument}
+												>
+													<Paperclip size={20} color={colors.primary} />
+												</TouchableOpacity>
+												<TextInput
+													style={styles.messageInput}
+													placeholder="Type a message..."
+													placeholderTextColor={colors.textLight}
+													value={messageText}
+													onChangeText={setMessageText}
+													multiline
+												/>
+												<TouchableOpacity
+													style={[
+														styles.sendButton,
+														!messageText.trim() && styles.sendButtonDisabled,
+													]}
+													onPress={handleSendMessage}
+													disabled={!messageText.trim()}
+												>
+													<Send size={20} color={colors.surface} />
+												</TouchableOpacity>
+											</View>
+										</View>
+									</>
+								)}
+							</Animated.View>
+						</TouchableOpacity>
+					</TouchableOpacity>
+				</KeyboardAvoidingView>
 			</Modal>
 		</SafeAreaView >
 	);

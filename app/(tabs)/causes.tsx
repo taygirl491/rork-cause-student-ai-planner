@@ -10,7 +10,10 @@ import YoutubePlayer from 'react-native-youtube-iframe';
 import { Heart, BookOpen, Leaf, Brain, Users, GraduationCap } from 'lucide-react-native';
 import colors from '@/constants/colors';
 
+import { useApp } from '@/contexts/AppContext';
+
 export default function CausesScreen() {
+  const { videoConfig } = useApp();
   const causes = [
     {
       icon: BookOpen,
@@ -139,7 +142,7 @@ export default function CausesScreen() {
           <YoutubePlayer
             height={190}
             width="100%"
-            videoId="dQw4w9WgXcQ"
+            videoId={videoConfig?.causesVideoId || "dQw4w9WgXcQ"}
             play={false}
           />
         </View>
