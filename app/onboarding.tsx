@@ -31,19 +31,19 @@ const pages: OnboardingPage[] = [
         id: 1,
         title: 'Your AI Study Companion',
         description: 'Get help with homework, generate practice quizzes, and summarize study materials with AI',
-        image: require('../assets/onboarding/screen-1.png'),
+        image: require('../assets/onboarding/screen-1.webp'),
     },
     {
         id: 2,
         title: 'Everything in One Place',
         description: 'Manage classes, tasks, goals, and study groups all in one beautiful app',
-        image: require('../assets/onboarding/screen-2.png'),
+        image: require('../assets/onboarding/screen-2.webp'),
     },
     {
         id: 3,
         title: 'Excel in Your Studies',
         description: 'Track your progress, collaborate with peers, and reach your academic goals',
-        image: require('../assets/onboarding/screen-3.png'),
+        image: require('../assets/onboarding/screen-3.webp'),
     },
 ];
 

@@ -584,6 +584,14 @@ export const [AppProvider, useApp] = createContextHook(() => {
 					id: docRef.id,
 				});
 			}
+
+			// Schedule due date notification if task is not completed
+			if (!task.completed) {
+				await NotificationService.scheduleDueDateNotification({
+					...task,
+					id: docRef.id,
+				});
+			}
 		} catch (error) {
 			console.error("Error adding task:", error);
 		}
@@ -616,6 +624,11 @@ export const [AppProvider, useApp] = createContextHook(() => {
 			const updatedTask = { ...task, ...updates };
 			if (updatedTask.reminder && !updatedTask.completed) {
 				await NotificationService.scheduleTaskReminder(updatedTask);
+			}
+
+			// Reschedule due date notification if task is not completed
+			if (!updatedTask.completed) {
+				await NotificationService.scheduleDueDateNotification(updatedTask);
 			}
 		} catch (error) {
 			console.error("Error updating task:", error);
