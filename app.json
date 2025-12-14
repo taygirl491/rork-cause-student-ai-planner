@@ -35,7 +35,7 @@
         "android.permission.WRITE_EXTERNAL_STORAGE",
         "android.permission.RECORD_AUDIO"
       ],
-       "googleServicesFile": "./google-services.json"
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "favicon": "./assets/images/favicon.png"
@@ -78,8 +78,9 @@
         "origin": "https://rork.com/"
       },
       "eas": {
-        "projectId": "4f03b063-7906-41bc-bbe8-fb11613e296e"
+        "projectId": "3b1f486b-50ab-4d58-90f3-ab34ba4fdcd0"
       }
-    }
+    },
+    "owner": "eluwaiz"
   }
 }

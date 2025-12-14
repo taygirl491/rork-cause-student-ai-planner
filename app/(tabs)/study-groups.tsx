@@ -17,6 +17,7 @@ import {
 	Linking,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useRouter } from "expo-router";
 import {
 	X,
 	Users,
@@ -37,6 +38,7 @@ import { schedulePushNotification } from "@/functions/Notify";
 import SearchBar from "@/components/SearchBar";
 
 export default function StudyGroupsScreen() {
+	const router = useRouter();
 	const {
 		studyGroups,
 		createStudyGroup,
@@ -47,7 +49,6 @@ export default function StudyGroupsScreen() {
 	const { user } = useAuth();
 	const [showCreateGroupModal, setShowCreateGroupModal] = useState(false);
 	const [showJoinGroupModal, setShowJoinGroupModal] = useState(false);
-	const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
 	const [searchQuery, setSearchQuery] = useState("");
 
 	// Filter groups based on search query
@@ -62,14 +63,6 @@ export default function StudyGroupsScreen() {
 		);
 	}, [studyGroups, searchQuery]);
 
-	// Derive selectedGroup from the real-time studyGroups data
-	const selectedGroup = React.useMemo(() =>
-		studyGroups.find(g => g.id === selectedGroupId) || null,
-		[studyGroups, selectedGroupId]
-	);
-
-	const [showGroupDetailModal, setShowGroupDetailModal] = useState(false);
-
 	const [groupName, setGroupName] = useState("");
 	const [groupClass, setGroupClass] = useState("");
 	const [groupSchool, setGroupSchool] = useState("");
@@ -78,16 +71,10 @@ export default function StudyGroupsScreen() {
 	const [joinCode, setJoinCode] = useState("");
 	const [joinEmail, setJoinEmail] = useState("");
 
-	const [messageText, setMessageText] = useState("");
-	const [messageSenderEmail, setMessageSenderEmail] = useState("");
-	const [attachments, setAttachments] = useState<
-		{ name: string; uri: string; type: string }[]
-	>([]);
-
 	const scaleAnim = React.useRef(new Animated.Value(0)).current;
 
 	React.useEffect(() => {
-		if (showCreateGroupModal || showJoinGroupModal || showGroupDetailModal) {
+		if (showCreateGroupModal || showJoinGroupModal) {
 			Animated.spring(scaleAnim, {
 				toValue: 1,
 				useNativeDriver: true,
@@ -97,12 +84,7 @@ export default function StudyGroupsScreen() {
 		} else {
 			scaleAnim.setValue(0);
 		}
-	}, [
-		showCreateGroupModal,
-		showJoinGroupModal,
-		showGroupDetailModal,
-		scaleAnim,
-	]);
+	}, [showCreateGroupModal, showJoinGroupModal, scaleAnim]);
 
 	const handleCreateGroup = async () => {
 		if (!groupName || !groupClass || !groupSchool) return;
@@ -181,84 +163,16 @@ export default function StudyGroupsScreen() {
 	};
 
 	const openGroupDetail = (group: StudyGroup) => {
-		setSelectedGroupId(group.id);
-		setShowGroupDetailModal(true);
-	};
-
-	const handleSendMessage = async () => {
-		console.log("Send button pressed!");
-		console.log("Selected group:", selectedGroup?.name);
-		console.log("Message text:", messageText);
-		console.log("Message text length:", messageText.length);
-		console.log("Message text trimmed:", messageText.trim());
-		console.log("User email:", user?.email);
-
-		if (!selectedGroup || !messageText.trim() || !user?.email) {
-			console.log("Missing required data - returning");
-			if (!selectedGroup) console.log("No group selected");
-			if (!messageText.trim())
-				console.log("No message text (or only whitespace)");
-			if (!user?.email) console.log("No user email");
-			return;
-		}
-
-		console.log("Sending message to group:", selectedGroup.id);
-		await sendGroupMessage(
-			selectedGroup.id,
-			user.email,
-			messageText.trim(),
-			attachments.length > 0 ? attachments : undefined
-		);
-		console.log("Message sent successfully");
-		setMessageText("");
-		setAttachments([]);
-
-		// No need to manually update selectedGroup - the Firestore listener will handle it
-	};
-
-	const pickDocument = async () => {
-		try {
-			const result = await DocumentPicker.getDocumentAsync({
-				type: "*/*",
-				copyToCacheDirectory: true,
-				multiple: true,
-			});
-
-			if (!result.canceled && result.assets) {
-				const newAttachments = result.assets.map((asset) => ({
-					name: asset.name,
-					uri: asset.uri,
-					type: asset.mimeType || "application/octet-stream",
-				}));
-				setAttachments((prev) => [...prev, ...newAttachments]);
-			}
-		} catch (err) {
-			console.error("Error picking document:", err);
-			Alert.alert("Error", "Failed to pick document");
-		}
-	};
-
-	const removeAttachment = (index: number) => {
-		setAttachments((prev) => prev.filter((_, i) => i !== index));
-	};
-
-	const openAttachment = async (uri: string) => {
-		try {
-			const supported = await Linking.canOpenURL(uri);
-			if (supported) {
-				await Linking.openURL(uri);
-			} else {
-				Alert.alert("Cannot open file", "This file type is not supported");
-			}
-		} catch (err) {
-			console.error("Error opening attachment:", err);
-			Alert.alert("Error", "Failed to open attachment");
-		}
+		router.push({
+			pathname: '/group-detail' as any,
+			params: { groupId: group.id }
+		});
 	};
 
 	const copyGroupCode = (code: string) => {
 		Alert.alert("Code Copied", `Group code: ${code}`);
 	};
+
 
 	return (
 		<SafeAreaView style={styles.container} edges={["bottom"]}>
@@ -502,211 +416,7 @@ export default function StudyGroupsScreen() {
 				</KeyboardAvoidingView>
 			</Modal>
 
-			<Modal
-				visible={showGroupDetailModal}
-				transparent
-				animationType="fade"
-				onRequestClose={() => setShowGroupDetailModal(false)}
-			>
-				<KeyboardAvoidingView
-					behavior={Platform.OS === "ios" ? "padding" : "height"}
-					style={{ flex: 1 }}
-				>
-					<TouchableOpacity
-						style={styles.modalOverlay}
-						activeOpacity={1}
-						onPress={() => setShowGroupDetailModal(false)}
-					>
-						<TouchableOpacity
-							activeOpacity={1}
-							onPress={(e) => e.stopPropagation()}
-							style={{ width: '100%', alignItems: 'center' }}
-						>
-							<Animated.View
-								style={[
-									styles.modalContent,
-									styles.detailModalContent,
-									{ transform: [{ scale: scaleAnim }] },
-								]}
-							>
-								<View style={styles.modalHeader}>
-									<Text style={styles.modalTitle}>{selectedGroup?.name}</Text>
-									<TouchableOpacity onPress={() => setShowGroupDetailModal(false)}>
-										<X size={24} color={colors.text} />
-									</TouchableOpacity>
-								</View>
-
-								{selectedGroup && (
-									<>
-										<ScrollView
-											style={styles.groupDetailInfo}
-											showsVerticalScrollIndicator={false}
-										>
-											<Text style={styles.detailLabel}>Class:</Text>
-											<Text style={styles.detailValue}>
-												{selectedGroup.className}
-											</Text>
-											<Text style={styles.detailLabel}>School:</Text>
-											<Text style={styles.detailValue}>{selectedGroup.school}</Text>
-											{selectedGroup.description && (
-												<>
-													<Text style={styles.detailLabel}>Description:</Text>
-													<Text style={styles.detailValue}>
-														{selectedGroup.description}
-													</Text>
-												</>
-											)}
-											<View style={styles.codeContainerLarge}>
-												<Text style={styles.detailLabel}>Group Code:</Text>
-												<View style={styles.codeRow}>
-													<Text style={styles.codeTextLarge}>
-														{selectedGroup.code}
-													</Text>
-													<TouchableOpacity
-														onPress={() => copyGroupCode(selectedGroup.code)}
-														style={styles.copyButton}
-													>
-														<Copy size={20} color={colors.primary} />
-													</TouchableOpacity>
-													<TouchableOpacity
-														onPress={() => shareGroupCode(selectedGroup.code)}
-														style={styles.copyButton}
-													>
-														<Share2 size={20} color={colors.primary} />
-													</TouchableOpacity>
-												</View>
-											</View>
-										</ScrollView>
-
-										<Text style={styles.sectionTitle}>
-											Members ({selectedGroup.members.length})
-										</Text>
-										<ScrollView
-											style={styles.membersList}
-											showsVerticalScrollIndicator={false}
-										>
-											{selectedGroup.members.length === 0 ? (
-												<Text style={styles.emptySubtext}>No members yet</Text>
-											) : (
-												selectedGroup.members.map((member, index) => (
-													<View key={index} style={styles.memberItem}>
-														<User size={16} color={colors.textSecondary} />
-														<Text style={styles.memberEmail}>{member.email}</Text>
-													</View>
-												))
-											)}
-										</ScrollView>
-
-										<Text style={styles.sectionTitle}>Messages</Text>
-										<ScrollView
-											style={styles.messagesList}
-											showsVerticalScrollIndicator={false}
-										>
-											{selectedGroup.messages.length === 0 ? (
-												<Text style={styles.emptySubtext}>No messages yet</Text>
-											) : (
-												selectedGroup.messages.map((msg) => (
-													<View key={msg.id} style={styles.messageItem}>
-														<Text style={styles.messageSender}>
-															{msg.senderEmail}
-														</Text>
-														<Text style={styles.messageText}>{msg.message}</Text>
-														{msg.attachments && msg.attachments.length > 0 && (
-															<View style={styles.attachmentsList}>
-																{msg.attachments.map((attachment, idx) => (
-																	<TouchableOpacity
-																		key={idx}
-																		style={styles.attachmentChip}
-																		onPress={() => openAttachment(attachment.uri)}
-																	>
-																		<FileText size={14} color={colors.primary} />
-																		<Text
-																			style={styles.attachmentName}
-																			numberOfLines={1}
-																		>
-																			{attachment.name}
-																		</Text>
-																	</TouchableOpacity>
-																))}
-															</View>
-														)}
-														<Text style={styles.messageTime}>
-															{new Date(msg.createdAt).toLocaleString()}
-														</Text>
-													</View>
-												))
-											)}
-										</ScrollView>
-
-										<View style={styles.sendMessageContainer}>
-											{/* <TextInput
-										style={styles.emailInput}
-										placeholder="Your email"
-										placeholderTextColor={colors.textLight}
-										value={messageSenderEmail}
-										onChangeText={setMessageSenderEmail}
-										keyboardType="email-address"
-										autoCapitalize="none"
-									/> */}
-											{attachments.length > 0 && (
-												<ScrollView
-													horizontal
-													style={styles.attachmentsPreview}
-													showsHorizontalScrollIndicator={false}
-												>
-													{attachments.map((attachment, idx) => (
-														<View key={idx} style={styles.attachmentPreviewChip}>
-															<FileText size={14} color={colors.primary} />
-															<Text
-																style={styles.attachmentPreviewName}
-																numberOfLines={1}
-															>
-																{attachment.name}
-															</Text>
-															<TouchableOpacity
-																onPress={() => removeAttachment(idx)}
-															>
-																<X size={16} color={colors.textSecondary} />
-															</TouchableOpacity>
-														</View>
-													))}
-												</ScrollView>
-											)}
-											<View style={styles.messageInputRow}>
-												<TouchableOpacity
-													style={styles.attachButton}
-													onPress={pickDocument}
-												>
-													<Paperclip size={20} color={colors.primary} />
-												</TouchableOpacity>
-												<TextInput
-													style={styles.messageInput}
-													placeholder="Type a message..."
-													placeholderTextColor={colors.textLight}
-													value={messageText}
-													onChangeText={setMessageText}
-													multiline
-												/>
-												<TouchableOpacity
-													style={[
-														styles.sendButton,
-														!messageText.trim() && styles.sendButtonDisabled,
-													]}
-													onPress={handleSendMessage}
-													disabled={!messageText.trim()}
-												>
-													<Send size={20} color={colors.surface} />
-												</TouchableOpacity>
-											</View>
-										</View>
-									</>
-								)}
-							</Animated.View>
-						</TouchableOpacity>
-					</TouchableOpacity>
-				</KeyboardAvoidingView>
-			</Modal>
-		</SafeAreaView >
+		</SafeAreaView>
 	);
 }
 

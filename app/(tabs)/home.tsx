@@ -74,6 +74,10 @@ export default function HomeScreen() {
           <Text style={styles.heroSubtitle}>Making a difference, one task at a time</Text>
         </View>
 
+        <View style={styles.quoteSection}>
+          <Text style={styles.quoteText}>&ldquo;{currentQuote}&rdquo;</Text>
+        </View>
+
         {upcomingTasks.length > 0 && (
           <View style={styles.tasksSection}>
             <View style={styles.tasksSectionHeader}>
@@ -122,10 +126,6 @@ export default function HomeScreen() {
             ))}
           </View>
         )}
-
-        <View style={styles.quoteSection}>
-          <Text style={styles.quoteText}>&ldquo;{currentQuote}&rdquo;</Text>
-        </View>
 
         <View style={styles.videoSection}>
           <Text style={styles.sectionTitle}>Student Inspirational Talk</Text>

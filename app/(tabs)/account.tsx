@@ -12,6 +12,7 @@ import {
   Platform,
   TouchableWithoutFeedback,
   Keyboard,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
@@ -176,8 +177,15 @@ export default function AccountScreen() {
         text: 'Sign Out',
         style: 'destructive',
         onPress: async () => {
-          await logout();
-          router.replace('/login');
+          try {
+            await logout();
+            // Explicitly navigate to login screen to prevent crash in production builds
+            router.replace('/login');
+          } catch (error) {
+            console.error('Sign out error:', error);
+            // Even if logout fails, try to navigate to login
+            router.replace('/login');
+          }
         },
       },
     ]);

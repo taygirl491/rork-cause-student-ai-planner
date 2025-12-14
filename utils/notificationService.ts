@@ -187,6 +187,74 @@ export async function scheduleTaskReminder(task: Task): Promise<string | null> {
 }
 
 /**
+ * Schedule a notification for when a task is actually due
+ * @param task - The task to schedule a due date notification for
+ * @returns Promise<string | null> - The notification ID or null if not scheduled
+ */
+export async function scheduleDueDateNotification(task: Task): Promise<string | null> {
+  try {
+    // Don't schedule for completed tasks
+    if (task.completed) {
+      console.log('Task is completed, not scheduling due date notification');
+      return null;
+    }
+
+    if (!task.dueDate) {
+      console.log('No due date for task, not scheduling due date notification');
+      return null;
+    }
+
+    const dueDate = new Date(task.dueDate);
+    
+    // If task has a specific time, use it
+    if (task.dueTime) {
+      const [hours, minutes] = task.dueTime.split(':');
+      dueDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+    } else {
+      // Default to 9 AM if no time specified
+      dueDate.setHours(9, 0, 0, 0);
+    }
+
+    // Don't schedule if in the past
+    if (dueDate <= new Date()) {
+      console.log('Due date is in the past, not scheduling due date notification');
+      return null;
+    }
+
+    // Calculate seconds until due date
+    const secondsUntilDue = Math.floor((dueDate.getTime() - Date.now()) / 1000);
+    
+    const notificationId = await Notifications.scheduleNotificationAsync({
+      content: {
+        title: `Task Due: ${task.type.toUpperCase()}`,
+        body: `${task.description}${task.className ? ` (${task.className})` : ''}`,
+        data: { 
+          taskId: task.id, 
+          type: 'task_due',
+          className: task.className,
+        },
+        sound: task.alarmEnabled ? 'default' : undefined,
+        badge: 1,
+        color: '#6366F1',
+        // @ts-ignore
+        channelId: 'task-reminders-v2',
+      } as Notifications.NotificationContentInput,
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+        seconds: secondsUntilDue > 0 ? secondsUntilDue : 1,
+        repeats: false,
+      },
+    });
+
+    console.log(`Scheduled due date notification ${notificationId} for task ${task.id} at ${dueDate.toLocaleString()}`);
+    return notificationId;
+  } catch (error) {
+    console.error('Error scheduling due date notification:', error);
+    return null;
+  }
+}
+
+/**
  * Cancel a specific notification by ID
  * @param notificationId - The notification ID to cancel
  */
