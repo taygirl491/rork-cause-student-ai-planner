@@ -9,6 +9,8 @@ const emailService = require("./emailService");
 const notificationService = require("./notificationService");
 const { startReminderScheduler } = require("./reminderScheduler");
 const { uploadFromBuffer } = require("./cloudinaryConfig");
+const aiRoutes = require("./aiRoutes");
+const streakRoutes = require("./streakRoutes");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -36,7 +38,7 @@ const limiter = rateLimit({
 	max: 100, // limit each IP to 100 requests per windowMs
 	message: "Too many requests from this IP, please try again later.",
 });
-app.use("/api/", limiter);
+app.use("/api", limiter);
 
 // Simple API key authentication middleware
 const authenticate = (req, res, next) => {
@@ -391,6 +393,12 @@ app.post("/api/test-email", authenticate, async (req, res) => {
 		});
 	}
 });
+
+// AI Routes
+app.use("/api/ai", authenticate, aiRoutes);
+
+// Streak Routes
+app.use("/api/streak", authenticate, streakRoutes);
 
 // 404 handler
 app.use((req, res) => {

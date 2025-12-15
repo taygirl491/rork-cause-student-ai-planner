@@ -77,7 +77,21 @@ export interface StudyGroup {
   school: string;
   description: string;
   code: string;
-  members: { email: string; joinedAt: string }[];
+  members: { email: string; name?: string; joinedAt: string }[];
   messages: StudyGroupMessage[];
   createdAt: string;
+}
+
+export interface AIMessage {
+  id: string;
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  timestamp: string;
+}
+
+export interface AIConversation {
+  id: string;
+  messages: AIMessage[];
+  createdAt: string;
+  updatedAt: string;
 }

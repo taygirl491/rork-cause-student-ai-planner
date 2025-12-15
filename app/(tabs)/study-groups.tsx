@@ -69,7 +69,6 @@ export default function StudyGroupsScreen() {
 	const [groupDescription, setGroupDescription] = useState("");
 
 	const [joinCode, setJoinCode] = useState("");
-	const [joinEmail, setJoinEmail] = useState("");
 
 	const scaleAnim = React.useRef(new Animated.Value(0)).current;
 
@@ -144,7 +143,10 @@ export default function StudyGroupsScreen() {
 	const handleJoinGroup = async () => {
 		if (!joinCode || !user?.email) return;
 
-		const group = await joinStudyGroup(joinCode.toUpperCase(), user.email);
+		// Use user's name from auth context, or fallback to "Student" or email prefix
+		const userName = user.name || user.email.split('@')[0] || "Student";
+
+		const group = await joinStudyGroup(joinCode.toUpperCase(), user.email, userName);
 
 		if (!group) {
 			Alert.alert("Error", "Invalid group code. Please check and try again.");
@@ -388,24 +390,13 @@ export default function StudyGroupsScreen() {
 										autoCapitalize="characters"
 									/>
 
-									<Text style={styles.label}>Your Email *</Text>
-									<TextInput
-										style={styles.input}
-										placeholder="your.email@example.com"
-										placeholderTextColor={colors.textLight}
-										value={joinEmail}
-										onChangeText={setJoinEmail}
-										keyboardType="email-address"
-										autoCapitalize="none"
-									/>
-
 									<TouchableOpacity
 										style={[
 											styles.createButton,
-											(!joinCode || !joinEmail) && styles.createButtonDisabled,
+											!joinCode && styles.createButtonDisabled,
 										]}
 										onPress={handleJoinGroup}
-										disabled={!joinCode || !joinEmail}
+										disabled={!joinCode}
 									>
 										<Text style={styles.createButtonText}>Join Group</Text>
 									</TouchableOpacity>

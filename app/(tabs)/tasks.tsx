@@ -25,14 +25,19 @@ import { useApp } from '@/contexts/AppContext';
 import { Task, TaskType, Priority, ReminderTime } from '@/types';
 import Mascot from '@/components/Mascot';
 import SearchBar from '@/components/SearchBar';
+import StreakCard from '@/components/StreakCard';
+import { useStreak } from '@/contexts/StreakContext';
 
 export default function TasksScreen() {
   const { sortedTasks, addTask, updateTask, deleteTask, classes, loadMoreTasks,
     hasMoreTasks,
     loadingMoreTasks, } = useApp();
+  const { updateStreak } = useStreak();
   const [showModal, setShowModal] = useState(false);
   const [showActionSheet, setShowActionSheet] = useState(false);
+  const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [selectedTaskForDetail, setSelectedTaskForDetail] = useState<Task | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [description, setDescription] = useState('');
   const [taskType, setTaskType] = useState<TaskType>('task');
@@ -52,6 +57,7 @@ export default function TasksScreen() {
   const [activeFilter, setActiveFilter] = useState<'all' | 'active' | 'completed' | TaskType>('all');
 
   const scaleAnim = React.useRef(new Animated.Value(0)).current;
+  const detailScaleAnim = React.useRef(new Animated.Value(0)).current;
 
   React.useEffect(() => {
     if (showModal) {
@@ -65,6 +71,19 @@ export default function TasksScreen() {
       scaleAnim.setValue(0);
     }
   }, [showModal, scaleAnim]);
+
+  React.useEffect(() => {
+    if (showDetailModal) {
+      Animated.spring(detailScaleAnim, {
+        toValue: 1,
+        useNativeDriver: true,
+        tension: 50,
+        friction: 7,
+      }).start();
+    } else {
+      detailScaleAnim.setValue(0);
+    }
+  }, [showDetailModal, detailScaleAnim]);
 
   const taskTypes: TaskType[] = ['task', 'event', 'exam', 'paper', 'appointment', 'homework'];
   const priorities: Priority[] = ['low', 'medium', 'high'];
@@ -147,8 +166,25 @@ export default function TasksScreen() {
     setAlarmEnabled(false);
   };
 
-  const toggleTaskComplete = (task: Task) => {
+  const toggleTaskComplete = async (task: Task) => {
+    const wasCompleted = task.completed;
     updateTask(task.id, { completed: !task.completed });
+
+    // Update streak when marking task as complete (not when uncompleting)
+    if (!wasCompleted) {
+      try {
+        const result = await updateStreak();
+        if (result.milestone) {
+          Alert.alert(
+            '🎉 Milestone Reached!',
+            `Amazing! You've reached a ${result.milestone}-day streak!`,
+            [{ text: 'Awesome!', style: 'default' }]
+          );
+        }
+      } catch (error) {
+        console.error('Error updating streak:', error);
+      }
+    }
   };
 
   const handleLongPress = (task: Task) => {
@@ -215,23 +251,61 @@ export default function TasksScreen() {
     return `In ${diff} days`;
   };
 
+  const handleTaskPress = (task: Task) => {
+    // Don't open modal for completed tasks
+    if (task.completed) return;
+
+    setSelectedTaskForDetail(task);
+    setShowDetailModal(true);
+  };
+
+  const handleEditFromDetail = () => {
+    if (!selectedTaskForDetail) return;
+    setShowDetailModal(false);
+    handleEdit(selectedTaskForDetail);
+  };
+
+  const handleDeleteFromDetail = () => {
+    if (!selectedTaskForDetail) return;
+    Alert.alert(
+      'Delete Task',
+      'Are you sure you want to delete this task?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            deleteTask(selectedTaskForDetail.id);
+            setShowDetailModal(false);
+            setSelectedTaskForDetail(null);
+          },
+        },
+      ]
+    );
+  };
+
   const renderTaskItem = ({ item: task }: { item: Task }) => (
     <Pressable
       style={[
         styles.taskCard,
         task.completed && styles.taskCardCompleted,
       ]}
-      onPress={() => toggleTaskComplete(task)}
+      onPress={() => handleTaskPress(task)}
       onLongPress={() => handleLongPress(task)}
     >
       <View style={styles.taskLeft}>
-        <View style={[styles.taskIcon, { backgroundColor: colors.taskColors[task.type] }]}>
+        <TouchableOpacity
+          onPress={() => toggleTaskComplete(task)}
+          style={[styles.taskIcon, { backgroundColor: colors.taskColors[task.type] }]}
+          activeOpacity={0.7}
+        >
           {task.completed ? (
             <CheckCircle size={24} color={colors.surface} />
           ) : (
             <Circle size={24} color={colors.surface} />
           )}
-        </View>
+        </TouchableOpacity>
         <View style={styles.taskContent}>
           <Text style={[styles.taskTitle, task.completed && styles.taskTitleCompleted]}>
             {task.description}
@@ -283,6 +357,8 @@ export default function TasksScreen() {
                 <Plus size={24} color={colors.surface} />
               </TouchableOpacity>
             </View>
+
+            <StreakCard />
 
             <View style={styles.searchContainer}>
               <SearchBar
@@ -610,6 +686,144 @@ export default function TasksScreen() {
       </Modal>
 
       {/* Action Sheet Modal */}
+
+      {/* Task Detail Modal */}
+      <Modal
+        visible={showDetailModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowDetailModal(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowDetailModal(false)}
+        >
+          <TouchableOpacity
+            activeOpacity={1}
+            onPress={(e) => e.stopPropagation()}
+            style={{ width: '100%', alignItems: 'center' }}
+          >
+            <Animated.View style={[styles.modalContent, { transform: [{ scale: detailScaleAnim }] }]}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Task Details</Text>
+                <TouchableOpacity onPress={() => setShowDetailModal(false)}>
+                  <X size={24} color={colors.text} />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView showsVerticalScrollIndicator={false}>
+                {/* Task Description */}
+                <View style={styles.detailSection}>
+                  <Text style={styles.detailLabel}>Description</Text>
+                  <Text style={styles.detailValue}>{selectedTaskForDetail?.description}</Text>
+                </View>
+
+                {/* Type */}
+                <View style={styles.detailSection}>
+                  <Text style={styles.detailLabel}>Type</Text>
+                  <View style={[styles.typeBadge, { backgroundColor: selectedTaskForDetail ? colors.taskColors[selectedTaskForDetail.type] + '20' : colors.background }]}>
+                    <Text style={[styles.typeBadgeText, { color: selectedTaskForDetail ? colors.taskColors[selectedTaskForDetail.type] : colors.text }]}>
+                      {selectedTaskForDetail?.type}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Class */}
+                {selectedTaskForDetail?.className && (
+                  <View style={styles.detailSection}>
+                    <Text style={styles.detailLabel}>Class</Text>
+                    <Text style={styles.detailValue}>{selectedTaskForDetail.className}</Text>
+                  </View>
+                )}
+
+                {/* Due Date & Time */}
+                <View style={styles.detailSection}>
+                  <Text style={styles.detailLabel}>Due Date</Text>
+                  <Text style={styles.detailValue}>
+                    {selectedTaskForDetail && formatDate(selectedTaskForDetail.dueDate)}
+                    {selectedTaskForDetail?.dueTime && ` at ${selectedTaskForDetail.dueTime}`}
+                  </Text>
+                </View>
+
+                {/* Priority */}
+                <View style={styles.detailSection}>
+                  <Text style={styles.detailLabel}>Priority</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <View style={[styles.priorityDot, { backgroundColor: selectedTaskForDetail ? colors.priorityColors[selectedTaskForDetail.priority] : colors.background }]} />
+                    <Text style={[styles.detailValue, { textTransform: 'capitalize' }]}>
+                      {selectedTaskForDetail?.priority}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Reminder */}
+                <View style={styles.detailSection}>
+                  <Text style={styles.detailLabel}>Reminder</Text>
+                  <Text style={styles.detailValue}>
+                    {selectedTaskForDetail?.reminder === '1h' && '1 hour before'}
+                    {selectedTaskForDetail?.reminder === '2h' && '2 hours before'}
+                    {selectedTaskForDetail?.reminder === '1d' && '1 day before'}
+                    {selectedTaskForDetail?.reminder === '2d' && '2 days before'}
+                    {selectedTaskForDetail?.reminder === 'custom' && 'Custom reminder'}
+                  </Text>
+                </View>
+
+                {/* Alarm */}
+                <View style={styles.detailSection}>
+                  <Text style={styles.detailLabel}>Alarm</Text>
+                  <Text style={styles.detailValue}>
+                    {selectedTaskForDetail?.alarmEnabled ? 'Enabled' : 'Disabled'}
+                  </Text>
+                </View>
+
+                {/* Status */}
+                <View style={styles.detailSection}>
+                  <Text style={styles.detailLabel}>Status</Text>
+                  <Text style={[styles.detailValue, { color: selectedTaskForDetail?.completed ? colors.success : colors.textSecondary }]}>
+                    {selectedTaskForDetail?.completed ? 'Completed' : 'Pending'}
+                  </Text>
+                </View>
+              </ScrollView>
+
+              {/* Action Buttons */}
+              <View style={styles.detailActions}>
+                <TouchableOpacity
+                  style={[styles.detailButton, styles.toggleButton]}
+                  onPress={() => {
+                    if (selectedTaskForDetail) {
+                      toggleTaskComplete(selectedTaskForDetail);
+                      setShowDetailModal(false);
+                    }
+                  }}
+                >
+                  <Text style={styles.detailButtonText}>
+                    Mark as {selectedTaskForDetail?.completed ? 'Incomplete' : 'Complete'}
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.detailButton, styles.editButton]}
+                  onPress={handleEditFromDetail}
+                >
+                  <Edit2 size={18} color={colors.surface} />
+                  <Text style={styles.detailButtonText}>Edit</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.detailButton, styles.deleteButton]}
+                  onPress={handleDeleteFromDetail}
+                >
+                  <Trash2 size={18} color={colors.surface} />
+                  <Text style={styles.detailButtonText}>Delete</Text>
+                </TouchableOpacity>
+              </View>
+            </Animated.View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Action Sheet Modal */}
       <Modal
         visible={showActionSheet}
         transparent
@@ -634,7 +848,7 @@ export default function TasksScreen() {
           </View>
         </TouchableOpacity>
       </Modal>
-    </SafeAreaView>
+    </SafeAreaView >
   );
 }
 
@@ -647,7 +861,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    // paddingHorizontal: 20,
     paddingTop: 20,
     paddingBottom: 16,
   },
@@ -919,14 +1133,12 @@ const styles = StyleSheet.create({
     marginHorizontal: 20,
   },
   searchContainer: {
-    paddingHorizontal: 20,
     paddingBottom: 12,
   },
   filtersContainer: {
     paddingBottom: 12,
   },
   filtersScroll: {
-    paddingHorizontal: 20,
     gap: 8,
   },
   filterChip: {
@@ -970,5 +1182,48 @@ const styles = StyleSheet.create({
   },
   keyboardAvoidingView: {
     flex: 1,
+  },
+  detailSection: {
+    marginBottom: 20,
+  },
+  detailLabel: {
+    fontSize: 12,
+    fontWeight: '600' as const,
+    color: colors.textSecondary,
+    marginBottom: 6,
+    textTransform: 'uppercase',
+  },
+  detailValue: {
+    fontSize: 16,
+    color: colors.text,
+    lineHeight: 24,
+  },
+  detailActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 24,
+  },
+  detailButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: 12,
+    gap: 8,
+  },
+  toggleButton: {
+    backgroundColor: colors.primary,
+  },
+  editButton: {
+    backgroundColor: colors.primary,
+  },
+  deleteButton: {
+    backgroundColor: colors.error || '#ef4444',
+  },
+  detailButtonText: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: colors.surface,
   },
 });

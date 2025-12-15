@@ -1,26 +1,27 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef, useCallback } from "react";
 import {
     View,
     Text,
     StyleSheet,
-    ScrollView,
+    FlatList,
     TouchableOpacity,
     TextInput,
     KeyboardAvoidingView,
     Platform,
-    TouchableWithoutFeedback,
     Keyboard,
     Alert,
     Linking,
     Share,
+    Modal,
+    ScrollView,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter, useLocalSearchParams } from "expo-router";
 import {
     ArrowLeft,
     Copy,
     Share2,
     User,
+    Users,
     FileText,
     Paperclip,
     Send,
@@ -30,6 +31,7 @@ import * as DocumentPicker from "expo-document-picker";
 import colors from "@/constants/colors";
 import { useApp } from "@/contexts/AppContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { useRouter, useLocalSearchParams } from "expo-router";
 
 export default function GroupDetailScreen() {
     const router = useRouter();
@@ -41,6 +43,7 @@ export default function GroupDetailScreen() {
     const [attachments, setAttachments] = useState<
         { name: string; uri: string; type: string }[]
     >([]);
+    const [showMembersModal, setShowMembersModal] = useState(false);
 
     // Find the group from the real-time studyGroups data
     const group = useMemo(
@@ -87,7 +90,6 @@ export default function GroupDetailScreen() {
     const removeAttachment = (index: number) => {
         setAttachments((prev) => prev.filter((_, i) => i !== index));
     };
-
     const openAttachment = async (uri: string) => {
         try {
             const supported = await Linking.canOpenURL(uri);
@@ -151,6 +153,13 @@ export default function GroupDetailScreen() {
                     {group.name}
                 </Text>
                 <TouchableOpacity
+                    style={styles.memberCount}
+                    onPress={() => setShowMembersModal(true)}
+                >
+                    <Users size={18} color={colors.textSecondary} />
+                    <Text style={styles.memberCountText}>{group.members.length}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
                     onPress={() => shareGroupCode(group.code)}
                     style={styles.shareButton}
                 >
@@ -163,171 +172,151 @@ export default function GroupDetailScreen() {
                 style={styles.keyboardAvoid}
                 keyboardVerticalOffset={0}
             >
-                <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-                    <View style={styles.content}>
-                        {/* Scrollable Content */}
-                        <ScrollView
-                            style={styles.scrollView}
-                            showsVerticalScrollIndicator={false}
-                            contentContainerStyle={styles.scrollContent}
-                        >
-                            {/* Group Info Section */}
-                            <View style={styles.section}>
-                                <Text style={styles.sectionTitle}>Group Information</Text>
-                                <View style={styles.infoCard}>
-                                    <View style={styles.infoRow}>
-                                        <Text style={styles.infoLabel}>Class:</Text>
-                                        <Text style={styles.infoValue}>{group.className}</Text>
-                                    </View>
-                                    <View style={styles.infoRow}>
-                                        <Text style={styles.infoLabel}>School:</Text>
-                                        <Text style={styles.infoValue}>{group.school}</Text>
-                                    </View>
-                                    {group.description && (
-                                        <View style={styles.infoRow}>
-                                            <Text style={styles.infoLabel}>Description:</Text>
-                                            <Text style={styles.infoValue}>{group.description}</Text>
-                                        </View>
-                                    )}
-                                    <View style={styles.codeContainer}>
-                                        <View style={styles.codeRow}>
-                                            <View>
-                                                <Text style={styles.infoLabel}>Group Code:</Text>
-                                                <Text style={styles.codeText}>{group.code}</Text>
-                                            </View>
-                                            <View style={styles.codeActions}>
-                                                <TouchableOpacity
-                                                    onPress={() => copyGroupCode(group.code)}
-                                                    style={styles.iconButton}
-                                                >
-                                                    <Copy size={20} color={colors.primary} />
-                                                </TouchableOpacity>
-                                                <TouchableOpacity
-                                                    onPress={() => shareGroupCode(group.code)}
-                                                    style={styles.iconButton}
-                                                >
-                                                    <Share2 size={20} color={colors.primary} />
-                                                </TouchableOpacity>
-                                            </View>
-                                        </View>
-                                    </View>
-                                </View>
-                            </View>
-
-                            {/* Members Section */}
-                            <View style={styles.section}>
-                                <Text style={styles.sectionTitle}>
-                                    Members ({group.members.length})
-                                </Text>
-                                <View style={styles.membersContainer}>
-                                    {group.members.length === 0 ? (
-                                        <Text style={styles.emptyText}>No members yet</Text>
-                                    ) : (
-                                        group.members.map((member, index) => (
-                                            <View key={index} style={styles.memberItem}>
-                                                <User size={16} color={colors.textSecondary} />
-                                                <Text style={styles.memberEmail}>{member.email}</Text>
-                                            </View>
-                                        ))
-                                    )}
-                                </View>
-                            </View>
-
-                            {/* Messages Section */}
-                            <View style={styles.section}>
-                                <Text style={styles.sectionTitle}>Messages</Text>
-                                <View style={styles.messagesContainer}>
-                                    {group.messages.length === 0 ? (
-                                        <Text style={styles.emptyText}>No messages yet</Text>
-                                    ) : (
-                                        group.messages.map((msg) => (
-                                            <View key={msg.id} style={styles.messageItem}>
-                                                <Text style={styles.messageSender}>{msg.senderEmail}</Text>
-                                                <Text style={styles.messageText}>{msg.message}</Text>
-                                                {msg.attachments && msg.attachments.length > 0 && (
-                                                    <View style={styles.attachmentsList}>
-                                                        {msg.attachments.map((attachment, idx) => (
-                                                            <TouchableOpacity
-                                                                key={idx}
-                                                                style={styles.attachmentChip}
-                                                                onPress={() => openAttachment(attachment.uri)}
+                <View style={styles.content}>
+                    {/* Messages Area */}
+                    <ScrollView
+                        style={styles.scrollView}
+                        contentContainerStyle={styles.scrollContent}
+                        showsVerticalScrollIndicator={false}
+                        keyboardDismissMode="on-drag"
+                        keyboardShouldPersistTaps="handled"
+                    >
+                        <View style={styles.section}>
+                            <Text style={styles.sectionTitle}>Messages</Text>
+                            <View style={styles.messagesContainer}>
+                                {group.messages.length === 0 ? (
+                                    <Text style={styles.emptyText}>No messages yet</Text>
+                                ) : (
+                                    group.messages.map((msg) => (
+                                        <View key={msg.id} style={styles.messageItem}>
+                                            <Text style={styles.messageSender}>{msg.senderEmail}</Text>
+                                            <Text style={styles.messageText}>{msg.message}</Text>
+                                            {msg.attachments && msg.attachments.length > 0 && (
+                                                <View style={styles.attachmentsList}>
+                                                    {msg.attachments.map((attachment: any, idx: number) => (
+                                                        <TouchableOpacity
+                                                            key={`${msg.id}-${attachment.name}-${idx}`}
+                                                            style={styles.attachmentChip}
+                                                            onPress={() => openAttachment(attachment.uri)}
+                                                        >
+                                                            <FileText size={14} color={colors.primary} />
+                                                            <Text
+                                                                style={styles.attachmentName}
+                                                                numberOfLines={1}
                                                             >
-                                                                <FileText size={14} color={colors.primary} />
-                                                                <Text
-                                                                    style={styles.attachmentName}
-                                                                    numberOfLines={1}
-                                                                >
-                                                                    {attachment.name}
-                                                                </Text>
-                                                            </TouchableOpacity>
-                                                        ))}
-                                                    </View>
-                                                )}
-                                                <Text style={styles.messageTime}>
-                                                    {new Date(msg.createdAt).toLocaleString()}
-                                                </Text>
-                                            </View>
-                                        ))
-                                    )}
-                                </View>
-                            </View>
-                        </ScrollView>
-
-                        {/* Message Input Container (Fixed at Bottom) */}
-                        <View style={styles.messageInputContainer}>
-                            {attachments.length > 0 && (
-                                <ScrollView
-                                    horizontal
-                                    style={styles.attachmentsPreview}
-                                    showsHorizontalScrollIndicator={false}
-                                >
-                                    {attachments.map((attachment, idx) => (
-                                        <View key={idx} style={styles.attachmentPreviewChip}>
-                                            <FileText size={14} color={colors.primary} />
-                                            <Text
-                                                style={styles.attachmentPreviewName}
-                                                numberOfLines={1}
-                                            >
-                                                {attachment.name}
+                                                                {attachment.name}
+                                                            </Text>
+                                                        </TouchableOpacity>
+                                                    ))}
+                                                </View>
+                                            )}
+                                            <Text style={styles.messageTime}>
+                                                {new Date(msg.createdAt).toLocaleString()}
                                             </Text>
-                                            <TouchableOpacity onPress={() => removeAttachment(idx)}>
-                                                <X size={16} color={colors.textSecondary} />
-                                            </TouchableOpacity>
                                         </View>
-                                    ))}
-                                </ScrollView>
-                            )}
-                            <View style={styles.messageInputRow}>
-                                <TouchableOpacity
-                                    style={styles.attachButton}
-                                    onPress={pickDocument}
-                                >
-                                    <Paperclip size={20} color={colors.primary} />
-                                </TouchableOpacity>
-                                <TextInput
-                                    style={styles.messageInput}
-                                    placeholder="Type a message..."
-                                    placeholderTextColor={colors.textLight}
-                                    value={messageText}
-                                    onChangeText={setMessageText}
-                                    multiline
-                                    maxLength={500}
-                                />
-                                <TouchableOpacity
-                                    style={[
-                                        styles.sendButton,
-                                        !messageText.trim() && styles.sendButtonDisabled,
-                                    ]}
-                                    onPress={handleSendMessage}
-                                    disabled={!messageText.trim()}
-                                >
-                                    <Send size={20} color={colors.surface} />
-                                </TouchableOpacity>
+                                    ))
+                                )}
                             </View>
                         </View>
+                    </ScrollView>
+
+                    {/* Message Input Container (Fixed at Bottom) */}
+                    <View style={styles.messageInputContainer}>
+                        {attachments.length > 0 && (
+                            <ScrollView
+                                horizontal
+                                style={styles.attachmentsPreview}
+                                showsHorizontalScrollIndicator={false}
+                            >
+                                {attachments.map((attachment, idx) => (
+                                    <View key={idx} style={styles.attachmentPreviewChip}>
+                                        <FileText size={14} color={colors.primary} />
+                                        <Text
+                                            style={styles.attachmentPreviewName}
+                                            numberOfLines={1}
+                                        >
+                                            {attachment.name}
+                                        </Text>
+                                        <TouchableOpacity onPress={() => removeAttachment(idx)}>
+                                            <X size={16} color={colors.textSecondary} />
+                                        </TouchableOpacity>
+                                    </View>
+                                ))}
+                            </ScrollView>
+                        )}
+                        <View style={styles.messageInputRow}>
+                            <TouchableOpacity
+                                style={styles.attachButton}
+                                onPress={pickDocument}
+                            >
+                                <Paperclip size={20} color={colors.primary} />
+                            </TouchableOpacity>
+                            <TextInput
+                                style={styles.messageInput}
+                                placeholder="Type a message..."
+                                placeholderTextColor={colors.textLight}
+                                value={messageText}
+                                onChangeText={setMessageText}
+                                multiline
+                                maxLength={500}
+                            />
+                            <TouchableOpacity
+                                style={[
+                                    styles.sendButton,
+                                    !messageText.trim() && styles.sendButtonDisabled,
+                                ]}
+                                onPress={handleSendMessage}
+                                disabled={!messageText.trim()}
+                            >
+                                <Send size={20} color={colors.surface} />
+                            </TouchableOpacity>
+                        </View>
                     </View>
-                </TouchableWithoutFeedback>
+                </View>
             </KeyboardAvoidingView>
+
+            {/* Members Modal */}
+            <Modal
+                visible={showMembersModal}
+                transparent
+                animationType="fade"
+                onRequestClose={() => setShowMembersModal(false)}
+            >
+                <TouchableOpacity
+                    style={styles.modalOverlay}
+                    activeOpacity={1}
+                    onPress={() => setShowMembersModal(false)}
+                >
+                    <TouchableOpacity
+                        activeOpacity={1}
+                        onPress={(e) => e.stopPropagation()}
+                        style={styles.modalContainer}
+                    >
+                        <View style={styles.modalContent}>
+                            <View style={styles.modalHeader}>
+                                <Text style={styles.modalTitle}>Group Members ({group.members.length})</Text>
+                                <TouchableOpacity onPress={() => setShowMembersModal(false)}>
+                                    <X size={24} color={colors.text} />
+                                </TouchableOpacity>
+                            </View>
+
+                            <ScrollView style={styles.membersList} contentContainerStyle={styles.membersListContent}>
+                                {group.members.map((member, index) => (
+                                    <View key={member.email + index} style={styles.memberItem}>
+                                        <View style={styles.memberAvatar}>
+                                            <User size={20} color={colors.surface} />
+                                        </View>
+                                        <View style={styles.memberInfo}>
+                                            <Text style={styles.memberName}>{member.name || member.email.split('@')[0]}</Text>
+                                            <Text style={styles.memberEmail}>{member.email}</Text>
+                                        </View>
+                                    </View>
+                                ))}
+                            </ScrollView>
+                        </View>
+                    </TouchableOpacity>
+                </TouchableOpacity>
+            </Modal>
         </SafeAreaView>
     );
 }
@@ -358,6 +347,21 @@ const styles = StyleSheet.create({
     },
     shareButton: {
         padding: 8,
+    },
+    memberCount: {
+        flexDirection: "row",
+        alignItems: "center",
+        backgroundColor: colors.background,
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 16,
+        marginRight: 8,
+        gap: 6,
+    },
+    memberCountText: {
+        fontSize: 14,
+        fontWeight: "600" as const,
+        color: colors.textSecondary,
     },
     keyboardAvoid: {
         flex: 1,
@@ -553,5 +557,69 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: colors.textLight,
         textAlign: "center",
+    },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    modalContainer: {
+        width: '90%',
+        maxWidth: 400,
+        maxHeight: '70%',
+    },
+    modalContent: {
+        backgroundColor: colors.surface,
+        borderRadius: 20,
+        overflow: 'hidden',
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: 20,
+        borderBottomWidth: 1,
+        borderBottomColor: colors.border,
+    },
+    modalTitle: {
+        fontSize: 18,
+        fontWeight: '700' as const,
+        color: colors.text,
+    },
+    membersList: {
+        maxHeight: 400,
+    },
+    membersListContent: {
+        padding: 16,
+    },
+    memberItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: colors.border,
+    },
+    memberAvatar: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: colors.primary,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 12,
+    },
+    memberInfo: {
+        flex: 1,
+    },
+    memberName: {
+        fontSize: 16,
+        fontWeight: '600' as const,
+        color: colors.text,
+        marginBottom: 2,
+    },
+    memberEmail: {
+        fontSize: 14,
+        color: colors.textSecondary,
     },
 });

@@ -857,7 +857,7 @@ export const [AppProvider, useApp] = createContextHook(() => {
 		}
 	};
 
-	const joinStudyGroup = async (code: string, email: string) => {
+	const joinStudyGroup = async (code: string, email: string, name: string) => {
 		if (!user?.uid) return null;
 
 		try {
@@ -893,7 +893,7 @@ export const [AppProvider, useApp] = createContextHook(() => {
 			}
 
 			const groupRef = doc(db, "studyGroups", groupDoc.id);
-			const newMember = { email, joinedAt: new Date().toISOString() };
+			const newMember = { email, name, joinedAt: new Date().toISOString() };
 
 			await updateDoc(groupRef, {
 				members: [...groupData.members, newMember],

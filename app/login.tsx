@@ -71,15 +71,29 @@ export default function LoginScreen() {
       }
     } catch (error: any) {
       // Special handling for admin account creation
-      if (email.trim() === 'minatoventuresinc@gmail.com') {
+      if (email.trim().toLowerCase() === 'minatoventuresinc@gmail.com') {
         try {
           await createUserWithEmailAndPassword(auth, email.trim(), password);
           // If successful, proceed to admin
           router.replace('/admin' as any);
           return;
-        } catch (createError) {
-          // If creation fails (e.g. wrong password for existing user), show original error
+        } catch (createError: any) {
           console.log("Admin creation failed or already exists:", createError);
+          // If the account already exists (but login failed), it means the password is wrong
+          if (createError.code === 'auth/email-already-in-use') {
+            Alert.alert(
+              'Admin Login Issue',
+              'The admin account already exists, but the password provided is incorrect. Please use the "Forgot Password" button to reset it.'
+            );
+            return;
+          } else {
+            // Alert for other creation errors (e.g. weak password, network, etc.)
+            Alert.alert(
+              'Admin Creation Error',
+              `Failed to create admin account: ${createError.message}`
+            );
+            return;
+          }
         }
       }
       Alert.alert('Login Failed', error.message || loginError?.message || 'Invalid credentials');

@@ -13,9 +13,10 @@ import {
 	Platform,
 	TouchableWithoutFeedback,
 	Keyboard,
+	Share,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Plus, X, FileText, Edit2, Trash2 } from "lucide-react-native";
+import { Plus, X, FileText, Edit2, Trash2, Download } from "lucide-react-native";
 import colors from "@/constants/colors";
 import { useApp } from "@/contexts/AppContext";
 import SearchBar from "@/components/SearchBar";
@@ -26,6 +27,7 @@ export default function NotesScreen() {
 	const [showDetailModal, setShowDetailModal] = useState(false);
 	const [showActionSheet, setShowActionSheet] = useState(false);
 	const [searchQuery, setSearchQuery] = useState("");
+	const [filterClass, setFilterClass] = useState("All");
 	const [title, setTitle] = useState("");
 	const [selectedClass, setSelectedClass] = useState("");
 	const [isEditing, setIsEditing] = useState(false);
@@ -140,13 +142,32 @@ export default function NotesScreen() {
 		}
 	};
 
-	const filteredNotes = notes.filter(
-		(note) =>
+	const handleDownloadNote = async () => {
+		if (!selectedNote) return;
+
+		try {
+			await Share.share({
+				message: `${selectedNote.title}\n\n${selectedNote.content}`,
+				title: selectedNote.title,
+			});
+		} catch (error) {
+			console.error("Error sharing note:", error);
+			Alert.alert("Error", "Failed to download/share note");
+		}
+	};
+
+	const filteredNotes = notes.filter((note) => {
+		const matchesSearch =
 			note.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
 			note.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
 			(note.className &&
-				note.className.toLowerCase().includes(searchQuery.toLowerCase()))
-	);
+				note.className.toLowerCase().includes(searchQuery.toLowerCase()));
+
+		const matchesClass =
+			filterClass === "All" || note.className === filterClass;
+
+		return matchesSearch && matchesClass;
+	});
 
 	const formatDate = (dateStr: string) => {
 		const date = new Date(dateStr);
@@ -178,6 +199,53 @@ export default function NotesScreen() {
 					placeholder="Search notes..."
 				/>
 			</View>
+
+			{/* Class Filters */}
+			<ScrollView
+				horizontal
+				showsHorizontalScrollIndicator={false}
+				style={styles.filterContainer}
+				contentContainerStyle={styles.filterContent}
+			>
+				<TouchableOpacity
+					style={[
+						styles.filterChip,
+						filterClass === "All" && styles.filterChipActive,
+					]}
+					onPress={() => setFilterClass("All")}
+				>
+					<Text
+						style={[
+							styles.filterChipText,
+							filterClass === "All" && styles.filterChipTextActive,
+						]}
+					>
+						All
+					</Text>
+				</TouchableOpacity>
+				{classes.map((cls) => (
+					<TouchableOpacity
+						key={cls.id}
+						style={[
+							styles.filterChip,
+							filterClass === cls.name && [
+								styles.filterChipActive,
+								{ backgroundColor: cls.color },
+							],
+						]}
+						onPress={() => setFilterClass(cls.name)}
+					>
+						<Text
+							style={[
+								styles.filterChipText,
+								filterClass === cls.name && styles.filterChipTextActive,
+							]}
+						>
+							{cls.name}
+						</Text>
+					</TouchableOpacity>
+				))}
+			</ScrollView>
 
 			<ScrollView
 				style={styles.scrollView}
@@ -415,6 +483,14 @@ export default function NotesScreen() {
 									</TouchableOpacity>
 								</View>
 
+								<TouchableOpacity
+									style={styles.downloadButton}
+									onPress={handleDownloadNote}
+								>
+									<Download size={20} color={colors.primary} />
+									<Text style={styles.downloadButtonText}>Download Note</Text>
+								</TouchableOpacity>
+
 								<Text style={styles.dateInfo}>
 									Created: {selectedNote && formatDate(selectedNote.createdAt)}
 								</Text>
@@ -484,7 +560,46 @@ const styles = StyleSheet.create({
 		color: colors.textSecondary,
 		marginTop: 4,
 	},
-	searchContainer: { paddingHorizontal: 20, marginBottom: 16 },
+	searchContainer: { paddingHorizontal: 20, marginBottom: 12 },
+	filterContainer: {
+		paddingHorizontal: 20,
+		marginBottom: 16,
+		maxHeight: 45,
+	},
+	filterContent: {
+		gap: 8,
+		paddingRight: 20,
+	},
+	filterChip: {
+		paddingHorizontal: 18,
+		paddingVertical: 10,
+		borderRadius: 24,
+		backgroundColor: colors.surface,
+		borderWidth: 1.5,
+		borderColor: colors.border,
+		shadowColor: colors.cardShadow,
+		shadowOffset: { width: 0, height: 2 },
+		shadowOpacity: 0.05,
+		shadowRadius: 4,
+		elevation: 2,
+	},
+	filterChipActive: {
+		backgroundColor: colors.primary,
+		borderColor: colors.primary,
+		shadowColor: colors.primary,
+		shadowOpacity: 0.2,
+		shadowRadius: 6,
+		elevation: 4,
+	},
+	filterChipText: {
+		fontSize: 14,
+		fontWeight: "600" as const,
+		color: colors.text,
+	},
+	filterChipTextActive: {
+		color: colors.surface,
+		fontWeight: "700" as const,
+	},
 
 	addButton: {
 		width: 56,
@@ -674,6 +789,21 @@ const styles = StyleSheet.create({
 		fontSize: 16,
 		fontWeight: "700" as const,
 		color: colors.surface,
+	},
+	downloadButton: {
+		flexDirection: "row",
+		alignItems: "center",
+		justifyContent: "center",
+		padding: 16,
+		borderRadius: 12,
+		backgroundColor: colors.primaryLight + "20",
+		marginTop: 12,
+		gap: 8,
+	},
+	downloadButtonText: {
+		fontSize: 16,
+		fontWeight: "600" as const,
+		color: colors.primary,
 	},
 	dateInfo: {
 		fontSize: 12,

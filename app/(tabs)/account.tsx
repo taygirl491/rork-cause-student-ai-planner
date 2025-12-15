@@ -27,6 +27,8 @@ import {
   Heart,
   CheckCircle2,
   Lock,
+  HelpCircle,
+  Mail,
 } from 'lucide-react-native';
 import colors from '@/constants/colors';
 import LogoButton from '@/components/LogoButton';
@@ -191,6 +193,50 @@ export default function AccountScreen() {
     ]);
   };
 
+  const handleContactSupport = () => {
+    const email = 'support@causestudentplanner.com';
+    const subject = 'Support Request - Cause Student AI Planner';
+    const body = 'Hi Support Team,\n\nI need help with:\n\n';
+
+    const mailtoUrl = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+
+    Linking.openURL(mailtoUrl).catch(() => {
+      Alert.alert(
+        'Email Not Available',
+        `Please email us at: ${email}`,
+        [
+          { text: 'OK' },
+          {
+            text: 'Copy Email',
+            onPress: () => {
+              // In a real app, you'd use Clipboard API here
+              Alert.alert('Email', email);
+            }
+          }
+        ]
+      );
+    });
+  };
+
+  const handleHelpCenter = () => {
+    Alert.alert(
+      'Help Center',
+      'Visit our help center for FAQs, tutorials, and guides.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Open Help Center',
+          onPress: () => {
+            // In a real app, this would open a help center URL
+            Linking.openURL('https://causestudentplanner.com/help').catch(() => {
+              Alert.alert('Coming Soon', 'Our help center is currently being built. Please contact support for assistance.');
+            });
+          }
+        }
+      ]
+    );
+  };
+
   const getSubscriptionLabel = () => {
     switch (currentSubscription) {
       case 'monthly':
@@ -284,6 +330,30 @@ export default function AccountScreen() {
                 <FileText size={20} color={colors.accent} />
               </View>
               <Text style={styles.menuItemText}>Terms & Conditions</Text>
+            </View>
+            <ChevronRight size={20} color={colors.textLight} />
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Help & Support</Text>
+
+          <TouchableOpacity style={styles.menuItem} onPress={handleContactSupport}>
+            <View style={styles.menuItemLeft}>
+              <View style={[styles.menuIcon, { backgroundColor: colors.success + '15' }]}>
+                <Mail size={20} color={colors.success} />
+              </View>
+              <Text style={styles.menuItemText}>Contact Us</Text>
+            </View>
+            <ChevronRight size={20} color={colors.textLight} />
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.menuItem} onPress={handleHelpCenter}>
+            <View style={styles.menuItemLeft}>
+              <View style={[styles.menuIcon, { backgroundColor: colors.success + '15' }]}>
+                <HelpCircle size={20} color={colors.success} />
+              </View>
+              <Text style={styles.menuItemText}>Help Center</Text>
             </View>
             <ChevronRight size={20} color={colors.textLight} />
           </TouchableOpacity>

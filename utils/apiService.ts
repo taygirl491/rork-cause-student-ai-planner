@@ -191,6 +191,74 @@ class ApiService {
 			return { success: false, error: error.message || String(error) };
 		}
 	}
+
+	/**
+	 * Generic POST request
+	 */
+	async post(endpoint: string, data: any) {
+		try {
+			console.log(`[API] POST ${API_BASE_URL}${endpoint}`);
+			const response = await fetchWithTimeout(
+				`${API_BASE_URL}${endpoint}`,
+				{
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+						"x-api-key": API_KEY,
+					},
+					body: JSON.stringify(data),
+				},
+				30000
+			);
+
+			if (!response.ok) {
+				const error = await response.json();
+				console.log("[API] POST error:", error);
+				return { success: false, error: error.error || "Request failed" };
+			}
+
+			const result = await response.json();
+			console.log("[API] POST result:", result);
+			return result;
+		} catch (error: any) {
+			console.error("[API] POST error:", error.message || error);
+			throw error;
+		}
+	}
+
+	/**
+	 * Generic GET method
+	 */
+	async get(endpoint: string) {
+		try {
+			console.log(`[API] GET ${API_BASE_URL}${endpoint}`);
+			const response = await fetchWithTimeout(
+				`${API_BASE_URL}${endpoint}`,
+				{
+					method: "GET",
+					headers: {
+						"Content-Type": "application/json",
+						"x-api-key": API_KEY,
+					},
+				},
+				30000
+			);
+
+			if (!response.ok) {
+				const error = await response.json();
+				console.log("[API] GET error:", error);
+				return { success: false, error: error.error || "Request failed" };
+			}
+
+			const result = await response.json();
+			console.log("[API] GET result:", result);
+			return result;
+		} catch (error: any) {
+			console.error("[API] GET error:", error.message || error);
+			throw error;
+		}
+	}
 }
 
-export default new ApiService();
+export const apiService = new ApiService();
+export default apiService;

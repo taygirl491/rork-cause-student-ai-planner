@@ -1,189 +1,411 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
   TextInput,
+  TouchableOpacity,
+  KeyboardAvoidingView,
+  Platform,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Sparkles, Camera, FileText, Send } from 'lucide-react-native';
+import { Send, Bot, User as UserIcon, Sparkles, BookOpen, FileText, BrainCircuit, ArrowLeft, Paperclip, X } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import colors from '@/constants/colors';
-import Mascot from '@/components/Mascot';
+import { useAuth } from '@/contexts/AuthContext';
+import { sendMessage, generateMessageId } from '@/utils/aiService';
+import { AIMessage } from '@/types';
+import Markdown from 'react-native-markdown-display';
 
-type Mode = 'homework' | 'summarize' | 'quiz';
+const STORAGE_KEY_PREFIX = 'ai-buddy-conversation-';
+const MAX_STORED_MESSAGES = 50;
+
+type AIMode = 'homework' | 'summarize' | 'quiz' | null;
 
 export default function AIBuddyScreen() {
-  const [mode, setMode] = useState<Mode>('homework');
-  const [input, setInput] = useState('');
-  const [response, setResponse] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const { user } = useAuth();
+  const [mode, setMode] = useState<AIMode>(null);
+  const [messages, setMessages] = useState<AIMessage[]>([]);
+  const [inputText, setInputText] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [selectedImages, setSelectedImages] = useState<string[]>([]);
+  const scrollViewRef = useRef<ScrollView>(null);
 
-  const pickImage = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      quality: 0.8,
-      base64: true,
-    });
+  // Load conversation history when mode changes
+  useEffect(() => {
+    if (mode) {
+      loadConversationHistory(mode);
+    }
+  }, [mode]);
 
-    if (!result.canceled && result.assets[0].base64) {
-      setSelectedImage(`data:image/jpeg;base64,${result.assets[0].base64}`);
+  // Auto-scroll to bottom when new messages arrive
+  useEffect(() => {
+    if (messages.length > 0) {
+      setTimeout(() => {
+        scrollViewRef.current?.scrollToEnd({ animated: true });
+      }, 100);
+    }
+  }, [messages]);
+
+  const loadConversationHistory = async (currentMode: string) => {
+    setIsLoadingHistory(true);
+    try {
+      const stored = await AsyncStorage.getItem(`${STORAGE_KEY_PREFIX}${currentMode}`);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        setMessages(parsed);
+      } else {
+        setMessages([]);
+      }
+    } catch (error) {
+      console.error('Error loading conversation:', error);
+    } finally {
+      setIsLoadingHistory(false);
     }
   };
 
-  const handleSubmit = async () => {
-    if (!input && !selectedImage) return;
+  const saveConversationHistory = async (newMessages: AIMessage[], currentMode: string) => {
+    try {
+      // Keep only the most recent messages
+      const messagesToStore = newMessages.slice(-MAX_STORED_MESSAGES);
+      await AsyncStorage.setItem(`${STORAGE_KEY_PREFIX}${currentMode}`, JSON.stringify(messagesToStore));
+    } catch (error) {
+      console.error('Error saving conversation:', error);
+    }
+  };
 
-    setLoading(true);
-    setResponse('');
+  const handleSend = async () => {
+    if (!inputText.trim() || !user?.uid || !mode) return;
+
+    const userMessage: AIMessage = {
+      id: generateMessageId(),
+      role: 'user',
+      content: inputText.trim(),
+      timestamp: new Date().toISOString(),
+    };
+
+    const updatedMessages = [...messages, userMessage];
+    setMessages(updatedMessages);
+    setInputText('');
+    setIsLoading(true);
 
     try {
-      // Simulate a brief delay for better UX
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Placeholder response
-      setResponse(
-        '🚧 AI Features Coming Soon!\n\n' +
-        'We\'re working on integrating advanced AI capabilities to help you with:\n\n' +
-        '• Homework assistance and step-by-step explanations\n' +
-        '• Text summarization for your study materials\n' +
-        '• Custom quiz generation to test your knowledge\n\n' +
-        'Stay tuned for updates!'
+      // Send message to backend with mode
+      const response = await sendMessage(
+        userMessage.content,
+        user.uid,
+        messages,
+        mode
       );
-    } catch (error) {
-      setResponse('Sorry, something went wrong. Please try again.');
-      console.error('Error:', error);
+
+      const assistantMessage: AIMessage = {
+        id: generateMessageId(),
+        role: 'assistant',
+        content: response.reply,
+        timestamp: response.timestamp,
+      };
+
+      const finalMessages = [...updatedMessages, assistantMessage];
+      setMessages(finalMessages);
+      await saveConversationHistory(finalMessages, mode);
+    } catch (error: any) {
+      console.error('Error sending message:', error);
+      Alert.alert('Error', error.message || 'Failed to get response from AI Buddy');
+
+      // Remove the user message on error
+      setMessages(messages);
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
-  const clearAll = () => {
-    setInput('');
-    setResponse('');
-    setSelectedImage(null);
+  const handleClearConversation = () => {
+    if (!mode) return;
+
+    Alert.alert(
+      'Clear Conversation',
+      'Are you sure you want to clear this conversation?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Clear',
+          style: 'destructive',
+          onPress: async () => {
+            setMessages([]);
+            await AsyncStorage.removeItem(`${STORAGE_KEY_PREFIX}${mode}`);
+          },
+        },
+      ]
+    );
   };
 
+  const handlePickImage = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsMultipleSelection: false,
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        Alert.alert('Coming Soon', 'Image analysis will be available in a future update!');
+        // TODO: Implement image upload to backend when GPT-4 Vision is ready
+        // setSelectedImages([...selectedImages, result.assets[0].uri]);
+      }
+    } catch (error) {
+      console.error('Error picking image:', error);
+      Alert.alert('Error', 'Failed to pick image');
+    }
+  };
+
+  const handlePickDocument = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['application/pdf', 'image/*'],
+        copyToCacheDirectory: true,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        Alert.alert('Coming Soon', 'Document analysis will be available in a future update!');
+        // TODO: Implement document upload when ready
+      }
+    } catch (error) {
+      console.error('Error picking document:', error);
+      Alert.alert('Error', 'Failed to pick document');
+    }
+  };
+
+  const showAttachmentOptions = () => {
+    Alert.alert(
+      'Add Attachment',
+      'Choose an option',
+      [
+        { text: 'Photo Library', onPress: handlePickImage },
+        { text: 'Document', onPress: handlePickDocument },
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
+  };
+
+  const renderMessage = (message: AIMessage) => {
+    const isUser = message.role === 'user';
+
+    const markdownStyles = {
+      body: {
+        color: isUser ? colors.surface : colors.text,
+        fontSize: 15,
+        lineHeight: 20
+      },
+      paragraph: {
+        marginTop: 0,
+        marginBottom: 8,
+        flexWrap: 'wrap' as const,
+      },
+      strong: {
+        fontWeight: 'bold' as const,
+        color: isUser ? colors.surface : colors.text,
+      },
+      link: {
+        color: isUser ? colors.surface : colors.primary,
+      },
+      list_item: {
+        marginVertical: 2,
+      },
+      bullet_list: {
+        marginBottom: 8,
+      },
+    };
+
+    return (
+      <View
+        key={message.id}
+        style={[
+          styles.messageContainer,
+          isUser ? styles.userMessageContainer : styles.aiMessageContainer,
+        ]}
+      >
+        <View style={[styles.messageAvatar, isUser ? styles.userAvatar : styles.aiAvatar]}>
+          {isUser ? (
+            <UserIcon size={16} color={colors.surface} />
+          ) : (
+            <Bot size={16} color={colors.surface} />
+          )}
+        </View>
+        <View style={[styles.messageBubble, isUser ? styles.userBubble : styles.aiBubble]}>
+          <Markdown style={markdownStyles}>
+            {message.content}
+          </Markdown>
+          <Text style={styles.messageTime}>
+            {new Date(message.timestamp).toLocaleTimeString([], {
+              hour: '2-digit',
+              minute: '2-digit',
+            })}
+          </Text>
+        </View>
+      </View>
+    );
+  };
+
+  const getModeTitle = (m: AIMode) => {
+    switch (m) {
+      case 'homework': return 'Homework Assistant';
+      case 'summarize': return 'Summarize Text';
+      case 'quiz': return 'Quiz Me';
+      default: return 'AI Buddy';
+    }
+  };
+
+  const getModeSubtitle = (m: AIMode) => {
+    switch (m) {
+      case 'homework': return "Help with assignments and planning";
+      case 'summarize': return "Get quick summaries of topics";
+      case 'quiz': return "Test your knowledge";
+      default: return "";
+    }
+  }
+
+  const renderDashboard = () => (
+    <ScrollView style={styles.dashboardContainer} contentContainerStyle={styles.dashboardContent}>
+      <View style={styles.dashboardHeader}>
+        <Text style={styles.dashboardTitle}>How can I help you?</Text>
+        <Text style={styles.dashboardSubtitle}>Choose a mode to get started</Text>
+      </View>
+
+      <TouchableOpacity style={styles.card} onPress={() => setMode('homework')}>
+        <View style={[styles.cardIcon, { backgroundColor: colors.primaryLight + '30' }]}>
+          <BookOpen size={32} color={colors.primary} />
+        </View>
+        <View style={styles.cardTextContainer}>
+          <Text style={styles.cardTitle}>Homework Assistant</Text>
+          <Text style={styles.cardDescription}>Get help with your assignments, study planning, and scheduling.</Text>
+        </View>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.card} onPress={() => setMode('summarize')}>
+        <View style={[styles.cardIcon, { backgroundColor: '#10b98130' }]}>
+          <FileText size={32} color="#10b981" />
+        </View>
+        <View style={styles.cardTextContainer}>
+          <Text style={styles.cardTitle}>Summarize</Text>
+          <Text style={styles.cardDescription}>Paste text or ask about a topic to get a concise summary.</Text>
+        </View>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.card} onPress={() => setMode('quiz')}>
+        <View style={[styles.cardIcon, { backgroundColor: '#f59e0b30' }]}>
+          <BrainCircuit size={32} color="#f59e0b" />
+        </View>
+        <View style={styles.cardTextContainer}>
+          <Text style={styles.cardTitle}>Quiz Me</Text>
+          <Text style={styles.cardDescription}>Test your knowledge on your current classes and tasks.</Text>
+        </View>
+      </TouchableOpacity>
+    </ScrollView>
+  );
+
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <View>
-          <Text style={styles.title}>AI Study Buddy</Text>
-          <Text style={styles.subtitle}>Your personal learning assistant</Text>
+        <View style={styles.headerLeft}>
+          {mode ? (
+            <TouchableOpacity onPress={() => setMode(null)} style={styles.backButton}>
+              <ArrowLeft size={24} color={colors.text} />
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.headerIcon}>
+              <Sparkles size={24} color={colors.primary} />
+            </View>
+          )}
+          <View>
+            <Text style={styles.title}>{mode ? getModeTitle(mode) : 'AI Buddy'}</Text>
+            <Text style={styles.subtitle}>{mode ? getModeSubtitle(mode) : 'Your study assistant'}</Text>
+          </View>
         </View>
-        <Mascot size={60} />
-      </View>
-
-      <View style={styles.modeSelector}>
-        <TouchableOpacity
-          style={[styles.modeButton, mode === 'homework' && styles.modeButtonActive]}
-          onPress={() => { setMode('homework'); clearAll(); }}
-        >
-          <Camera size={20} color={mode === 'homework' ? colors.surface : colors.text} />
-          <Text style={[styles.modeButtonText, mode === 'homework' && styles.modeButtonTextActive]}>
-            Homework Help
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.modeButton, mode === 'summarize' && styles.modeButtonActive]}
-          onPress={() => { setMode('summarize'); clearAll(); }}
-        >
-          <FileText size={20} color={mode === 'summarize' ? colors.surface : colors.text} />
-          <Text style={[styles.modeButtonText, mode === 'summarize' && styles.modeButtonTextActive]}>
-            Summarize
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.modeButton, mode === 'quiz' && styles.modeButtonActive]}
-          onPress={() => { setMode('quiz'); clearAll(); }}
-        >
-          <Sparkles size={20} color={mode === 'quiz' ? colors.surface : colors.text} />
-          <Text style={[styles.modeButtonText, mode === 'quiz' && styles.modeButtonTextActive]}>
-            Quiz Me
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.infoCard}>
-          <Text style={styles.infoTitle}>
-            {mode === 'homework' && '📚 Upload or describe your homework'}
-            {mode === 'summarize' && '📝 Paste text to summarize'}
-            {mode === 'quiz' && '🎯 Paste your study material'}
-          </Text>
-          <Text style={styles.infoText}>
-            {mode === 'homework' && 'I\'ll help you understand the concepts and guide you through the solution.'}
-            {mode === 'summarize' && 'I\'ll create a clear, concise summary of your text.'}
-            {mode === 'quiz' && 'I\'ll create practice questions to test your knowledge.'}
-          </Text>
-        </View>
-
-        {mode === 'homework' && (
-          <TouchableOpacity style={styles.imagePickerButton} onPress={pickImage}>
-            <Camera size={24} color={colors.primary} />
-            <Text style={styles.imagePickerText}>
-              {selectedImage ? 'Change Image' : 'Upload Homework Image'}
-            </Text>
+        {mode && messages.length > 0 && (
+          <TouchableOpacity onPress={handleClearConversation} style={styles.clearButton}>
+            <Text style={styles.clearButtonText}>Clear</Text>
           </TouchableOpacity>
         )}
+      </View>
 
-        {selectedImage && (
-          <View style={styles.imagePreview}>
-            <Text style={styles.imagePreviewText}>Image selected ✓</Text>
-          </View>
-        )}
-
-        <View style={styles.inputContainer}>
-          <TextInput
-            style={styles.textInput}
-            placeholder={
-              mode === 'homework'
-                ? 'Or describe your homework question...'
-                : mode === 'summarize'
-                ? 'Paste your text here...'
-                : 'Paste your study notes here...'
-            }
-            placeholderTextColor={colors.textLight}
-            value={input}
-            onChangeText={setInput}
-            multiline
-            numberOfLines={6}
-            textAlignVertical="top"
-          />
-        </View>
-
-        <TouchableOpacity
-          style={[styles.submitButton, (!input && !selectedImage) && styles.submitButtonDisabled]}
-          onPress={handleSubmit}
-          disabled={!input && !selectedImage}
+      {!mode ? (
+        renderDashboard()
+      ) : (
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.keyboardAvoid}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
         >
-          {loading ? (
-            <ActivityIndicator color={colors.surface} />
+          {isLoadingHistory ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={colors.primary} />
+              <Text style={styles.loadingText}>Loading conversation...</Text>
+            </View>
           ) : (
             <>
-              <Send size={20} color={colors.surface} />
-              <Text style={styles.submitButtonText}>
-                {mode === 'homework' ? 'Get Help' : mode === 'summarize' ? 'Summarize' : 'Generate Quiz'}
-              </Text>
+              <ScrollView
+                ref={scrollViewRef}
+                style={styles.messagesContainer}
+                contentContainerStyle={styles.messagesContent}
+                showsVerticalScrollIndicator={false}
+              >
+                {messages.length === 0 ? (
+                  <View style={styles.emptyState}>
+                    <Bot size={64} color={colors.textLight} />
+                    <Text style={styles.emptyTitle}>Hi! I'm ready to help.</Text>
+                    <Text style={styles.emptySubtitle}>
+                      Ask me anything related to {getModeTitle(mode).toLowerCase()}.
+                    </Text>
+                  </View>
+                ) : (
+                  messages.map(renderMessage)
+                )}
+                {isLoading && (
+                  <View style={styles.loadingMessage}>
+                    <ActivityIndicator size="small" color={colors.primary} />
+                    <Text style={styles.loadingMessageText}>Thinking...</Text>
+                  </View>
+                )}
+              </ScrollView>
+
+              <View style={styles.inputContainer}>
+                {mode === 'homework' && (
+                  <TouchableOpacity
+                    style={styles.attachmentButton}
+                    onPress={showAttachmentOptions}
+                    disabled={isLoading}
+                  >
+                    <Paperclip size={20} color={isLoading ? colors.textLight : colors.text} />
+                  </TouchableOpacity>
+                )}
+                <TextInput
+                  style={styles.input}
+                  placeholder={`Ask ${getModeTitle(mode)}...`}
+                  placeholderTextColor={colors.textLight}
+                  value={inputText}
+                  onChangeText={setInputText}
+                  multiline
+                  maxLength={500}
+                  editable={!isLoading}
+                />
+                <TouchableOpacity
+                  style={[styles.sendButton, (!inputText.trim() || isLoading) && styles.sendButtonDisabled]}
+                  onPress={handleSend}
+                  disabled={!inputText.trim() || isLoading}
+                >
+                  <Send size={20} color={colors.surface} />
+                </TouchableOpacity>
+              </View>
             </>
           )}
-        </TouchableOpacity>
-
-        {response && (
-          <View style={styles.responseCard}>
-            <View style={styles.responseHeader}>
-              <Sparkles size={20} color={colors.primary} />
-              <Text style={styles.responseTitle}>AI Response</Text>
-            </View>
-            <Text style={styles.responseText}>{response}</Text>
-          </View>
-        )}
-      </ScrollView>
+        </KeyboardAvoidingView>
+      )}
     </SafeAreaView>
   );
 }
@@ -193,176 +415,250 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    // marginTop: 12,
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingBottom: 16,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    backgroundColor: colors.surface,
+    zIndex: 10,
   },
-  title: {
-    fontSize: 32,
-    fontWeight: '800' as const,
-    color: colors.text,
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
-  subtitle: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    marginTop: 4,
+  backButton: {
+    padding: 4,
   },
-  mascotContainer: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+  headerIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: colors.primaryLight + '30',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  modeSelector: {
-    flexDirection: 'row',
-    paddingHorizontal: 20,
-    marginBottom: 16,
-    gap: 8,
-  },
-  modeButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    borderRadius: 12,
-    backgroundColor: colors.surface,
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  modeButtonActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  modeButtonText: {
-    fontSize: 13,
-    fontWeight: '600' as const,
+  title: {
+    fontSize: 20,
+    fontWeight: '700' as const,
     color: colors.text,
   },
-  modeButtonTextActive: {
-    color: colors.surface,
+  subtitle: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 2,
   },
-  content: {
+  clearButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: colors.error + '20',
+  },
+  clearButtonText: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: colors.error || '#ef4444',
+  },
+  keyboardAvoid: {
     flex: 1,
-    paddingHorizontal: 20,
   },
-  infoCard: {
-    backgroundColor: colors.secondary + '20',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
-    borderLeftWidth: 4,
-    borderLeftColor: colors.secondary,
+  // Dashboard Styles
+  dashboardContainer: {
+    flex: 1,
   },
-  infoTitle: {
-    fontSize: 16,
-    fontWeight: '700' as const,
+  dashboardContent: {
+    padding: 20,
+  },
+  dashboardHeader: {
+    marginBottom: 24,
+  },
+  dashboardTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
     color: colors.text,
     marginBottom: 8,
   },
-  infoText: {
+  dashboardSubtitle: {
+    fontSize: 16,
+    color: colors.textSecondary,
+  },
+  card: {
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  cardIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
+  },
+  cardTextContainer: {
+    flex: 1,
+  },
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  cardDescription: {
     fontSize: 14,
     color: colors.textSecondary,
     lineHeight: 20,
   },
-  imagePickerButton: {
-    flexDirection: 'row',
+  // Chat Styles
+  messagesContainer: {
+    flex: 1,
+  },
+  messagesContent: {
+    padding: 16,
+    paddingBottom: 8,
+  },
+  emptyState: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    borderWidth: 2,
-    borderColor: colors.border,
-    borderStyle: 'dashed',
+    paddingVertical: 60,
+    paddingHorizontal: 32,
   },
-  imagePickerText: {
-    fontSize: 15,
-    fontWeight: '600' as const,
-    color: colors.primary,
-  },
-  imagePreview: {
-    backgroundColor: colors.success + '20',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 16,
-    alignItems: 'center',
-  },
-  imagePreviewText: {
-    fontSize: 14,
-    fontWeight: '600' as const,
-    color: colors.success,
-  },
-  inputContainer: {
-    marginBottom: 16,
-  },
-  textInput: {
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    padding: 16,
-    fontSize: 15,
+  emptyTitle: {
+    fontSize: 22,
+    fontWeight: '700' as const,
     color: colors.text,
+    marginTop: 16,
+    textAlign: 'center',
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginTop: 8,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  messageContainer: {
+    flexDirection: 'row',
+    marginBottom: 16,
+    gap: 8,
+  },
+  userMessageContainer: {
+    justifyContent: 'flex-end',
+  },
+  aiMessageContainer: {
+    justifyContent: 'flex-start',
+  },
+  messageAvatar: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  userAvatar: {
+    backgroundColor: colors.primary,
+  },
+  aiAvatar: {
+    backgroundColor: colors.secondary,
+  },
+  messageBubble: {
+    maxWidth: '75%',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 16,
+  },
+  userBubble: {
+    backgroundColor: colors.primary,
+    borderBottomRightRadius: 4,
+  },
+  aiBubble: {
+    backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
-    minHeight: 120,
+    borderBottomLeftRadius: 4,
   },
-  submitButton: {
+  messageTime: {
+    fontSize: 10,
+    color: colors.textLight,
+    marginTop: 4,
+    opacity: 0.7,
+  },
+  loadingMessage: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    backgroundColor: colors.primary,
-    borderRadius: 12,
-    padding: 18,
-    marginBottom: 16,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+    gap: 8,
+    paddingVertical: 12,
   },
-  submitButtonDisabled: {
-    opacity: 0.5,
+  loadingMessageText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    fontStyle: 'italic',
   },
-  submitButtonText: {
-    fontSize: 16,
-    fontWeight: '700' as const,
-    color: colors.surface,
-  },
-  responseCard: {
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    paddingBottom: Platform.OS === 'ios' ? 12 : 16,
     backgroundColor: colors.surface,
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 20,
-    shadowColor: colors.cardShadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    gap: 8,
   },
-  responseHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginBottom: 12,
-  },
-  responseTitle: {
-    fontSize: 18,
-    fontWeight: '700' as const,
-    color: colors.text,
-  },
-  responseText: {
+  input: {
+    flex: 1,
+    backgroundColor: colors.background,
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     fontSize: 15,
     color: colors.text,
-    lineHeight: 24,
+    maxHeight: 100,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  attachmentButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surface,
+  },
+  sendButton: {
+    backgroundColor: colors.primary,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sendButtonDisabled: {
+    opacity: 0.5,
   },
 });

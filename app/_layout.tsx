@@ -7,6 +7,7 @@ import { View, TouchableOpacity, StyleSheet, Modal, Text, ScrollView, Pressable,
 import { Menu, CheckSquare, Calendar, Target, FileText, BookOpen, Heart, Sparkles, User, Home, X, Users } from "lucide-react-native";
 import { AppProvider } from "@/contexts/AppContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { StreakProvider } from "@/contexts/StreakContext";
 import * as NotificationService from "@/utils/notificationService";
 import * as Notifications from "expo-notifications";
 import LogoButton from "@/components/LogoButton";
@@ -195,6 +196,12 @@ function RootLayoutNav() {
         }}
       />
       <Stack.Screen
+        name="group-detail"
+        options={{
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
         name="(tabs)"
         options={{
           headerShown: true,
@@ -215,9 +222,11 @@ export default function RootLayout() {
     <QueryClientProvider client={queryClient}>
       <GestureHandlerRootView style={{ flex: 1 }}>
         <AuthProvider>
-          <AppProvider>
-            <RootLayoutNav />
-          </AppProvider>
+          <StreakProvider>
+            <AppProvider>
+              <RootLayoutNav />
+            </AppProvider>
+          </StreakProvider>
         </AuthProvider>
       </GestureHandlerRootView>
     </QueryClientProvider>
