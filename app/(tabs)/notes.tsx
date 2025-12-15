@@ -536,7 +536,7 @@ export default function NotesScreen() {
 		</SafeAreaView >
 	);
 }
-
+// styles
 const styles = StyleSheet.create({
 	container: {
 		flex: 1,
