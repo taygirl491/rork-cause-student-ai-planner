@@ -91,7 +91,7 @@ export default function TasksScreen() {
 
   // Filter tasks based on search and active filter
   const filteredTasks = React.useMemo(() => {
-    return sortedTasks.filter(task => {
+    const filtered = sortedTasks.filter(task => {
       // Search filter (always active)
       const matchesSearch = task.description.toLowerCase().includes(searchQuery.toLowerCase());
 
@@ -108,6 +108,19 @@ export default function TasksScreen() {
 
       return matchesSearch && matchesFilter;
     });
+
+    // Sort: incomplete tasks first, then completed tasks (only for 'all' filter)
+    if (activeFilter === 'all') {
+      return filtered.sort((a, b) => {
+        // If completion status is different, incomplete comes first
+        if (a.completed !== b.completed) {
+          return a.completed ? 1 : -1;
+        }        // If both have same completion status, maintain original order
+        return 0;
+      });
+    }
+
+    return filtered;
   }, [sortedTasks, searchQuery, activeFilter]);
 
   const handleAddTask = () => {

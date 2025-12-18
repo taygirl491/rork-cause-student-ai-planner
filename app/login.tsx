@@ -15,6 +15,7 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [isNavigating, setIsNavigating] = useState(false);
   const { login, isLoggingIn, loginError, resetPassword } = useAuth();
   const router = useRouter();
   const { returnTo } = useLocalSearchParams<{ returnTo: string }>();
@@ -49,6 +50,7 @@ export default function LoginScreen() {
       return;
     }
 
+    setIsNavigating(true);
     try {
       const user = await login(email.trim(), password);
       // Ensure onboarding is marked as complete on successful login
@@ -70,14 +72,17 @@ export default function LoginScreen() {
         router.replace('/home');
       }
     } catch (error: any) {
+      setIsNavigating(false);
       // Special handling for admin account creation
       if (email.trim().toLowerCase() === 'minatoventuresinc@gmail.com') {
         try {
+          setIsNavigating(true);
           await createUserWithEmailAndPassword(auth, email.trim(), password);
           // If successful, proceed to admin
           router.replace('/admin' as any);
           return;
         } catch (createError: any) {
+          setIsNavigating(false);
           console.log("Admin creation failed or already exists:", createError);
           // If the account already exists (but login failed), it means the password is wrong
           if (createError.code === 'auth/email-already-in-use') {
@@ -179,12 +184,12 @@ export default function LoginScreen() {
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.loginButton, isLoggingIn && styles.loginButtonDisabled]}
+                style={[styles.loginButton, (isLoggingIn || isNavigating) && styles.loginButtonDisabled]}
                 onPress={handleLogin}
-                disabled={isLoggingIn}
+                disabled={isLoggingIn || isNavigating}
               >
                 <Text style={styles.loginButtonText}>
-                  {isLoggingIn ? 'Logging in...' : 'Login'}
+                  {(isLoggingIn || isNavigating) ? 'Logging in...' : 'Login'}
                 </Text>
               </TouchableOpacity>
 
@@ -197,7 +202,7 @@ export default function LoginScreen() {
               <TouchableOpacity
                 style={styles.registerButton}
                 onPress={handleRegister}
-                disabled={isLoggingIn}
+                disabled={isLoggingIn || isNavigating}
               >
                 <Text style={styles.registerButtonText}>Create New Account</Text>
               </TouchableOpacity>

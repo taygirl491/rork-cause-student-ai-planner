@@ -400,6 +400,10 @@ app.use("/api/ai", authenticate, aiRoutes);
 // Streak Routes
 app.use("/api/streak", authenticate, streakRoutes);
 
+// Stripe Routes
+const stripeRoutes = require("./stripeRoutes");
+app.use("/api/stripe", authenticate, stripeRoutes);
+
 // 404 handler
 app.use((req, res) => {
 	res.status(404).json({ error: "Endpoint not found" });

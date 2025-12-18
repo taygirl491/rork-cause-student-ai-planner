@@ -202,6 +202,12 @@ function RootLayoutNav() {
         }}
       />
       <Stack.Screen
+        name="payment"
+        options={{
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
         name="(tabs)"
         options={{
           headerShown: true,
