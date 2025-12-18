@@ -111,13 +111,25 @@ async function getStreakData(userId) {
         }
 
         const userData = userDoc.data();
-        const streakData = userData.streak || {
+        let streakData = userData.streak || {
             current: 0,
             longest: 0,
             lastCompletionDate: null,
             totalTasksCompleted: 0,
             streakFreezes: 0,
         };
+
+        // Validate streak - reset if user missed a day
+        const today = getToday();
+        const yesterday = getYesterday(today);
+        const lastDate = streakData.lastCompletionDate;
+
+        // If last completion was before yesterday, streak is broken
+        if (lastDate && lastDate !== today && lastDate !== yesterday) {
+            streakData.current = 0;
+            // Update Firestore to reflect broken streak
+            await userRef.update({ streak: streakData });
+        }
 
         return {
             success: true,

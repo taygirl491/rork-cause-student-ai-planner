@@ -44,7 +44,10 @@ function AdminContent() {
     const [isAdmin, setIsAdmin] = useState(false);
 
     const [homeVideoUrl, setHomeVideoUrl] = useState('');
-    const [causesVideoUrl, setCausesVideoUrl] = useState('');
+    const [causesVideo1Url, setCausesVideo1Url] = useState('');
+    const [causesVideo2Url, setCausesVideo2Url] = useState('');
+    const [causesVideo3Url, setCausesVideo3Url] = useState('');
+    const [causesVideo4Url, setCausesVideo4Url] = useState('');
     const [saving, setSaving] = useState(false);
 
     // Check valid admin session
@@ -67,7 +70,10 @@ function AdminContent() {
             if (docSnap.exists()) {
                 const data = docSnap.data();
                 setHomeVideoUrl(data.homeVideoId ? `https://youtu.be/${data.homeVideoId}` : '');
-                setCausesVideoUrl(data.causesVideoId ? `https://youtu.be/${data.causesVideoId}` : '');
+                setCausesVideo1Url(data.causesVideo1Id ? `https://youtu.be/${data.causesVideo1Id}` : '');
+                setCausesVideo2Url(data.causesVideo2Id ? `https://youtu.be/${data.causesVideo2Id}` : '');
+                setCausesVideo3Url(data.causesVideo3Id ? `https://youtu.be/${data.causesVideo3Id}` : '');
+                setCausesVideo4Url(data.causesVideo4Id ? `https://youtu.be/${data.causesVideo4Id}` : '');
             }
         } catch (error) {
             console.error('Error loading video config:', error);
@@ -121,14 +127,29 @@ function AdminContent() {
 
     const handleSave = async () => {
         const homeId = extractVideoId(homeVideoUrl);
-        const causesId = extractVideoId(causesVideoUrl);
+        const causes1Id = extractVideoId(causesVideo1Url);
+        const causes2Id = extractVideoId(causesVideo2Url);
+        const causes3Id = extractVideoId(causesVideo3Url);
+        const causes4Id = extractVideoId(causesVideo4Url);
 
         if (!homeId && homeVideoUrl) {
             Alert.alert('Invalid URL', 'Please enter a valid YouTube URL for the Home video.');
             return;
         }
-        if (!causesId && causesVideoUrl) {
-            Alert.alert('Invalid URL', 'Please enter a valid YouTube URL for the Causes video.');
+        if (!causes1Id && causesVideo1Url) {
+            Alert.alert('Invalid URL', 'Please enter a valid YouTube URL for Causes Video 1.');
+            return;
+        }
+        if (!causes2Id && causesVideo2Url) {
+            Alert.alert('Invalid URL', 'Please enter a valid YouTube URL for Causes Video 2.');
+            return;
+        }
+        if (!causes3Id && causesVideo3Url) {
+            Alert.alert('Invalid URL', 'Please enter a valid YouTube URL for Causes Video 3.');
+            return;
+        }
+        if (!causes4Id && causesVideo4Url) {
+            Alert.alert('Invalid URL', 'Please enter a valid YouTube URL for Causes Video 4.');
             return;
         }
 
@@ -139,7 +160,10 @@ function AdminContent() {
             // Use setDoc with merge: true to create if not exists or update
             await setDoc(docRef, {
                 homeVideoId: homeId,
-                causesVideoId: causesId,
+                causesVideo1Id: causes1Id,
+                causesVideo2Id: causes2Id,
+                causesVideo3Id: causes3Id,
+                causesVideo4Id: causes4Id,
                 updatedAt: new Date().toISOString(),
                 updatedBy: auth.currentUser?.email
             }, { merge: true });
@@ -190,13 +214,52 @@ function AdminContent() {
                             />
                         </View>
 
+                        <Text style={styles.sectionHeader}>Causes Screen Videos</Text>
+                        <Text style={styles.sectionDescription}>Configure the 4 inspirational student talk videos</Text>
+
                         <View style={styles.inputGroup}>
-                            <Text style={styles.label}>Causes Screen Video URL</Text>
+                            <Text style={styles.label}>Video 1: "How I Changed the World as a Student"</Text>
                             <TextInput
                                 style={styles.input}
                                 placeholder="https://youtu.be/..."
-                                value={causesVideoUrl}
-                                onChangeText={setCausesVideoUrl}
+                                value={causesVideo1Url}
+                                onChangeText={setCausesVideo1Url}
+                                placeholderTextColor={colors.textLight}
+                                autoCapitalize="none"
+                            />
+                        </View>
+
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.label}>Video 2: "From Underperforming to High Achieving"</Text>
+                            <TextInput
+                                style={styles.input}
+                                placeholder="https://youtu.be/..."
+                                value={causesVideo2Url}
+                                onChangeText={setCausesVideo2Url}
+                                placeholderTextColor={colors.textLight}
+                                autoCapitalize="none"
+                            />
+                        </View>
+
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.label}>Video 3: "What School Means to Me"</Text>
+                            <TextInput
+                                style={styles.input}
+                                placeholder="https://youtu.be/..."
+                                value={causesVideo3Url}
+                                onChangeText={setCausesVideo3Url}
+                                placeholderTextColor={colors.textLight}
+                                autoCapitalize="none"
+                            />
+                        </View>
+
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.label}>Video 4: "Overcoming Challenges in My Academic Journey"</Text>
+                            <TextInput
+                                style={styles.input}
+                                placeholder="https://youtu.be/..."
+                                value={causesVideo4Url}
+                                onChangeText={setCausesVideo4Url}
                                 placeholderTextColor={colors.textLight}
                                 autoCapitalize="none"
                             />
@@ -451,5 +514,17 @@ const styles = StyleSheet.create({
         color: colors.surface,
         fontSize: 16,
         fontWeight: '700',
+    },
+    sectionHeader: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: colors.text,
+        marginTop: 24,
+        marginBottom: 8,
+    },
+    sectionDescription: {
+        fontSize: 13,
+        color: colors.textSecondary,
+        marginBottom: 16,
     },
 });

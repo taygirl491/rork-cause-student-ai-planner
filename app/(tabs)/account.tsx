@@ -164,8 +164,99 @@ export default function AccountScreen() {
         {
           text: 'Delete',
           style: 'destructive',
-          onPress: () => {
-            Alert.alert('Account Deleted', 'Your account has been permanently deleted.');
+          onPress: async () => {
+            try {
+              if (!user?.uid) {
+                Alert.alert('Error', 'No user found');
+                return;
+              }
+
+              // Import Firebase functions
+              const { deleteUser } = await import('firebase/auth');
+              const { doc, deleteDoc, collection, getDocs, query, where } = await import('firebase/firestore');
+              const { auth, db } = await import('@/firebaseConfig');
+
+              const currentUser = auth.currentUser;
+              if (!currentUser) {
+                Alert.alert('Error', 'No authenticated user found');
+                return;
+              }
+
+              // Delete user data from Firestore
+              try {
+                // Delete user document
+                await deleteDoc(doc(db, 'users', user.uid));
+
+                // Delete user's tasks
+                const tasksQuery = query(collection(db, 'tasks'), where('userId', '==', user.uid));
+                const tasksSnapshot = await getDocs(tasksQuery);
+                for (const taskDoc of tasksSnapshot.docs) {
+                  await deleteDoc(taskDoc.ref);
+                }
+
+                // Delete user's classes
+                const classesQuery = query(collection(db, 'classes'), where('userId', '==', user.uid));
+                const classesSnapshot = await getDocs(classesQuery);
+                for (const classDoc of classesSnapshot.docs) {
+                  await deleteDoc(classDoc.ref);
+                }
+
+                // Delete user's notes
+                const notesQuery = query(collection(db, 'notes'), where('userId', '==', user.uid));
+                const notesSnapshot = await getDocs(notesQuery);
+                for (const noteDoc of notesSnapshot.docs) {
+                  await deleteDoc(noteDoc.ref);
+                }
+
+                // Delete user's goals
+                const goalsQuery = query(collection(db, 'goals'), where('userId', '==', user.uid));
+                const goalsSnapshot = await getDocs(goalsQuery);
+                for (const goalDoc of goalsSnapshot.docs) {
+                  await deleteDoc(goalDoc.ref);
+                }
+
+                // Delete user's study groups
+                const groupsQuery = query(collection(db, 'studyGroups'), where('createdBy', '==', user.uid));
+                const groupsSnapshot = await getDocs(groupsQuery);
+                for (const groupDoc of groupsSnapshot.docs) {
+                  await deleteDoc(groupDoc.ref);
+                }
+              } catch (firestoreError) {
+                console.error('Error deleting Firestore data:', firestoreError);
+                // Continue with account deletion even if Firestore cleanup fails
+              }
+
+              // Delete Firebase Authentication account
+              await deleteUser(currentUser);
+
+              Alert.alert('Account Deleted', 'Your account has been permanently deleted.', [
+                {
+                  text: 'OK',
+                  onPress: () => router.replace('/login'),
+                },
+              ]);
+            } catch (error: any) {
+              console.error('Delete account error:', error);
+
+              if (error.code === 'auth/requires-recent-login') {
+                Alert.alert(
+                  'Re-authentication Required',
+                  'For security reasons, please log out and log back in before deleting your account.',
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                      text: 'Log Out',
+                      onPress: async () => {
+                        await logout();
+                        router.replace('/login');
+                      },
+                    },
+                  ]
+                );
+              } else {
+                Alert.alert('Error', error.message || 'Failed to delete account. Please try again.');
+              }
+            }
           },
         },
       ]

@@ -6,11 +6,6 @@ const openai = new OpenAI({
 });
 
 /**
- * Build a system prompt with user context
- * @param {Object} userContext - User's tasks, classes, and goals
- * @returns {string} System prompt
- */
-/**
  * Build a system prompt with user context and mode
  * @param {Object} userContext - User's tasks, classes, and goals
  * @param {string} mode - 'homework', 'summarize', or 'quiz'
@@ -33,7 +28,10 @@ function buildSystemPrompt(userContext, mode = 'homework') {
             break;
     }
 
-    let prompt = `${roleDescription} Here is their current context:\n\n`;
+    // Add cross-mode awareness instructions
+    const crossModeInstructions = "\n\nIMPORTANT: You have access to the student's conversation history across all AI Buddy modes (Homework Assistant, Summarize, and Quiz Me). If the student references a previous discussion, assignment, or topic from another mode, you can use that context to provide better assistance. For example:\n- If asked to create a quiz about a homework topic, reference the homework discussion\n- If asked to summarize a previous conversation, use the relevant chat history\n- Connect concepts across different modes to provide comprehensive help";
+
+    let prompt = `${roleDescription}${crossModeInstructions}\n\nHere is their current context:\n\n`;
 
     // Add upcoming tasks
     if (tasks.length > 0) {

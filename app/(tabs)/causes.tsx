@@ -142,7 +142,7 @@ export default function CausesScreen() {
           <YoutubePlayer
             height={190}
             width="100%"
-            videoId={videoConfig?.causesVideoId || "dQw4w9WgXcQ"}
+            videoId={videoConfig?.causesVideo1Id || "dQw4w9WgXcQ"}
             play={false}
           />
         </View>
@@ -152,7 +152,7 @@ export default function CausesScreen() {
           <YoutubePlayer
             height={190}
             width="100%"
-            videoId="dQw4w9WgXcQ"
+            videoId={videoConfig?.causesVideo2Id || "dQw4w9WgXcQ"}
             play={false}
           />
         </View>
@@ -162,7 +162,7 @@ export default function CausesScreen() {
           <YoutubePlayer
             height={190}
             width="100%"
-            videoId="dQw4w9WgXcQ"
+            videoId={videoConfig?.causesVideo3Id || "dQw4w9WgXcQ"}
             play={false}
           />
         </View>
@@ -172,7 +172,7 @@ export default function CausesScreen() {
           <YoutubePlayer
             height={190}
             width="100%"
-            videoId="dQw4w9WgXcQ"
+            videoId={videoConfig?.causesVideo4Id || "dQw4w9WgXcQ"}
             play={false}
           />
         </View>

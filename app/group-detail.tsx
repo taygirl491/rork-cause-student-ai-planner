@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useCallback } from "react";
+import React, { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import {
     View,
     Text,
@@ -44,12 +44,22 @@ export default function GroupDetailScreen() {
         { name: string; uri: string; type: string }[]
     >([]);
     const [showMembersModal, setShowMembersModal] = useState(false);
+    const scrollViewRef = useRef<ScrollView>(null);
 
     // Find the group from the real-time studyGroups data
     const group = useMemo(
         () => studyGroups.find((g) => g.id === groupId),
         [studyGroups, groupId]
     );
+
+    // Auto-scroll to bottom when messages change
+    useEffect(() => {
+        if (group?.messages && group.messages.length > 0) {
+            setTimeout(() => {
+                scrollViewRef.current?.scrollToEnd({ animated: true });
+            }, 100);
+        }
+    }, [group?.messages]);
 
     const handleSendMessage = async () => {
         if (!group || !messageText.trim() || !user?.email) return;
@@ -175,11 +185,13 @@ export default function GroupDetailScreen() {
                 <View style={styles.content}>
                     {/* Messages Area */}
                     <ScrollView
+                        ref={scrollViewRef}
                         style={styles.scrollView}
                         contentContainerStyle={styles.scrollContent}
                         showsVerticalScrollIndicator={false}
                         keyboardDismissMode="on-drag"
                         keyboardShouldPersistTaps="handled"
+                        onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
                     >
                         <View style={styles.section}>
                             <Text style={styles.sectionTitle}>Messages</Text>
@@ -593,13 +605,6 @@ const styles = StyleSheet.create({
     membersListContent: {
         padding: 16,
     },
-    memberItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingVertical: 12,
-        borderBottomWidth: 1,
-        borderBottomColor: colors.border,
-    },
     memberAvatar: {
         width: 40,
         height: 40,
@@ -617,9 +622,5 @@ const styles = StyleSheet.create({
         fontWeight: '600' as const,
         color: colors.text,
         marginBottom: 2,
-    },
-    memberEmail: {
-        fontSize: 14,
-        color: colors.textSecondary,
     },
 });
