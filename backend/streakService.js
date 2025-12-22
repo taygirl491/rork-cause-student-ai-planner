@@ -1,4 +1,4 @@
-const { db } = require("./firebase");
+const User = require('./models/User');
 
 /**
  * Get yesterday's date in YYYY-MM-DD format
@@ -24,19 +24,17 @@ function getToday() {
  */
 async function updateStreak(userId) {
     try {
-        const userRef = db.collection("users").doc(userId);
-        const userDoc = await userRef.get();
+        const user = await User.findById(userId);
 
-        if (!userDoc.exists) {
+        if (!user) {
             throw new Error("User not found");
         }
 
-        const userData = userDoc.data();
         const today = getToday();
         const yesterday = getYesterday(today);
 
         // Initialize streak data if it doesn't exist
-        let streakData = userData.streak || {
+        let streakData = user.streak || {
             current: 0,
             longest: 0,
             lastCompletionDate: null,
@@ -77,8 +75,9 @@ async function updateStreak(userId) {
             increased = true;
         }
 
-        // Update Firestore
-        await userRef.update({ streak: streakData });
+        // Update MongoDB
+        user.streak = streakData;
+        await user.save();
 
         return {
             success: true,
@@ -96,22 +95,15 @@ async function updateStreak(userId) {
     }
 }
 
-/**
- * Get user's current streak data
- * @param {string} userId - User ID
- * @returns {Promise<Object>} Streak data
- */
 async function getStreakData(userId) {
     try {
-        const userRef = db.collection("users").doc(userId);
-        const userDoc = await userRef.get();
+        const user = await User.findById(userId);
 
-        if (!userDoc.exists) {
+        if (!user) {
             throw new Error("User not found");
         }
 
-        const userData = userDoc.data();
-        let streakData = userData.streak || {
+        let streakData = user.streak || {
             current: 0,
             longest: 0,
             lastCompletionDate: null,
@@ -124,11 +116,16 @@ async function getStreakData(userId) {
         const yesterday = getYesterday(today);
         const lastDate = streakData.lastCompletionDate;
 
-        // If last completion was before yesterday, streak is broken
-        if (lastDate && lastDate !== today && lastDate !== yesterday) {
+        // If user has never completed a task, ensure streak is 0
+        if (!lastDate || streakData.totalTasksCompleted === 0) {
             streakData.current = 0;
-            // Update Firestore to reflect broken streak
-            await userRef.update({ streak: streakData });
+        }
+        // If last completion was before yesterday, streak is broken
+        else if (lastDate !== today && lastDate !== yesterday) {
+            streakData.current = 0;
+            // Update MongoDB to reflect broken streak
+            user.streak = streakData;
+            await user.save();
         }
 
         return {

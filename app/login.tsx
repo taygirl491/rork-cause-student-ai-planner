@@ -101,7 +101,34 @@ export default function LoginScreen() {
           }
         }
       }
-      Alert.alert('Login Failed', error.message || loginError?.message || 'Invalid credentials');
+
+      // Provide user-friendly error messages
+      let errorTitle = 'Login Failed';
+      let errorMessage = 'Unable to sign in. Please try again.';
+
+      if (error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password') {
+        errorTitle = 'Incorrect Password';
+        errorMessage = 'The password you entered is incorrect. Please try again or use "Forgot Password" to reset it.';
+      } else if (error.code === 'auth/user-not-found') {
+        errorTitle = 'Account Not Found';
+        errorMessage = 'No account exists with this email. Would you like to create a new account?';
+      } else if (error.code === 'auth/invalid-email') {
+        errorTitle = 'Invalid Email';
+        errorMessage = 'Please enter a valid email address.';
+      } else if (error.code === 'auth/user-disabled') {
+        errorTitle = 'Account Disabled';
+        errorMessage = 'This account has been disabled. Please contact support for assistance.';
+      } else if (error.code === 'auth/too-many-requests') {
+        errorTitle = 'Too Many Attempts';
+        errorMessage = 'Too many failed login attempts. Please wait a few minutes and try again, or reset your password.';
+      } else if (error.code === 'auth/network-request-failed') {
+        errorTitle = 'Connection Error';
+        errorMessage = 'Unable to connect to the server. Please check your internet connection and try again.';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
+      Alert.alert(errorTitle, errorMessage);
     }
   };
 

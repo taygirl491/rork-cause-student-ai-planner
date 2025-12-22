@@ -96,110 +96,95 @@ async function sendJoinNotification(groupData, newMembers, existingMembers) {
   }
 }
 
+
 /**
- * Send email notification when a new message is posted
+ * Send welcome email to new users on signup
  */
-async function sendMessageNotification(groupData, message, recipients) {
+async function sendWelcomeEmail(email, name) {
   try {
-    const emailPromises = recipients.map((member) => {
-      return transporter.sendMail({
-        from: `"${process.env.FROM_NAME}" <${process.env.FROM_EMAIL}>`,
-        to: member.email,
-        subject: `New message in ${groupData.name}`,
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 10px 10px 0 0;">
-              <h1 style="color: white; margin: 0; font-size: 24px;">💬 New Message in ${groupData.name}</h1>
-            </div>
-            
-            <div style="background-color: #ffffff; padding: 30px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 10px 10px;">
-              <div style="margin-bottom: 20px;">
-                <p style="font-size: 14px; color: #6b7280; margin: 0 0 5px 0;">From</p>
-                <p style="font-size: 16px; color: #1f2937; margin: 0; font-weight: 600;">${message.senderEmail}</p>
-              </div>
-              
-              <div style="background-color: #f9fafb; padding: 20px; border-radius: 8px; border-left: 4px solid #667eea;">
-                <p style="margin: 0; color: #374151; white-space: pre-wrap; line-height: 1.6; font-size: 15px;">${message.message}</p>
-              </div>
-              
-              ${message.attachments && message.attachments.length > 0
-            ? `
-                <div style="margin-top: 20px;">
-                   <p style="color: #6b7280; font-style: italic;">
-                     📎 ${message.attachments.length} attachment${message.attachments.length > 1 ? "s" : ""
-            } included
-                   </p>
-                </div>
-              `
-            : ""
-          }
-              
-              <p style="font-size: 16px; color: #374151; margin-top: 25px;">
-                Open your <strong>CauseAI</strong> app to reply and view the full conversation.
-              </p>
-              
-              <div style="text-align: center; margin: 30px 0;">
-                <a href="${process.env.APP_URL
-          }" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold;">
-                  Reply in CauseAI
-                </a>
-              </div>
-            </div>
-            
-            <div style="text-align: center; margin-top: 20px; padding: 20px;">
-              <p style="font-size: 12px; color: #6b7280; margin: 0;">
-                You're receiving this because you're a member of this study group.
-              </p>
-              <p style="font-size: 12px; color: #6b7280; margin: 5px 0 0 0;">
-                CauseAI - Empowering Students to Learn Together
-              </p>
-            </div>
+    await transporter.sendMail({
+      from: `"${process.env.FROM_NAME}" <${process.env.FROM_EMAIL}>`,
+      to: email,
+      subject: "Welcome to CauseAI Student Planner! 🎉",
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px; border-radius: 10px 10px 0 0; text-align: center;">
+            <h1 style="color: white; margin: 0; font-size: 32px;">Welcome to CauseAI! 🎓</h1>
           </div>
-        `,
-        text: `New message in ${groupData.name} from ${message.senderEmail
-          }: ${message.message}${message.attachments && message.attachments.length > 0
-            ? `\n\n[${message.attachments.length} attachments included]`
-            : ""
-          }`,
-        attachments: message.attachments
-          ? message.attachments.map((att) => ({
-            filename: att.name,
-            path: att.url,
-            contentType: att.type,
-          }))
-          : [],
-      });
+          
+          <div style="background-color: #ffffff; padding: 40px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 10px 10px;">
+            <p style="font-size: 18px; color: #374151; margin-bottom: 20px;">
+              Hi <strong>${name}</strong>,
+            </p>
+            
+            <p style="font-size: 16px; color: #374151; line-height: 1.6;">
+              Welcome to <strong>CauseAI Student Planner</strong>! We're thrilled to have you join our community of students who are taking control of their academic journey.
+            </p>
+            
+            <div style="background-color: #f9fafb; padding: 25px; border-radius: 8px; margin: 30px 0;">
+              <h2 style="color: #1f2937; font-size: 20px; margin-top: 0;">🚀 Get Started with These Features:</h2>
+              
+              <div style="margin: 15px 0;">
+                <p style="margin: 8px 0; color: #374151;">
+                  <strong style="color: #667eea;">📝 Smart Task Management</strong><br/>
+                  <span style="font-size: 14px; color: #6b7280;">Organize assignments, exams, and projects with intelligent reminders</span>
+                </p>
+              </div>
+              
+              <div style="margin: 15px 0;">
+                <p style="margin: 8px 0; color: #374151;">
+                  <strong style="color: #667eea;">📚 Study Groups</strong><br/>
+                  <span style="font-size: 14px; color: #6b7280;">Collaborate with classmates and share resources</span>
+                </p>
+              </div>
+              
+              <div style="margin: 15px 0;">
+                <p style="margin: 8px 0; color: #374151;">
+                  <strong style="color: #667eea;">🎯 Goal Tracking</strong><br/>
+                  <span style="font-size: 14px; color: #6b7280;">Set and achieve your academic goals with habit tracking</span>
+                </p>
+              </div>
+              
+              <div style="margin: 15px 0;">
+                <p style="margin: 8px 0; color: #374151;">
+                  <strong style="color: #667eea;">🤖 AI Study Buddy</strong><br/>
+                  <span style="font-size: 14px; color: #6b7280;">Get instant help with homework and study questions</span>
+                </p>
+              </div>
+              
+              <div style="margin: 15px 0;">
+                <p style="margin: 8px 0; color: #374151;">
+                  <strong style="color: #667eea;">📅 Class Scheduling</strong><br/>
+                  <span style="font-size: 14px; color: #6b7280;">Keep track of your classes and sync with your calendar</span>
+                </p>
+              </div>
+            </div>
+            
+            <p style="font-size: 16px; color: #374151; line-height: 1.6; margin-top: 30px;">
+              We're here to help you succeed. If you have any questions or need assistance, don't hesitate to reach out!
+            </p>
+            
+            <p style="font-size: 16px; color: #374151; margin-top: 30px;">
+              Happy studying! 📖<br/>
+              <strong>The CauseAI Team</strong>
+            </p>
+          </div>
+          
+          <div style="text-align: center; margin-top: 20px; padding: 20px;">
+            <p style="font-size: 12px; color: #6b7280; margin: 0;">
+              CauseAI - Empowering Students to Learn Together
+            </p>
+          </div>
+        </div>
+      `,
+      text: `Welcome to CauseAI Student Planner!\n\nHi ${name},\n\nWelcome to CauseAI Student Planner! We're thrilled to have you join our community.\n\nGet started with these features:\n- Smart Task Management: Organize assignments, exams, and projects\n- Study Groups: Collaborate with classmates\n- Goal Tracking: Set and achieve your academic goals\n- AI Study Buddy: Get instant help with homework\n- Class Scheduling: Keep track of your classes\n\nHappy studying!\nThe CauseAI Team`,
     });
 
-    const results = await Promise.allSettled(emailPromises);
-
-    const successCount = results.filter(
-      (result) => result.status === "fulfilled"
-    ).length;
-    const failCount = results.filter(
-      (result) => result.status === "rejected"
-    ).length;
-
-    if (failCount > 0) {
-      console.warn(
-        `⚠ Sent ${successCount} notifications, but ${failCount} failed to send.`
-      );
-      // Optionally log expected failures via results.forEach...
-    } else {
-      console.log(
-        `✓ Sent ${successCount} message notifications for group ${groupData.name}`
-      );
-    }
-
-    return {
-      success: true,
-      emailsSent: successCount,
-      failures: failCount
-    };
+    console.log(`✓ Sent welcome email to ${email}`);
+    return { success: true };
   } catch (error) {
-    console.error("Error sending message notification:", error);
-    // Don't throw logic - just return failure stats if the entire function blows up
-    return { success: false, error: error.message };
+    console.error("Error sending welcome email:", error);
+    throw error;
   }
 }
 
@@ -263,7 +248,7 @@ async function sendGroupCreatedNotification(creatorEmail, groupData) {
 
 module.exports = {
   sendJoinNotification,
-  sendMessageNotification,
+  sendWelcomeEmail,
   sendGroupCreatedNotification,
   transporter,
 };

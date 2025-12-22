@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import {
   TouchableWithoutFeedback,
   Keyboard,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
@@ -34,6 +35,7 @@ import colors from '@/constants/colors';
 import LogoButton from '@/components/LogoButton';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'expo-router';
+import apiService from '@/utils/apiService';
 // TextInput is imported from react-native above
 import { TERMS_AND_CONDITIONS, PRIVACY_POLICY } from '@/constants/LegalText';
 
@@ -42,6 +44,8 @@ type SubscriptionTier = 'free' | 'monthly' | 'yearly';
 export default function AccountScreen() {
   const [currentSubscription, setCurrentSubscription] = useState<SubscriptionTier>('free');
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [activeSubscription, setActiveSubscription] = useState<any>(null);
+  const [loadingSubscription, setLoadingSubscription] = useState(true);
   const { user, logout, changePassword } = useAuth();
   const router = useRouter();
 
@@ -60,6 +64,11 @@ export default function AccountScreen() {
   // Legal Modals State
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+
+  // Delete Account State
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
 
   const clearErrors = () => {
     setCurrPassError('');
@@ -119,8 +128,76 @@ export default function AccountScreen() {
     }
   };
 
+  // Fetch user's subscription on mount
+  useEffect(() => {
+    if (user?.uid) {
+      fetchSubscription();
+    }
+  }, [user?.uid]);
+
+  const fetchSubscription = async () => {
+    if (!user?.uid) return;
+
+    try {
+      setLoadingSubscription(true);
+      const response = await apiService.getUserSubscriptions(user.uid);
+
+      if (response.success && response.subscriptions && response.subscriptions.length > 0) {
+        // Get the most recent active subscription
+        const activeSub = response.subscriptions.find(
+          (sub: any) => sub.status === 'active' || sub.status === 'trialing'
+        );
+
+        if (activeSub) {
+          setActiveSubscription(activeSub);
+          // Determine tier based on price (you'll need to match your actual price IDs)
+          setCurrentSubscription('monthly'); // Default to monthly for now
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching subscription:', error);
+    } finally {
+      setLoadingSubscription(false);
+    }
+  };
+
   const handleManagePayment = () => {
-    setShowPaymentModal(true);
+    // Navigate to payment screen instead of showing modal
+    router.push('/payment');
+  };
+
+  const handleCancelSubscription = async () => {
+    if (!activeSubscription || !user?.uid) return;
+
+    Alert.alert(
+      'Cancel Subscription',
+      'Are you sure you want to cancel your subscription? You will retain access until the end of your billing period.',
+      [
+        { text: 'Keep Subscription', style: 'cancel' },
+        {
+          text: 'Cancel',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const response = await apiService.cancelSubscription(
+                activeSubscription._id,
+                user.uid
+              );
+
+              if (response.success) {
+                Alert.alert('Success', 'Your subscription has been cancelled.');
+                fetchSubscription(); // Refresh subscription status
+              } else {
+                Alert.alert('Error', response.error || 'Failed to cancel subscription');
+              }
+            } catch (error) {
+              console.error('Error cancelling subscription:', error);
+              Alert.alert('Error', 'Failed to cancel subscription');
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleUpgrade = (tier: SubscriptionTier) => {
@@ -164,103 +241,80 @@ export default function AccountScreen() {
         {
           text: 'Delete',
           style: 'destructive',
-          onPress: async () => {
-            try {
-              if (!user?.uid) {
-                Alert.alert('Error', 'No user found');
-                return;
-              }
-
-              // Import Firebase functions
-              const { deleteUser } = await import('firebase/auth');
-              const { doc, deleteDoc, collection, getDocs, query, where } = await import('firebase/firestore');
-              const { auth, db } = await import('@/firebaseConfig');
-
-              const currentUser = auth.currentUser;
-              if (!currentUser) {
-                Alert.alert('Error', 'No authenticated user found');
-                return;
-              }
-
-              // Delete user data from Firestore
-              try {
-                // Delete user document
-                await deleteDoc(doc(db, 'users', user.uid));
-
-                // Delete user's tasks
-                const tasksQuery = query(collection(db, 'tasks'), where('userId', '==', user.uid));
-                const tasksSnapshot = await getDocs(tasksQuery);
-                for (const taskDoc of tasksSnapshot.docs) {
-                  await deleteDoc(taskDoc.ref);
-                }
-
-                // Delete user's classes
-                const classesQuery = query(collection(db, 'classes'), where('userId', '==', user.uid));
-                const classesSnapshot = await getDocs(classesQuery);
-                for (const classDoc of classesSnapshot.docs) {
-                  await deleteDoc(classDoc.ref);
-                }
-
-                // Delete user's notes
-                const notesQuery = query(collection(db, 'notes'), where('userId', '==', user.uid));
-                const notesSnapshot = await getDocs(notesQuery);
-                for (const noteDoc of notesSnapshot.docs) {
-                  await deleteDoc(noteDoc.ref);
-                }
-
-                // Delete user's goals
-                const goalsQuery = query(collection(db, 'goals'), where('userId', '==', user.uid));
-                const goalsSnapshot = await getDocs(goalsQuery);
-                for (const goalDoc of goalsSnapshot.docs) {
-                  await deleteDoc(goalDoc.ref);
-                }
-
-                // Delete user's study groups
-                const groupsQuery = query(collection(db, 'studyGroups'), where('createdBy', '==', user.uid));
-                const groupsSnapshot = await getDocs(groupsQuery);
-                for (const groupDoc of groupsSnapshot.docs) {
-                  await deleteDoc(groupDoc.ref);
-                }
-              } catch (firestoreError) {
-                console.error('Error deleting Firestore data:', firestoreError);
-                // Continue with account deletion even if Firestore cleanup fails
-              }
-
-              // Delete Firebase Authentication account
-              await deleteUser(currentUser);
-
-              Alert.alert('Account Deleted', 'Your account has been permanently deleted.', [
-                {
-                  text: 'OK',
-                  onPress: () => router.replace('/login'),
-                },
-              ]);
-            } catch (error: any) {
-              console.error('Delete account error:', error);
-
-              if (error.code === 'auth/requires-recent-login') {
-                Alert.alert(
-                  'Re-authentication Required',
-                  'For security reasons, please log out and log back in before deleting your account.',
-                  [
-                    { text: 'Cancel', style: 'cancel' },
-                    {
-                      text: 'Log Out',
-                      onPress: async () => {
-                        await logout();
-                        router.replace('/login');
-                      },
-                    },
-                  ]
-                );
-              } else {
-                Alert.alert('Error', error.message || 'Failed to delete account. Please try again.');
-              }
-            }
+          onPress: () => {
+            setShowDeleteModal(true);
           },
         },
       ]
     );
+  };
+
+  const confirmDeleteAccount = async () => {
+    if (!deletePassword.trim()) {
+      Alert.alert('Error', 'Password is required');
+      return;
+    }
+
+    if (!user?.uid) {
+      Alert.alert('Error', 'No user found');
+      return;
+    }
+
+    setIsDeletingAccount(true);
+    try {
+      // Import Firebase functions
+      const { deleteUser, reauthenticateWithCredential, EmailAuthProvider } = await import('firebase/auth');
+      const { auth } = await import('@/firebaseConfig');
+
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        Alert.alert('Error', 'No authenticated user found');
+        setIsDeletingAccount(false);
+        return;
+      }
+
+      // Reauthenticate user
+      const credential = EmailAuthProvider.credential(
+        currentUser.email!,
+        deletePassword
+      );
+      await reauthenticateWithCredential(currentUser, credential);
+
+      // Delete user data from backend (MongoDB)
+      try {
+        await apiService.delete(`/api/users/${user.uid}`);
+      } catch (backendError) {
+        console.error('Error deleting backend data:', backendError);
+        // Continue with account deletion even if backend cleanup fails
+      }
+
+      // Delete Firebase Authentication account
+      await deleteUser(currentUser);
+
+      // Close modal and reset state
+      setShowDeleteModal(false);
+      setDeletePassword('');
+      setIsDeletingAccount(false);
+
+      // Navigate to login immediately to prevent auth state change from restarting app
+      router.replace('/login');
+
+      // Show success message after navigation
+      setTimeout(() => {
+        Alert.alert('Account Deleted', 'Your account has been permanently deleted.');
+      }, 500);
+    } catch (error: any) {
+      console.error('Delete account error:', error);
+      setIsDeletingAccount(false);
+
+      if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+        Alert.alert('Error', 'Incorrect password. Please try again.');
+      } else if (error.code === 'auth/too-many-requests') {
+        Alert.alert('Error', 'Too many failed attempts. Please try again later.');
+      } else {
+        Alert.alert('Error', error.message || 'Failed to delete account. Please try again.');
+      }
+    }
   };
 
   const handleSignOut = () => {
@@ -396,10 +450,24 @@ export default function AccountScreen() {
               <View style={[styles.menuIcon, { backgroundColor: colors.primary + '15' }]}>
                 <CreditCard size={20} color={colors.primary} />
               </View>
-              <Text style={styles.menuItemText}>Manage Payment</Text>
+              <Text style={styles.menuItemText}>
+                {activeSubscription ? 'Upgrade Plan' : 'Manage Payment'}
+              </Text>
             </View>
             <ChevronRight size={20} color={colors.textLight} />
           </TouchableOpacity>
+
+          {activeSubscription && (
+            <TouchableOpacity style={styles.menuItem} onPress={handleCancelSubscription}>
+              <View style={styles.menuItemLeft}>
+                <View style={[styles.menuIcon, { backgroundColor: '#FF3B3020' }]}>
+                  <CreditCard size={20} color="#FF3B30" />
+                </View>
+                <Text style={[styles.menuItemText, { color: '#FF3B30' }]}>Cancel Subscription</Text>
+              </View>
+              <ChevronRight size={20} color={colors.textLight} />
+            </TouchableOpacity>
+          )}
         </View>
 
         <View style={styles.section}>
@@ -711,6 +779,93 @@ export default function AccountScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Delete Account Modal */}
+      <Modal
+        visible={showDeleteModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          setShowDeleteModal(false);
+          setDeletePassword('');
+        }}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={{ flex: 1 }}
+        >
+          <TouchableOpacity
+            activeOpacity={1}
+            onPress={() => {
+              setShowDeleteModal(false);
+              setDeletePassword('');
+            }}
+            style={styles.modalOverlay}
+          >
+            <TouchableOpacity
+              activeOpacity={1}
+              onPress={(e) => {
+                e.stopPropagation();
+                Keyboard.dismiss();
+              }}
+            >
+              <View style={styles.modalContent}>
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>Confirm Deletion</Text>
+                  <TouchableOpacity onPress={() => {
+                    setShowDeleteModal(false);
+                    setDeletePassword('');
+                  }}>
+                    <Text style={styles.modalClose}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <Text style={styles.deleteWarning}>
+                  Please enter your password to permanently delete your account and all associated data.
+                </Text>
+
+                <View style={styles.inputGroup}>
+                  <TextInput
+                    style={styles.modalInput}
+                    placeholder="Enter your password"
+                    placeholderTextColor={colors.textSecondary}
+                    value={deletePassword}
+                    onChangeText={setDeletePassword}
+                    secureTextEntry
+                    autoFocus
+                  />
+                </View>
+
+                <View style={styles.modalButtons}>
+                  <TouchableOpacity
+                    style={[styles.modalButton, styles.modalButtonCancel]}
+                    onPress={() => {
+                      setShowDeleteModal(false);
+                      setDeletePassword('');
+                    }}
+                  >
+                    <Text style={styles.modalButtonText}>Cancel</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.modalButton,
+                      styles.modalButtonDelete,
+                      isDeletingAccount && styles.modalButtonDisabled
+                    ]}
+                    onPress={confirmDeleteAccount}
+                    disabled={isDeletingAccount}
+                  >
+                    <Text style={styles.modalButtonTextDelete}>
+                      {isDeletingAccount ? 'Deleting...' : 'Delete Account'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </KeyboardAvoidingView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -886,7 +1041,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
     padding: 24,
-    maxHeight: '90%',
+    maxHeight: '100%',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -1044,5 +1199,44 @@ const styles = StyleSheet.create({
     color: colors.text,
     lineHeight: 22,
     paddingBottom: 24,
+  },
+  deleteWarning: {
+    fontSize: 14,
+    lineHeight: 22,
+    color: colors.textSecondary,
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 8,
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  modalButtonCancel: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  modalButtonDelete: {
+    backgroundColor: '#FF3B30',
+  },
+  modalButtonDisabled: {
+    opacity: 0.6,
+  },
+  modalButtonText: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    color: colors.text,
+  },
+  modalButtonTextDelete: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    color: '#fff',
   },
 });

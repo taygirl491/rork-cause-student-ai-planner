@@ -14,6 +14,7 @@ import {
 	TouchableWithoutFeedback,
 	Keyboard,
 	Share,
+	RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Plus, X, FileText, Edit2, Trash2, Download } from "lucide-react-native";
@@ -22,10 +23,11 @@ import { useApp } from "@/contexts/AppContext";
 import SearchBar from "@/components/SearchBar";
 import { Note } from "@/types";
 export default function NotesScreen() {
-	const { notes, addNote, updateNote, deleteNote, classes } = useApp();
+	const { notes, addNote, updateNote, deleteNote, classes, refreshNotes } = useApp();
 	const [showModal, setShowModal] = useState(false);
 	const [showDetailModal, setShowDetailModal] = useState(false);
 	const [showActionSheet, setShowActionSheet] = useState(false);
+	const [refreshing, setRefreshing] = useState(false);
 	const [searchQuery, setSearchQuery] = useState("");
 	const [filterClass, setFilterClass] = useState("All");
 	const [title, setTitle] = useState("");
@@ -178,6 +180,13 @@ export default function NotesScreen() {
 		});
 	};
 
+	// Pull-to-refresh handler
+	const onRefresh = async () => {
+		setRefreshing(true);
+		await refreshNotes();
+		setRefreshing(false);
+	};
+
 	return (
 		<SafeAreaView style={styles.container} edges={["top"]}>
 			<View style={styles.header}>
@@ -250,6 +259,14 @@ export default function NotesScreen() {
 			<ScrollView
 				style={styles.scrollView}
 				showsVerticalScrollIndicator={false}
+				refreshControl={
+					<RefreshControl
+						refreshing={refreshing}
+						onRefresh={onRefresh}
+						colors={[colors.primary]}
+						tintColor={colors.primary}
+					/>
+				}
 			>
 				{filteredNotes.length === 0 ? (
 					<View style={styles.emptyState}>

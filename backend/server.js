@@ -1,19 +1,61 @@
 const express = require("express");
+const http = require("http");
+const { Server } = require("socket.io");
 const cors = require("cors");
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
 require("dotenv").config();
 
-const { db } = require("./firebase");
+const { connectMongoDB } = require("./mongodb");
 const emailService = require("./emailService");
 const notificationService = require("./notificationService");
 const { startReminderScheduler } = require("./reminderScheduler");
 const { uploadFromBuffer } = require("./cloudinaryConfig");
 const aiRoutes = require("./aiRoutes");
 const streakRoutes = require("./streakRoutes");
+const tasksRoutes = require("./routes/tasksRoutes");
+const classesRoutes = require("./routes/classesRoutes");
+const notesRoutes = require("./routes/notesRoutes");
+const goalsRoutes = require("./routes/goalsRoutes");
+const studyGroupsRoutes = require("./routes/studyGroupsRoutes");
 
 const app = express();
+const server = http.createServer(app);
 const PORT = process.env.PORT || 3000;
+
+// Initialize Socket.IO
+const io = new Server(server, {
+	cors: {
+		origin: "*",
+		methods: ["GET", "POST"],
+		credentials: true
+	},
+	transports: ['websocket', 'polling']
+});
+
+// Socket.IO connection handler
+io.on('connection', (socket) => {
+	console.log('✓ User connected:', socket.id);
+
+	// Join a study group room
+	socket.on('join-group', (groupId) => {
+		socket.join(`group-${groupId}`);
+		console.log(`User ${socket.id} joined group-${groupId}`);
+	});
+
+	// Leave a study group room
+	socket.on('leave-group', (groupId) => {
+		socket.leave(`group-${groupId}`);
+		console.log(`User ${socket.id} left group-${groupId}`);
+	});
+
+	socket.on('disconnect', () => {
+		console.log('✗ User disconnected:', socket.id);
+	});
+});
+
+// Make io accessible to routes
+app.set('io', io);
 
 // Trust proxy - required for Render and other cloud platforms
 // This allows Express to trust the X-Forwarded-For header from the proxy
@@ -35,7 +77,7 @@ app.use((req, res, next) => {
 // Rate limiting
 const limiter = rateLimit({
 	windowMs: 15 * 60 * 1000, // 15 minutes
-	max: 100, // limit each IP to 100 requests per windowMs
+	max: 500, // limit each IP to 500 requests per windowMs (increased for polling)
 	message: "Too many requests from this IP, please try again later.",
 });
 app.use("/api", limiter);
@@ -138,13 +180,14 @@ app.post("/api/notify/group-join", authenticate, async (req, res) => {
 			});
 		}
 
-		// Get group data from Firestore
-		const groupDoc = await db.collection("studyGroups").doc(groupId).get();
-		if (!groupDoc.exists) {
+		// Get group data from MongoDB
+		const StudyGroup = require('./models/StudyGroup');
+		const group = await StudyGroup.findById(groupId);
+		if (!group) {
 			return res.status(404).json({ error: "Group not found" });
 		}
 
-		const groupData = groupDoc.data();
+		const groupData = group.toObject();
 
 		// Filter out the new members from recipients
 		const existingMembers = groupData.members.filter(
@@ -191,78 +234,128 @@ app.post("/api/notify/group-join", authenticate, async (req, res) => {
 	}
 });
 
+
 /**
- * POST /api/notify/new-message
- * Send email notifications when a new message is posted in a group
+ * POST /api/auth/welcome-email
+ * Send welcome email to new users on signup
  */
-app.post("/api/notify/new-message", authenticate, async (req, res) => {
+app.post("/api/auth/welcome-email", authenticate, async (req, res) => {
 	try {
-		const { groupId, messageId } = req.body;
+		const { email, name } = req.body;
 
-		if (!groupId || !messageId) {
+		if (!email || !name) {
 			return res.status(400).json({
-				error: "Missing required fields: groupId and messageId",
+				error: "Missing required fields: email and name",
 			});
 		}
 
-		// Get group data
-		const groupDoc = await db.collection("studyGroups").doc(groupId).get();
-		if (!groupDoc.exists) {
-			return res.status(404).json({ error: "Group not found" });
-		}
-
-		const groupData = groupDoc.data();
-
-		// Get message data
-		const messageDoc = await db
-			.collection("studyGroups")
-			.doc(groupId)
-			.collection("messages")
-			.doc(messageId)
-			.get();
-
-		if (!messageDoc.exists) {
-			return res.status(404).json({ error: "Message not found" });
-		}
-
-		const messageData = messageDoc.data();
-
-		// Get recipients (all members except the sender)
-		const recipients = groupData.members.filter(
-			(member) => member.email !== messageData.senderEmail
-		);
-
-		if (recipients.length === 0) {
-			return res.json({
-				success: true,
-				message: "No recipients to notify",
-				emailsSent: 0,
-			});
-		}
-
-		// Send email notifications (fire and forget to avoid blocking response)
-		emailService.sendMessageNotification(
-			groupData,
-			messageData,
-			recipients
-		).catch(err => console.error("Email notification error:", err));
-
-		// Send push notifications (fire and forget)
-		notificationService.sendMessageNotification(
-			{ ...groupData, id: groupId }, // Ensure ID is passed
-			{ ...messageData, id: messageId }, // Ensure ID is passed
-			recipients
-		).catch(err => console.error("Push notification error:", err));
+		// Send welcome email (fire and forget to avoid blocking response)
+		emailService.sendWelcomeEmail(email, name)
+			.then(() => console.log(`✓ Welcome email sent to ${email}`))
+			.catch(err => console.error("Welcome email error:", err));
 
 		res.json({
 			success: true,
-			message: "Message notifications initiated",
-			emailsSent: "processing_async",
+			message: "Welcome email initiated",
 		});
 	} catch (error) {
-		console.error("Error in new-message notification:", error);
+		console.error("Error in welcome email endpoint:", error);
 		res.status(500).json({
-			error: "Failed to send notifications",
+			error: "Failed to send welcome email",
+			details: error.message,
+		});
+	}
+});
+
+/**
+ * DELETE /api/users/:userId
+ * Delete user and all associated data from MongoDB
+ */
+app.delete("/api/users/:userId", authenticate, async (req, res) => {
+	try {
+		const { userId } = req.params;
+
+		if (!userId) {
+			return res.status(400).json({
+				error: "Missing required field: userId",
+			});
+		}
+
+		const User = require('./models/User');
+		const Task = require('./models/Task');
+		const Class = require('./models/Class');
+		const Note = require('./models/Note');
+		const Goal = require('./models/Goal');
+		const StudyGroup = require('./models/StudyGroup');
+		const Subscription = require('./models/Subscription');
+
+		// Get Socket.IO instance
+		const io = req.app.get('io');
+
+		// Handle study groups properly
+		// 1. Find all groups where user is a member
+		const userGroups = await StudyGroup.find({ members: userId });
+
+		for (const group of userGroups) {
+			// Remove user from members array
+			group.members = group.members.filter(memberId => memberId !== userId);
+
+			// If group now has no members, delete it
+			if (group.members.length === 0) {
+				await StudyGroup.findByIdAndDelete(group._id);
+				console.log(`✓ Deleted empty group: ${group.name}`);
+
+				// Emit group deletion event
+				if (io) {
+					io.to(`group-${group._id}`).emit('group-deleted', { groupId: group._id });
+				}
+			} else {
+				// If user was the creator, transfer ownership to first remaining member
+				if (group.createdBy === userId) {
+					group.createdBy = group.members[0];
+					console.log(`✓ Transferred ownership of group "${group.name}" to ${group.members[0]}`);
+				}
+				await group.save();
+				console.log(`✓ Removed user from group: ${group.name}`);
+
+				// Emit group update event to notify remaining members
+				if (io) {
+					io.to(`group-${group._id}`).emit('group-updated', {
+						groupId: group._id,
+						group: {
+							_id: group._id,
+							name: group.name,
+							description: group.description,
+							createdBy: group.createdBy,
+							members: group.members,
+							inviteCode: group.inviteCode,
+							createdAt: group.createdAt,
+						}
+					});
+				}
+			}
+		}
+
+		// Delete all other user data
+		await Promise.all([
+			User.findByIdAndDelete(userId),
+			Task.deleteMany({ userId }),
+			Class.deleteMany({ userId }),
+			Note.deleteMany({ userId }),
+			Goal.deleteMany({ userId }),
+			Subscription.deleteMany({ userId }),
+		]);
+
+		console.log(`✓ Deleted all data for user ${userId}`);
+
+		res.json({
+			success: true,
+			message: "User data deleted successfully",
+		});
+	} catch (error) {
+		console.error("Error deleting user data:", error);
+		res.status(500).json({
+			error: "Failed to delete user data",
 			details: error.message,
 		});
 	}
@@ -282,13 +375,14 @@ app.post("/api/notify/group-created", authenticate, async (req, res) => {
 			});
 		}
 
-		// Get group data
-		const groupDoc = await db.collection("studyGroups").doc(groupId).get();
-		if (!groupDoc.exists) {
+		// Get group data from MongoDB
+		const StudyGroup = require('./models/StudyGroup');
+		const group = await StudyGroup.findById(groupId);
+		if (!group) {
 			return res.status(404).json({ error: "Group not found" });
 		}
 
-		const groupData = groupDoc.data();
+		const groupData = group.toObject();
 
 		// Send confirmation email
 		await emailService.sendGroupCreatedNotification(creatorEmail, groupData);
@@ -399,6 +493,11 @@ app.use("/api/ai", authenticate, aiRoutes);
 
 // Streak Routes
 app.use("/api/streak", authenticate, streakRoutes);
+app.use("/api/tasks", authenticate, tasksRoutes);
+app.use("/api/classes", authenticate, classesRoutes);
+app.use("/api/notes", authenticate, notesRoutes);
+app.use("/api/goals", authenticate, goalsRoutes);
+app.use("/api/study-groups", authenticate, studyGroupsRoutes);
 
 // Stripe Routes
 const stripeRoutes = require("./stripeRoutes");
@@ -418,20 +517,26 @@ app.use((err, req, res, next) => {
 	});
 });
 
-// Start server
-app.listen(PORT, "0.0.0.0", () => {
-	console.log(`
+// Start server with MongoDB
+async function startServer() {
+	try {
+		await connectMongoDB();
+		server.listen(PORT, "0.0.0.0", () => {
+			console.log(`
 ╔═══════════════════════════════════════════╗
-║   CauseAI Email Service                   ║
+║   CauseAI Student Planner API             ║
 ║   Server running on port ${PORT}            ║
-║   Accessible at: http://localhost:${PORT}   ║
-║   From Android: http://10.0.2.2:${PORT}    ║
-║   Environment: ${process.env.NODE_ENV || "development"}                ║
+║   Database: MongoDB Atlas                 ║
+║   WebSocket: Socket.IO Enabled            ║
 ╚═══════════════════════════════════════════╝
   `);
-
-	// Start the reminder scheduler
-	startReminderScheduler();
-});
+			startReminderScheduler();
+		});
+	} catch (error) {
+		console.error('Failed to start:', error);
+		process.exit(1);
+	}
+}
+startServer();
 
 module.exports = app;

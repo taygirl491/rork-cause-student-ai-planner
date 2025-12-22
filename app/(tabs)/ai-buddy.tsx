@@ -20,9 +20,10 @@ import * as DocumentPicker from 'expo-document-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import colors from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
-import { sendMessage, generateMessageId } from '@/utils/aiService';
+import { sendMessage, generateMessageId, analyzeImage, getUsageStats } from '@/utils/aiService';
 import { AIMessage } from '@/types';
 import Markdown from 'react-native-markdown-display';
+import { Image } from 'react-native';
 
 const STORAGE_KEY_PREFIX = 'ai-buddy-conversation-';
 const SHARED_MEMORY_KEY = 'ai-buddy-shared-memory';
@@ -39,9 +40,28 @@ export default function AIBuddyScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
+  const [selectedFile, setSelectedFile] = useState<{ uri: string; type: 'image' | 'document'; name: string } | null>(null);
   const [typingMessageId, setTypingMessageId] = useState<string | null>(null);
   const [displayedContent, setDisplayedContent] = useState<Record<string, string>>({});
+  const [usageStats, setUsageStats] = useState<{ remaining: number; limit: number } | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
+
+  // Load usage stats
+  useEffect(() => {
+    if (user?.uid) {
+      loadUsageStats();
+    }
+  }, [user]);
+
+  const loadUsageStats = async () => {
+    if (!user?.uid) return;
+    try {
+      const stats = await getUsageStats(user.uid);
+      setUsageStats({ remaining: stats.visionRemaining, limit: stats.visionLimit });
+    } catch (error) {
+      console.error('Error loading usage stats:', error);
+    }
+  };
 
   // Load conversation history when mode changes
   useEffect(() => {
@@ -160,7 +180,9 @@ export default function AIBuddyScreen() {
     const userMessage: AIMessage = {
       id: generateMessageId(),
       role: 'user',
-      content: inputText.trim(),
+      content: selectedFile
+        ? `[Attached ${selectedFile.type}: ${selectedFile.name}]\n\n${inputText.trim()}`
+        : inputText.trim(),
       timestamp: new Date().toISOString(),
     };
 
@@ -182,12 +204,37 @@ export default function AIBuddyScreen() {
       const contextMessages = [...otherModesContext.map(({ mode: _, ...msg }) => msg), ...messages];
 
       // Send message to backend with mode and enhanced context
-      const response = await sendMessage(
-        userMessage.content,
-        user.uid,
-        contextMessages,
-        mode
-      );
+      let response;
+
+      if (selectedFile) {
+        // Send image/document analysis request
+        const analysisResult = await analyzeImage(
+          selectedFile.uri,
+          inputText.trim() || "Analyze this",
+          user.uid
+        );
+
+        response = {
+          reply: analysisResult.analysis,
+          timestamp: analysisResult.timestamp
+        };
+
+        // Update usage stats
+        if (analysisResult.usageRemaining !== undefined) {
+          setUsageStats(prev => prev ? { ...prev, remaining: analysisResult.usageRemaining } : null);
+        }
+
+        // Clear selection
+        setSelectedFile(null);
+      } else {
+        // Regular text message
+        response = await sendMessage(
+          userMessage.content,
+          user.uid,
+          contextMessages,
+          mode
+        );
+      }
 
       const assistantMessage: AIMessage = {
         id: generateMessageId(),
@@ -207,7 +254,16 @@ export default function AIBuddyScreen() {
       await saveConversationHistory(finalMessages, mode);
     } catch (error: any) {
       console.error('Error sending message:', error);
-      Alert.alert('Error', error.message || 'Failed to get response from AI Buddy');
+
+      // Check for specific error messages
+      if (error.message.includes('busy') || error.message.includes('capacity') || error.message.includes('credits')) {
+        Alert.alert(
+          ' AI Buddy is Busy',
+          'The AI service is currently experiencing high demand. Please try again in a little while.',
+        );
+      } else {
+        Alert.alert('Error', error.message || 'Failed to get response from AI Buddy');
+      }
 
       // Remove the user message on error
       setMessages(messages);
@@ -245,9 +301,11 @@ export default function AIBuddyScreen() {
       });
 
       if (!result.canceled && result.assets[0]) {
-        Alert.alert('Coming Soon', 'Image analysis will be available in a future update!');
-        // TODO: Implement image upload to backend when GPT-4 Vision is ready
-        // setSelectedImages([...selectedImages, result.assets[0].uri]);
+        setSelectedFile({
+          uri: result.assets[0].uri,
+          type: 'image',
+          name: result.assets[0].fileName || 'image.jpg'
+        });
       }
     } catch (error) {
       console.error('Error picking image:', error);
@@ -263,13 +321,20 @@ export default function AIBuddyScreen() {
       });
 
       if (!result.canceled && result.assets[0]) {
-        Alert.alert('Coming Soon', 'Document analysis will be available in a future update!');
-        // TODO: Implement document upload when ready
+        setSelectedFile({
+          uri: result.assets[0].uri,
+          type: 'document',
+          name: result.assets[0].name
+        });
       }
     } catch (error) {
       console.error('Error picking document:', error);
       Alert.alert('Error', 'Failed to pick document');
     }
+  };
+
+  const handleClearAttachment = () => {
+    setSelectedFile(null);
   };
 
   const showAttachmentOptions = () => {
@@ -427,6 +492,11 @@ export default function AIBuddyScreen() {
         <View style={styles.chatHeaderText}>
           <Text style={styles.chatTitle}>{getModeTitle(mode)}</Text>
           <Text style={styles.chatSubtitle}>{getModeSubtitle(mode)}</Text>
+          {usageStats && (
+            <Text style={styles.usageText}>
+              Vision Analysis: {usageStats.remaining}/{usageStats.limit} left today
+            </Text>
+          )}
         </View>
         <TouchableOpacity onPress={handleClearConversation} style={styles.clearButton}>
           <X size={20} color={colors.textSecondary} />
@@ -475,13 +545,33 @@ export default function AIBuddyScreen() {
 
           <View style={styles.inputContainer}>
             {mode && (
-              <TouchableOpacity
-                style={styles.attachmentButton}
-                onPress={showAttachmentOptions}
-                disabled={isLoading}
-              >
-                <Paperclip size={20} color={isLoading ? colors.textLight : colors.text} />
-              </TouchableOpacity>
+              <View>
+                {selectedFile ? (
+                  <View style={styles.previewContainer}>
+                    {selectedFile.type === 'image' ? (
+                      <Image source={{ uri: selectedFile.uri }} style={styles.previewImage} />
+                    ) : (
+                      <View style={styles.previewDoc}>
+                        <FileText size={24} color={colors.primary} />
+                      </View>
+                    )}
+                    <TouchableOpacity
+                      style={styles.removePreviewButton}
+                      onPress={handleClearAttachment}
+                    >
+                      <X size={12} color="white" />
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    style={styles.attachmentButton}
+                    onPress={showAttachmentOptions}
+                    disabled={isLoading}
+                  >
+                    <Paperclip size={20} color={isLoading ? colors.textLight : colors.text} />
+                  </TouchableOpacity>
+                )}
+              </View>
             )}
             <TextInput
               style={styles.input}
@@ -725,5 +815,47 @@ const styles = StyleSheet.create({
   },
   sendButtonDisabled: {
     opacity: 0.5,
+  },
+  usageText: {
+    fontSize: 11,
+    color: colors.primary,
+    marginTop: 2,
+    fontWeight: '600',
+  },
+  previewContainer: {
+    marginRight: 8,
+    position: 'relative',
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  previewImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+  },
+  previewDoc: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  removePreviewButton: {
+    position: 'absolute',
+    top: -6,
+    right: -6,
+    backgroundColor: colors.error,
+    borderRadius: 10,
+    width: 18,
+    height: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: 'white',
   },
 });

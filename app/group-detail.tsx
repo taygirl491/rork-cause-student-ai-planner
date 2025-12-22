@@ -196,7 +196,7 @@ export default function GroupDetailScreen() {
                         <View style={styles.section}>
                             <Text style={styles.sectionTitle}>Messages</Text>
                             <View style={styles.messagesContainer}>
-                                {group.messages.length === 0 ? (
+                                {(!group.messages || group.messages.length === 0) ? (
                                     <Text style={styles.emptyText}>No messages yet</Text>
                                 ) : (
                                     group.messages.map((msg) => (

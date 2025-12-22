@@ -15,22 +15,22 @@ import {
 	collection,
 	doc,
 	addDoc,
-	updateDoc,
-	deleteDoc,
 	query,
 	where,
 	onSnapshot,
 	orderBy,
 	Timestamp,
+	deleteDoc,
+	updateDoc,
 	getDocs,
-	limit,
-	startAfter,
-	DocumentSnapshot,
 } from "firebase/firestore";
 import { useAuth } from "./AuthContext";
 import * as calendarSync from "@/utils/calendarSync";
 import * as NotificationService from "@/utils/notificationService";
 import apiService from "@/utils/apiService";
+import { tasksAPI, classesAPI, notesAPI, goalsAPI, studyGroupsAPI } from "@/utils/dataAPI";
+import socketService from "@/utils/socketService";
+import { offlineQueue } from "@/utils/offlineQueue";
 
 const STORAGE_KEYS = {
 	TASKS: "cause-student-tasks",
@@ -56,12 +56,8 @@ export const [AppProvider, useApp] = createContextHook(() => {
 	const [notesLoading, setNotesLoading] = useState(true);
 	const [calendarSyncEnabled, setCalendarSyncEnabled] = useState(false);
 	const [appCalendarId, setAppCalendarId] = useState<string | null>(null);
-
-	// Pagination state for tasks
-	const TASKS_PAGE_SIZE = 20;
-	const [lastTaskDoc, setLastTaskDoc] = useState<DocumentSnapshot | null>(null);
-	const [hasMoreTasks, setHasMoreTasks] = useState(true);
-	const [loadingMoreTasks, setLoadingMoreTasks] = useState(false);
+	const [isOnline, setIsOnline] = useState(true);
+	const [pendingOperations, setPendingOperations] = useState(0);
 
 	// Video Configuration State
 	const [videoConfig, setVideoConfig] = useState({
@@ -69,333 +65,77 @@ export const [AppProvider, useApp] = createContextHook(() => {
 		causesVideoId: "dQw4w9WgXcQ" // Default Causes Video
 	});
 
-	// Pagination state for classes
-	const CLASSES_PAGE_SIZE = 20;
-	const [lastClassDoc, setLastClassDoc] = useState<DocumentSnapshot | null>(null);
-	const [hasMoreClasses, setHasMoreClasses] = useState(true);
-	const [loadingMoreClasses, setLoadingMoreClasses] = useState(false);
+	// Manual refresh function for tasks
+	const refreshTasks = async () => {
+		if (!user?.uid) return;
+		try {
+			const tasksData = await tasksAPI.getTasks(user.uid);
+			setTasks(tasksData);
+		} catch (error) {
+			console.error("Error loading tasks:", error);
+		}
+	};
 
-	// Real-time Firestore listener for tasks
+	// API-based tasks loading (WebSocket handles updates)
 	useEffect(() => {
 		if (!user?.uid) {
 			setTasks([]);
 			setTasksLoading(false);
-			setLastTaskDoc(null);
-			setHasMoreTasks(true);
 			return;
 		}
 
-		const tasksRef = collection(db, "tasks");
-		const q = query(
-			tasksRef,
-			where("userId", "==", user.uid),
-			orderBy("createdAt", "desc"),
-			limit(TASKS_PAGE_SIZE)
-		);
-
-		const unsubscribe = onSnapshot(
-			q,
-			(snapshot) => {
-				const tasksData: Task[] = [];
-				snapshot.forEach((doc) => {
-					const data = doc.data();
-					tasksData.push({
-						id: doc.id,
-						description: data.description,
-						type: data.type,
-						className: data.className,
-						dueDate: data.dueDate,
-						dueTime: data.dueTime,
-						priority: data.priority,
-						reminder: data.reminder,
-						alarmEnabled: data.alarmEnabled,
-						completed: data.completed,
-						createdAt: data.createdAt,
-					});
-				});
-				setTasks(tasksData);
-				setTasksLoading(false);
-
-				// Set last document for pagination
-				if (snapshot.docs.length > 0) {
-					setLastTaskDoc(snapshot.docs[snapshot.docs.length - 1]);
-					setHasMoreTasks(snapshot.docs.length === TASKS_PAGE_SIZE);
-				} else {
-					setHasMoreTasks(false);
-				}
-			},
-			(error) => {
-				console.error("Firestore listener error:", error);
-				setTasksLoading(false);
-			}
-		);
-
-		return () => unsubscribe();
+		// Load initially only - WebSocket will handle updates
+		refreshTasks().then(() => setTasksLoading(false));
 	}, [user?.uid]);
 
-	// Load more tasks function
-	const loadMoreTasks = async () => {
-		if (!user?.uid || !lastTaskDoc || !hasMoreTasks || loadingMoreTasks) {
-			return;
-		}
-		setLoadingMoreTasks(true);
+	// Manual refresh function for classes
+	const refreshClasses = async () => {
+		if (!user?.uid) return;
 		try {
-			const tasksRef = collection(db, "tasks");
-			const q = query(
-				tasksRef,
-				where("userId", "==", user.uid),
-				orderBy("createdAt", "desc"),
-				startAfter(lastTaskDoc),
-				limit(TASKS_PAGE_SIZE)
-			);
-			const snapshot = await getDocs(q);
-			const newTasks: Task[] = [];
-			snapshot.forEach((doc) => {
-				const data = doc.data();
-				newTasks.push({
-					id: doc.id,
-					description: data.description,
-					type: data.type,
-					className: data.className,
-					dueDate: data.dueDate,
-					dueTime: data.dueTime,
-					priority: data.priority,
-					reminder: data.reminder,
-					alarmEnabled: data.alarmEnabled,
-					completed: data.completed,
-					createdAt: data.createdAt,
-				});
+			const classesData = await classesAPI.getClasses(user.uid);
+			// Sort by createdAt descending (newest first)
+			const sortedClasses = classesData.sort((a, b) => {
+				const dateA = new Date(a.createdAt || 0).getTime();
+				const dateB = new Date(b.createdAt || 0).getTime();
+				return dateB - dateA;
 			});
-			setTasks((prev) => [...prev, ...newTasks]);
-			if (snapshot.docs.length > 0) {
-				setLastTaskDoc(snapshot.docs[snapshot.docs.length - 1]);
-				setHasMoreTasks(snapshot.docs.length === TASKS_PAGE_SIZE);
-			} else {
-				setHasMoreTasks(false);
-			}
+			setClasses(sortedClasses);
 		} catch (error) {
-			console.error("Error loading more tasks:", error);
-		} finally {
-			setLoadingMoreTasks(false);
+			console.error("Error loading classes:", error);
 		}
 	};
 
-	// Real-time Firestore listener for classes
+	// API-based classes loading (WebSocket handles updates)
 	useEffect(() => {
 		if (!user?.uid) {
 			setClasses([]);
 			setClassesLoading(false);
-			setLastClassDoc(null);
-			setHasMoreClasses(true);
 			return;
 		}
 
-		const classesRef = collection(db, "classes");
-		const q = query(
-			classesRef,
-			where("userId", "==", user.uid),
-			orderBy("createdAt", "desc"),
-			limit(CLASSES_PAGE_SIZE)
-		);
-
-		const unsubscribe = onSnapshot(
-			q,
-			(snapshot) => {
-				const classesData: Class[] = [];
-				snapshot.forEach((doc) => {
-					const data = doc.data();
-					classesData.push({
-						id: doc.id,
-						name: data.name,
-						section: data.section,
-						daysOfWeek: data.daysOfWeek,
-						time: data.time,
-						professor: data.professor,
-						startDate: data.startDate,
-						endDate: data.endDate,
-						color: data.color,
-						createdAt: data.createdAt,
-						calendarEventId: data.calendarEventId,
-					});
-				});
-				setClasses(classesData);
-				setClassesLoading(false);
-
-				if (snapshot.docs.length > 0) {
-					setLastClassDoc(snapshot.docs[snapshot.docs.length - 1]);
-					setHasMoreClasses(snapshot.docs.length === CLASSES_PAGE_SIZE);
-				} else {
-					setHasMoreClasses(false);
-				}
-			},
-			(error) => {
-				console.error("Firestore classes listener error:", error);
-				setClassesLoading(false);
-			}
-		);
-
-		return () => unsubscribe();
+		// Load initially only - WebSocket will handle updates
+		refreshClasses().then(() => setClassesLoading(false));
 	}, [user?.uid]);
 
-	// Load more classes function
-	const loadMoreClasses = async () => {
-		if (
-			!user?.uid ||
-			!lastClassDoc ||
-			!hasMoreClasses ||
-			loadingMoreClasses
-		) {
-			return;
-		}
-		setLoadingMoreClasses(true);
+
+	// Manual refresh function for goals
+	const refreshGoals = async () => {
+		if (!user?.uid) return;
 		try {
-			const classesRef = collection(db, "classes");
-			const q = query(
-				classesRef,
-				where("userId", "==", user.uid),
-				orderBy("createdAt", "desc"),
-				startAfter(lastClassDoc),
-				limit(CLASSES_PAGE_SIZE)
-			);
-
-			const snapshot = await getDocs(q);
-			const newClasses: Class[] = [];
-			snapshot.forEach((doc) => {
-				const data = doc.data();
-				newClasses.push({
-					id: doc.id,
-					name: data.name,
-					section: data.section,
-					daysOfWeek: data.daysOfWeek,
-					time: data.time,
-					professor: data.professor,
-					startDate: data.startDate,
-					endDate: data.endDate,
-					color: data.color,
-					createdAt: data.createdAt,
-					calendarEventId: data.calendarEventId,
-				});
+			const goalsData = await goalsAPI.getGoals(user.uid);
+			// Sort by createdAt descending (newest first)
+			const sortedGoals = goalsData.sort((a, b) => {
+				const dateA = new Date(a.createdAt || 0).getTime();
+				const dateB = new Date(b.createdAt || 0).getTime();
+				return dateB - dateA;
 			});
-
-			setClasses((prev) => [...prev, ...newClasses]);
-
-			if (snapshot.docs.length > 0) {
-				setLastClassDoc(snapshot.docs[snapshot.docs.length - 1]);
-				setHasMoreClasses(snapshot.docs.length === CLASSES_PAGE_SIZE);
-			} else {
-				setHasMoreClasses(false);
-			}
+			setGoals(sortedGoals);
 		} catch (error) {
-			console.error("Error loading more classes:", error);
-		} finally {
-			setLoadingMoreClasses(false);
+			console.error("Error loading goals:", error);
 		}
 	};
 
-	// Real-time Firestore listener for study groups
-	useEffect(() => {
-		if (!user?.uid || !user?.email) {
-			setStudyGroups([]);
-			return;
-		}
-
-		const studyGroupsRef = collection(db, "studyGroups");
-		const q = query(studyGroupsRef, orderBy("createdAt", "desc"));
-
-		let messageUnsubscribers: (() => void)[] = [];
-
-		const unsubscribe = onSnapshot(
-			q,
-			(snapshot) => {
-				// Clean up previous message listeners
-				messageUnsubscribers.forEach((unsub) => unsub());
-				messageUnsubscribers = [];
-
-				const groupsData: StudyGroup[] = [];
-
-				snapshot.forEach((groupDoc) => {
-					const data = groupDoc.data();
-					// Filter client-side for now since array-contains query requires index
-					const isMember = data.members?.some(
-						(m: any) => m.email === user.email
-					);
-					const isCreator = data.creatorId === user.uid;
-
-					if (isMember || isCreator) {
-						// Initialize group with empty messages
-						const group: StudyGroup = {
-							id: groupDoc.id,
-							name: data.name,
-							className: data.className || "",
-							school: data.school || "",
-							description: data.description,
-							code: data.code,
-							members: data.members || [],
-							messages: [],
-							createdAt:
-								data.createdAt?.toDate?.()?.toISOString() ||
-								new Date().toISOString(),
-						};
-
-						groupsData.push(group);
-
-						// Set up real-time listener for this group's messages
-						const messagesRef = collection(
-							db,
-							"studyGroups",
-							groupDoc.id,
-							"messages"
-						);
-						const messagesQuery = query(
-							messagesRef,
-							orderBy("createdAt", "asc")
-						);
-
-						const messageUnsubscribe = onSnapshot(
-							messagesQuery,
-							(messagesSnapshot) => {
-								const messages: StudyGroupMessage[] = [];
-								messagesSnapshot.forEach((messageDoc) => {
-									const msgData = messageDoc.data();
-									messages.push({
-										id: messageDoc.id,
-										groupId: groupDoc.id,
-										senderEmail: msgData.senderEmail,
-										message: msgData.message,
-										attachments: msgData.attachments || [],
-										createdAt:
-											msgData.createdAt?.toDate?.()?.toISOString() ||
-											new Date().toISOString(),
-									});
-								});
-
-								// Update the specific group's messages
-								setStudyGroups((prev) =>
-									prev.map((g) =>
-										g.id === groupDoc.id ? { ...g, messages } : g
-									)
-								);
-							}
-						);
-
-						messageUnsubscribers.push(messageUnsubscribe);
-					}
-				});
-
-				setStudyGroups(groupsData);
-			},
-			(error) => {
-				console.error("Firestore study groups listener error:", error);
-			}
-		);
-
-		return () => {
-			unsubscribe();
-			messageUnsubscribers.forEach((unsub) => unsub());
-		};
-	}, [user?.uid, user?.email]);
-
-	// Real-time Firestore listener for goals
+	// API-based goals loading (WebSocket handles updates)
 	useEffect(() => {
 		if (!user?.uid) {
 			setGoals([]);
@@ -403,83 +143,31 @@ export const [AppProvider, useApp] = createContextHook(() => {
 			return;
 		}
 
-		const goalsRef = collection(db, "goals");
-		const q = query(
-			goalsRef,
-			where("userId", "==", user.uid),
-			orderBy("createdAt", "desc")
-		);
-
-		const unsubscribe = onSnapshot(
-			q,
-			(snapshot) => {
-				const goalsData: Goal[] = [];
-				snapshot.forEach((doc) => {
-					const data = doc.data();
-					goalsData.push({
-						id: doc.id,
-						title: data.title,
-						description: data.description,
-						dueDate: data.dueDate,
-						completed: data.completed,
-						habits: data.habits || [],
-						createdAt: data.createdAt,
-					});
-				});
-				setGoals(goalsData);
-				setGoalsLoading(false);
-			},
-			(error) => {
-				console.error("Firestore goals listener error:", error);
-				setGoalsLoading(false);
-			}
-		);
-
-		return () => unsubscribe();
+		// Load initially only - WebSocket will handle updates
+		refreshGoals().then(() => setGoalsLoading(false));
 	}, [user?.uid]);
 
-	// Notes Firestore listener
+	// Manual refresh function for notes
+	const refreshNotes = async () => {
+		if (!user?.uid) return;
+		try {
+			const notesData = await notesAPI.getNotes(user.uid);
+			setNotes(notesData);
+		} catch (error) {
+			console.error("Error loading notes:", error);
+		}
+	};
+
+	// API-based notes loading (WebSocket handles updates)
 	useEffect(() => {
 		if (!user?.uid) {
 			setNotes([]);
+			setNotesLoading(false);
 			return;
 		}
 
-		const notesRef = collection(db, "notes");
-		const q = query(
-			notesRef,
-			where("userId", "==", user.uid),
-			orderBy("updatedAt", "desc")
-		);
-
-		const unsubscribe = onSnapshot(
-			q,
-			(snapshot) => {
-				const notesData: Note[] = [];
-				snapshot.forEach((doc) => {
-					const data = doc.data();
-					notesData.push({
-						id: doc.id,
-						title: data.title,
-						className: data.className || "",
-						content: data.content,
-						createdAt:
-							data.createdAt?.toDate?.()?.toISOString() ||
-							new Date().toISOString(),
-						updatedAt:
-							data.updatedAt?.toDate?.()?.toISOString() ||
-							new Date().toISOString(),
-					});
-				});
-				setNotes(notesData);
-				setNotesLoading(false);
-			},
-			(error) => {
-				console.error("Firestore notes listener error:", error);
-			}
-		);
-
-		return () => unsubscribe();
+		// Load initially only - WebSocket will handle updates
+		refreshNotes().then(() => setNotesLoading(false));
 	}, [user?.uid]);
 
 	// Video Configuration Listener
@@ -498,6 +186,27 @@ export const [AppProvider, useApp] = createContextHook(() => {
 		});
 
 		return () => unsubscribe();
+	}, []);
+
+	// Network status listener
+	useEffect(() => {
+		const handleNetworkChange = (online: boolean) => {
+			setIsOnline(online);
+			setPendingOperations(offlineQueue.getPendingCount());
+
+			if (online) {
+				console.log('[Network] Back online, processing queued operations');
+				offlineQueue.processQueue();
+			} else {
+				console.log('[Network] Offline mode activated');
+			}
+		};
+
+		offlineQueue.addNetworkListener(handleNetworkChange);
+
+		return () => {
+			offlineQueue.removeNetworkListener(handleNetworkChange);
+		};
 	}, []);
 
 	const tasksQuery = useQuery({
@@ -560,8 +269,8 @@ export const [AppProvider, useApp] = createContextHook(() => {
 				}
 			}
 
-			const tasksRef = collection(db, "tasks");
-			const docRef = await addDoc(tasksRef, {
+			// Create task via API
+			const newTask = await tasksAPI.createTask({
 				userId: user.uid,
 				description: task.description,
 				type: task.type,
@@ -577,20 +286,19 @@ export const [AppProvider, useApp] = createContextHook(() => {
 				calendarEventId: calendarEventId || null,
 			});
 
-			// Schedule notification if reminder is set and task is not completed
-			if (task.reminder && !task.completed) {
-				await NotificationService.scheduleTaskReminder({
-					...task,
-					id: docRef.id,
-				});
-			}
+			if (newTask) {
+				// Schedule notification if reminder is set and task is not completed
+				if (task.reminder && !task.completed) {
+					await NotificationService.scheduleTaskReminder(newTask);
+				}
 
-			// Schedule due date notification if task is not completed
-			if (!task.completed) {
-				await NotificationService.scheduleDueDateNotification({
-					...task,
-					id: docRef.id,
-				});
+				// Schedule due date notification if task is not completed
+				if (!task.completed) {
+					await NotificationService.scheduleDueDateNotification(newTask);
+				}
+
+				// Don't add to state here - the WebSocket event will handle it
+				// This prevents duplicate tasks
 			}
 		} catch (error) {
 			console.error("Error adding task:", error);
@@ -600,10 +308,19 @@ export const [AppProvider, useApp] = createContextHook(() => {
 	const updateTask = async (id: string, updates: Partial<Task>) => {
 		if (!user?.uid) return;
 
+		// Validate task ID
+		if (!id || id === 'undefined' || id === 'null') {
+			console.error('Invalid task ID provided to updateTask:', id);
+			return;
+		}
+
 		try {
 			// Find the task to get its calendar event ID
 			const task = tasks.find((t) => t.id === id);
-			if (!task) return;
+			if (!task) {
+				console.error('Task not found with ID:', id);
+				return;
+			}
 
 			// Cancel existing notifications for this task
 			await NotificationService.cancelAllTaskNotifications(id);
@@ -617,18 +334,25 @@ export const [AppProvider, useApp] = createContextHook(() => {
 				);
 			}
 
-			const taskRef = doc(db, "tasks", id);
-			await updateDoc(taskRef, updates as any);
+			// Update via API
+			const success = await tasksAPI.updateTask(id, updates);
 
-			// Reschedule notification if task is not completed and has reminder
-			const updatedTask = { ...task, ...updates };
-			if (updatedTask.reminder && !updatedTask.completed) {
-				await NotificationService.scheduleTaskReminder(updatedTask);
-			}
+			if (success) {
+				// Reschedule notification if task is not completed and has reminder
+				const updatedTask = { ...task, ...updates };
+				if (updatedTask.reminder && !updatedTask.completed) {
+					await NotificationService.scheduleTaskReminder(updatedTask);
+				}
 
-			// Reschedule due date notification if task is not completed
-			if (!updatedTask.completed) {
-				await NotificationService.scheduleDueDateNotification(updatedTask);
+				// Reschedule due date notification if task is not completed
+				if (!updatedTask.completed) {
+					await NotificationService.scheduleDueDateNotification(updatedTask);
+				}
+
+				// Update local state immediately
+				setTasks((prev) =>
+					prev.map((t) => (t.id === id ? { ...t, ...updates } : t))
+				);
 			}
 		} catch (error) {
 			console.error("Error updating task:", error);
@@ -650,8 +374,13 @@ export const [AppProvider, useApp] = createContextHook(() => {
 				await calendarSync.deleteCalendarEvent(task.calendarEventId);
 			}
 
-			const taskRef = doc(db, "tasks", id);
-			await deleteDoc(taskRef);
+			// Delete via API
+			const success = await tasksAPI.deleteTask(id);
+
+			if (success) {
+				// Update local state immediately
+				setTasks((prev) => prev.filter((t) => t.id !== id));
+			}
 		} catch (error) {
 			console.error("Error deleting task:", error);
 		}
@@ -674,8 +403,8 @@ export const [AppProvider, useApp] = createContextHook(() => {
 				}
 			}
 
-			const classesRef = collection(db, "classes");
-			await addDoc(classesRef, {
+			// Create class via API
+			const newClass = await classesAPI.createClass({
 				userId: user.uid,
 				name: cls.name,
 				section: cls.section,
@@ -688,6 +417,9 @@ export const [AppProvider, useApp] = createContextHook(() => {
 				createdAt: cls.createdAt,
 				calendarEventId: calendarEventId || null,
 			});
+
+			// Don't add to state here - the WebSocket event will handle it
+			// This prevents duplicate classes
 		} catch (error) {
 			console.error("Error adding class:", error);
 		}
@@ -709,8 +441,14 @@ export const [AppProvider, useApp] = createContextHook(() => {
 				);
 			}
 
-			const classRef = doc(db, "classes", id);
-			await updateDoc(classRef, updates as any);
+			// Update via API
+			const success = await classesAPI.updateClass(id, updates);
+
+			if (success) {
+				setClasses((prev) =>
+					prev.map((c) => (c.id === id ? { ...c, ...updates } : c))
+				);
+			}
 		} catch (error) {
 			console.error("Error updating class:", error);
 		}
@@ -728,8 +466,12 @@ export const [AppProvider, useApp] = createContextHook(() => {
 				await calendarSync.deleteCalendarEvent(cls.calendarEventId);
 			}
 
-			const classRef = doc(db, "classes", id);
-			await deleteDoc(classRef);
+			// Delete via API
+			const success = await classesAPI.deleteClass(id);
+
+			if (success) {
+				setClasses((prev) => prev.filter((c) => c.id !== id));
+			}
 		} catch (error) {
 			console.error("Error deleting class:", error);
 		}
@@ -739,8 +481,7 @@ export const [AppProvider, useApp] = createContextHook(() => {
 		if (!user?.uid) return;
 
 		try {
-			const goalsRef = collection(db, "goals");
-			await addDoc(goalsRef, {
+			const newGoal = await goalsAPI.createGoal({
 				userId: user.uid,
 				title: goal.title,
 				description: goal.description || "",
@@ -749,6 +490,9 @@ export const [AppProvider, useApp] = createContextHook(() => {
 				habits: goal.habits,
 				createdAt: goal.createdAt,
 			});
+
+			// Don't add to state here - the WebSocket event will handle it
+			// This prevents duplicate goals
 		} catch (error) {
 			console.error("Error adding goal:", error);
 		}
@@ -758,8 +502,13 @@ export const [AppProvider, useApp] = createContextHook(() => {
 		if (!user?.uid) return;
 
 		try {
-			const goalRef = doc(db, "goals", id);
-			await updateDoc(goalRef, updates as any);
+			const success = await goalsAPI.updateGoal(id, updates);
+
+			if (success) {
+				setGoals((prev) =>
+					prev.map((g) => (g.id === id ? { ...g, ...updates } : g))
+				);
+			}
 		} catch (error) {
 			console.error("Error updating goal:", error);
 		}
@@ -769,8 +518,11 @@ export const [AppProvider, useApp] = createContextHook(() => {
 		if (!user?.uid) return;
 
 		try {
-			const goalRef = doc(db, "goals", id);
-			await deleteDoc(goalRef);
+			const success = await goalsAPI.deleteGoal(id);
+
+			if (success) {
+				setGoals((prev) => prev.filter((g) => g.id !== id));
+			}
 		} catch (error) {
 			console.error("Error deleting goal:", error);
 		}
@@ -780,15 +532,17 @@ export const [AppProvider, useApp] = createContextHook(() => {
 		if (!user?.uid) return;
 
 		try {
-			const notesRef = collection(db, "notes");
-			await addDoc(notesRef, {
+			const newNote = await notesAPI.createNote({
 				userId: user.uid,
 				title: note.title,
 				className: note.className || "",
 				content: note.content,
-				createdAt: Timestamp.now(),
-				updatedAt: Timestamp.now(),
+				createdAt: new Date().toISOString(),
+				updatedAt: new Date().toISOString(),
 			});
+
+			// Don't add to state here - the WebSocket event will handle it
+			// This prevents duplicate notes
 		} catch (error) {
 			console.error("Error adding note:", error);
 		}
@@ -798,11 +552,16 @@ export const [AppProvider, useApp] = createContextHook(() => {
 		if (!user?.uid) return;
 
 		try {
-			const noteRef = doc(db, "notes", id);
-			await updateDoc(noteRef, {
+			const success = await notesAPI.updateNote(id, {
 				...updates,
-				updatedAt: Timestamp.now(),
-			} as any);
+				updatedAt: new Date().toISOString(),
+			});
+
+			if (success) {
+				setNotes((prev) =>
+					prev.map((n) => (n.id === id ? { ...n, ...updates, updatedAt: new Date().toISOString() } : n))
+				);
+			}
 		} catch (error) {
 			console.error("Error updating note:", error);
 		}
@@ -812,12 +571,270 @@ export const [AppProvider, useApp] = createContextHook(() => {
 		if (!user?.uid) return;
 
 		try {
-			const noteRef = doc(db, "notes", id);
-			await deleteDoc(noteRef);
+			const success = await notesAPI.deleteNote(id);
+
+			if (success) {
+				setNotes((prev) => prev.filter((n) => n.id !== id));
+			}
 		} catch (error) {
 			console.error("Error deleting note:", error);
 		}
 	};
+
+	// Manual refresh function for study groups
+	const refreshStudyGroups = async () => {
+		if (!user?.uid || !user?.email) return;
+		try {
+			const groupsData = await studyGroupsAPI.getStudyGroups(user.uid, user.email);
+			setStudyGroups(groupsData);
+		} catch (error) {
+			console.error("Error loading study groups:", error);
+		}
+	};
+
+	// WebSocket-based study groups with real-time updates
+	useEffect(() => {
+		if (!user?.uid || !user?.email) {
+			socketService.disconnect();
+			setStudyGroups([]);
+			return;
+		}
+
+		// Initial load
+		refreshStudyGroups();
+
+		// Connect to WebSocket
+		socketService.connect(user.uid);
+
+		// Set up event listeners
+		const handleGroupCreated = (data: any) => {
+			console.log('Group created event:', data);
+			if (data.group) {
+				const newGroup = {
+					id: data.group.id || data.group._id,
+					name: data.group.name,
+					className: data.group.className,
+					school: data.group.school,
+					description: data.group.description,
+					code: data.group.code,
+					creatorId: data.group.creatorId,
+					members: data.group.members,
+					messages: data.group.messages || [],
+					createdAt: data.group.createdAt,
+				};
+				setStudyGroups((prev) => {
+					const exists = prev.some(g => g.id === newGroup.id);
+					return exists ? prev : [newGroup, ...prev];
+				});
+				// Join the new group room
+				socketService.joinGroup(newGroup.id);
+			}
+		};
+
+		const handleMemberJoined = (data: any) => {
+			console.log('Member joined event:', data);
+			setStudyGroups((prev) =>
+				prev.map((g) =>
+					g.id === data.groupId
+						? { ...g, members: data.members }
+						: g
+				)
+			);
+		};
+
+		const handleNewMessage = (data: any) => {
+			console.log('New message event:', data);
+			setStudyGroups((prev) =>
+				prev.map((g) => {
+					if (g.id === data.groupId) {
+						// Check if there's a temporary message to replace
+						const hasTemp = g.messages?.some(m => m.id.startsWith('temp-'));
+						if (hasTemp) {
+							// Replace the temporary message with the real one
+							return {
+								...g,
+								messages: [
+									...(g.messages || []).filter(m => !m.id.startsWith('temp-')),
+									data.message
+								]
+							};
+						}
+						// No temp message, just add the new one
+						return { ...g, messages: [...(g.messages || []), data.message] };
+					}
+					return g;
+				})
+			);
+		};
+
+		const handleGroupDeleted = (data: any) => {
+			console.log('Group deleted event:', data);
+			setStudyGroups((prev) => prev.filter((g) => g.id !== data.groupId));
+		};
+
+		// Task event handlers
+		const handleTaskCreated = (data: any) => {
+			if (data.userId === user.uid && data.task) {
+				setTasks((prev) => {
+					const exists = prev.some(t => t.id === data.task.id);
+					return exists ? prev : [data.task, ...prev];
+				});
+			}
+		};
+
+		const handleTaskUpdated = (data: any) => {
+			if (data.userId === user.uid && data.task) {
+				setTasks((prev) =>
+					prev.map((t) => (t.id === data.task.id ? data.task : t))
+				);
+			}
+		};
+
+		const handleTaskDeleted = (data: any) => {
+			if (data.userId === user.uid) {
+				setTasks((prev) => prev.filter((t) => t.id !== data.taskId));
+			}
+		};
+
+		// Class event handlers
+		const handleClassCreated = (data: any) => {
+			if (data.userId === user.uid && data.class) {
+				setClasses((prev) => {
+					const exists = prev.some(c => c.id === data.class.id);
+					return exists ? prev : [data.class, ...prev];
+				});
+			}
+		};
+
+		const handleClassUpdated = (data: any) => {
+			if (data.userId === user.uid && data.class) {
+				setClasses((prev) =>
+					prev.map((c) => (c.id === data.class.id ? data.class : c))
+				);
+			}
+		};
+
+		const handleClassDeleted = (data: any) => {
+			if (data.userId === user.uid) {
+				setClasses((prev) => prev.filter((c) => c.id !== data.classId));
+			}
+		};
+
+		// Note event handlers
+		const handleNoteCreated = (data: any) => {
+			if (data.userId === user.uid && data.note) {
+				setNotes((prev) => {
+					const exists = prev.some(n => n.id === data.note.id);
+					return exists ? prev : [data.note, ...prev];
+				});
+			}
+		};
+
+		const handleNoteUpdated = (data: any) => {
+			if (data.userId === user.uid && data.note) {
+				setNotes((prev) =>
+					prev.map((n) => (n.id === data.note.id ? data.note : n))
+				);
+			}
+		};
+
+		const handleNoteDeleted = (data: any) => {
+			if (data.userId === user.uid) {
+				setNotes((prev) => prev.filter((n) => n.id !== data.noteId));
+			}
+		};
+
+		// Goal event handlers
+		const handleGoalCreated = (data: any) => {
+			if (data.userId === user.uid && data.goal) {
+				setGoals((prev) => {
+					const exists = prev.some(g => g.id === data.goal.id);
+					return exists ? prev : [data.goal, ...prev];
+				});
+			}
+		};
+
+		const handleGoalUpdated = (data: any) => {
+			if (data.userId === user.uid && data.goal) {
+				setGoals((prev) =>
+					prev.map((g) => (g.id === data.goal.id ? data.goal : g))
+				);
+			}
+		};
+
+		const handleGoalDeleted = (data: any) => {
+			if (data.userId === user.uid) {
+				setGoals((prev) => prev.filter((g) => g.id !== data.goalId));
+			}
+		};
+
+		// Register all event listeners
+		// Tasks
+		socketService.on('task-created', handleTaskCreated);
+		socketService.on('task-updated', handleTaskUpdated);
+		socketService.on('task-deleted', handleTaskDeleted);
+
+		// Classes
+		socketService.on('class-created', handleClassCreated);
+		socketService.on('class-updated', handleClassUpdated);
+		socketService.on('class-deleted', handleClassDeleted);
+
+		// Notes
+		socketService.on('note-created', handleNoteCreated);
+		socketService.on('note-updated', handleNoteUpdated);
+		socketService.on('note-deleted', handleNoteDeleted);
+
+		// Goals
+		socketService.on('goal-created', handleGoalCreated);
+		socketService.on('goal-updated', handleGoalUpdated);
+		socketService.on('goal-deleted', handleGoalDeleted);
+
+		// Study Groups
+		socketService.on('group-created', handleGroupCreated);
+		socketService.on('member-joined', handleMemberJoined);
+		socketService.on('new-message', handleNewMessage);
+		socketService.on('group-deleted', handleGroupDeleted);
+
+		// Join all group rooms after groups are loaded
+		const joinGroupRooms = async () => {
+			const groups = await studyGroupsAPI.getStudyGroups(user.uid, user.email);
+			groups.forEach(group => {
+				socketService.joinGroup(group.id);
+			});
+		};
+		joinGroupRooms();
+
+		return () => {
+			// Clean up all event listeners
+			// Tasks
+			socketService.off('task-created', handleTaskCreated);
+			socketService.off('task-updated', handleTaskUpdated);
+			socketService.off('task-deleted', handleTaskDeleted);
+
+			// Classes
+			socketService.off('class-created', handleClassCreated);
+			socketService.off('class-updated', handleClassUpdated);
+			socketService.off('class-deleted', handleClassDeleted);
+
+			// Notes
+			socketService.off('note-created', handleNoteCreated);
+			socketService.off('note-updated', handleNoteUpdated);
+			socketService.off('note-deleted', handleNoteDeleted);
+
+			// Goals
+			socketService.off('goal-created', handleGoalCreated);
+			socketService.off('goal-updated', handleGoalUpdated);
+			socketService.off('goal-deleted', handleGoalDeleted);
+
+			// Study Groups
+			socketService.off('group-created', handleGroupCreated);
+			socketService.off('member-joined', handleMemberJoined);
+			socketService.off('new-message', handleNewMessage);
+			socketService.off('group-deleted', handleGroupDeleted);
+
+			socketService.disconnect();
+		};
+	}, [user?.uid, user?.email]);
 
 	const createStudyGroup = async (
 		group: Omit<
@@ -828,29 +845,25 @@ export const [AppProvider, useApp] = createContextHook(() => {
 		if (!user?.uid || !user?.email) return null;
 
 		try {
-			const code = Math.random().toString(36).substring(2, 10).toUpperCase();
-			const groupData = {
+			const newGroup = await studyGroupsAPI.createStudyGroup({
 				name: group.name,
 				className: group.className,
 				school: group.school,
 				description: group.description,
-				code: code,
 				creatorId: user.uid,
-				members: [{ email: user.email, joinedAt: new Date().toISOString() }],
-				createdAt: Timestamp.now(),
-			};
+				creatorEmail: user.email,
+				creatorName: user.name || user.email.split('@')[0],
+			});
 
-			const studyGroupsRef = collection(db, "studyGroups");
-			const docRef = await addDoc(studyGroupsRef, groupData);
-
-			return {
-				id: docRef.id,
-				...group,
-				code: code,
-				members: groupData.members,
-				messages: [],
-				createdAt: new Date().toISOString(),
-			} as StudyGroup;
+			if (newGroup) {
+				// Don't add to state here - the WebSocket event will handle it
+				// This prevents duplicate groups
+				return {
+					...newGroup,
+					messages: newGroup.messages || [],
+				} as StudyGroup;
+			}
+			return null;
 		} catch (error) {
 			console.error("Error creating study group:", error);
 			return null;
@@ -861,74 +874,24 @@ export const [AppProvider, useApp] = createContextHook(() => {
 		if (!user?.uid) return null;
 
 		try {
-			// Query Firestore directly to find the group by code
-			const studyGroupsRef = collection(db, "studyGroups");
-			const q = query(studyGroupsRef, where("code", "==", code));
-			const querySnapshot = await getDocs(q);
+			const group = await studyGroupsAPI.joinStudyGroup(code, email, name);
 
-			if (querySnapshot.empty) {
-				console.log("No group found with code:", code);
-				return null;
-			}
-
-			const groupDoc = querySnapshot.docs[0];
-			const groupData = groupDoc.data();
-
-			// Check if already a member
-			if (groupData.members?.some((m: any) => m.email === email)) {
-				// Return the group data
-				return {
-					id: groupDoc.id,
-					name: groupData.name,
-					className: groupData.className || "",
-					school: groupData.school || "",
-					description: groupData.description,
-					code: groupData.code,
-					members: groupData.members,
-					messages: [],
-					createdAt:
-						groupData.createdAt?.toDate?.()?.toISOString() ||
-						new Date().toISOString(),
-				} as StudyGroup;
-			}
-
-			const groupRef = doc(db, "studyGroups", groupDoc.id);
-			const newMember = { email, name, joinedAt: new Date().toISOString() };
-
-			await updateDoc(groupRef, {
-				members: [...groupData.members, newMember],
-			});
-
-			// Send email notification to existing members (non-blocking)
-			apiService
-				.notifyGroupJoin(groupDoc.id, [email])
-				.then((result) => {
-					if (result.success) {
-						console.log("✓ Join notification sent successfully");
-					} else {
-						console.log(
-							"Join notification failed (non-critical):",
-							result.error
-						);
+			if (group) {
+				// Update local state
+				setStudyGroups((prev) => {
+					const exists = prev.some(g => g.id === group.id);
+					if (exists) {
+						return prev.map(g => g.id === group.id ? { ...group, messages: group.messages || [] } : g);
 					}
-				})
-				.catch((error) => {
-					console.log("Join notification error (non-critical):", error);
+					return [{ ...group, messages: group.messages || [] }, ...prev];
 				});
 
-			return {
-				id: groupDoc.id,
-				name: groupData.name,
-				className: groupData.className || "",
-				school: groupData.school || "",
-				description: groupData.description,
-				code: groupData.code,
-				members: [...groupData.members, newMember],
-				messages: [],
-				createdAt:
-					groupData.createdAt?.toDate?.()?.toISOString() ||
-					new Date().toISOString(),
-			} as StudyGroup;
+				return {
+					...group,
+					messages: group.messages || [],
+				} as StudyGroup;
+			}
+			return null;
 		} catch (error) {
 			console.error("Error joining study group:", error);
 			return null;
@@ -941,69 +904,61 @@ export const [AppProvider, useApp] = createContextHook(() => {
 		message: string,
 		attachments?: { name: string; uri: string; type: string }[]
 	) => {
-		console.log("=== sendGroupMessage called ===");
-		console.log("Group ID:", groupId);
-		console.log("Sender:", senderEmail);
-		console.log("Message:", message);
-		console.log("User UID:", user?.uid);
-
-		if (!user?.uid) {
-			console.log("ERROR: No user UID - returning");
-			return;
-		}
+		if (!user?.uid) return;
 
 		try {
 			// Upload attachments if any
 			let finalAttachments = attachments || [];
 
 			if (finalAttachments.length > 0) {
-				console.log("Uploading attachments...");
 				const uploadResult = await apiService.uploadFiles(finalAttachments);
 
 				if (uploadResult.success && uploadResult.files) {
-					console.log("Attachments uploaded successfully");
-					// Map uploaded files to the format expected by Firestore
 					finalAttachments = uploadResult.files.map((file: any) => ({
 						name: file.name,
-						uri: file.url, // Use remote URL as the URI for consistency
-						url: file.url, // Explicitly add url for backend compatibility
+						uri: file.url,
 						type: file.type,
 					}));
-				} else {
-					console.error("Failed to upload attachments:", uploadResult.error);
-					// You might want to throw or alert here, but for now we proceed
-					// (images won't load for others but message sends)
 				}
 			}
 
-			console.log("Creating message in Firestore...");
-			const messagesRef = collection(db, "studyGroups", groupId, "messages");
-			const docRef = await addDoc(messagesRef, {
+			// Optimistic UI update - add message immediately
+			const tempMessage = {
+				id: `temp-${Date.now()}`,
+				groupId,
 				senderEmail,
+				senderName: user.name || user.email?.split('@')[0] || '',
 				message,
 				attachments: finalAttachments,
-				createdAt: Timestamp.now(),
-			});
-			console.log("Message created with ID:", docRef.id);
+				createdAt: new Date().toISOString(),
+			};
 
-			// Send email notification to group members (non-blocking)
-			apiService
-				.notifyGroupMessage(groupId, docRef.id)
-				.then((result) => {
-					if (result.success) {
-						console.log("✓ Email notification sent successfully");
-					} else {
-						console.log(
-							"Email notification failed (non-critical):",
-							result.error
-						);
-					}
-				})
-				.catch((error) => {
-					console.log("Email notification error (non-critical):", error);
-				});
+			setStudyGroups((prev) =>
+				prev.map((g) =>
+					g.id === groupId
+						? { ...g, messages: [...(g.messages || []), tempMessage] }
+						: g
+				)
+			);
+
+			await studyGroupsAPI.sendMessage(groupId, {
+				senderEmail,
+				senderName: user.name || user.email?.split('@')[0] || '',
+				message,
+				attachments: finalAttachments,
+			});
+
+			// Don't refresh groups here - the WebSocket event will handle updating with real message ID
 		} catch (error) {
 			console.error("Error sending group message:", error);
+			// Remove the optimistic message on error
+			setStudyGroups((prev) =>
+				prev.map((g) =>
+					g.id === groupId
+						? { ...g, messages: (g.messages || []).filter(m => !m.id.startsWith('temp-')) }
+						: g
+				)
+			);
 		}
 	};
 
@@ -1011,10 +966,10 @@ export const [AppProvider, useApp] = createContextHook(() => {
 		if (!user?.uid) return;
 
 		try {
-			const groupRef = doc(db, "studyGroups", id);
-			await deleteDoc(groupRef);
-			// Note: Messages subcollection should be deleted via Cloud Functions or manually
-			// For now, they will remain orphaned but won't be accessible
+			const success = await studyGroupsAPI.deleteStudyGroup(id);
+			if (success) {
+				setStudyGroups((prev) => prev.filter((g) => g.id !== id));
+			}
 		} catch (error) {
 			console.error("Error deleting study group:", error);
 		}
@@ -1129,12 +1084,11 @@ export const [AppProvider, useApp] = createContextHook(() => {
 		calendarSyncEnabled,
 		toggleCalendarSync,
 		syncAllTasksToCalendar,
-		loadMoreTasks,
-		hasMoreTasks,
-		loadingMoreTasks,
-		loadMoreClasses,
-		hasMoreClasses,
-		loadingMoreClasses,
+		refreshTasks,
+		refreshClasses,
+		refreshNotes,
+		refreshGoals,
+		refreshStudyGroups,
 		isLoading: tasksLoading || classesLoading || goalsLoading || notesLoading,
 		videoConfig,
 	};

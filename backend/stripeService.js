@@ -1,7 +1,14 @@
+require('dotenv').config();
 const Stripe = require('stripe');
 
-// Initialize Stripe with your secret key
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+// Make Stripe optional - only initialize if API key is provided
+const stripe = process.env.STRIPE_SECRET_KEY
+    ? new Stripe(process.env.STRIPE_SECRET_KEY)
+    : null;
+
+if (!stripe) {
+    console.log('⚠️  Stripe not configured - payment features disabled');
+}
 
 /**
  * Create a payment intent for one-time payments

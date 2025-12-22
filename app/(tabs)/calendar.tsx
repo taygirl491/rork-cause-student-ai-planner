@@ -137,7 +137,12 @@ export default function CalendarScreen() {
       return inRange;
     });
 
-    return filtered;
+    // Deduplicate by class ID
+    const uniqueClasses = Array.from(
+      new Map(filtered.map(cls => [cls.id, cls])).values()
+    );
+
+    return uniqueClasses;
   };
 
   const renderMonthView = () => {

@@ -1,7 +1,132 @@
 const express = require("express");
 const router = express.Router();
 const { db } = require("./firebase");
-const { generateChatResponse } = require("./openaiService");
+const { generateChatResponse, analyzeImage } = require("./openaiService");
+const multer = require('multer');
+
+// Configure multer for memory storage
+const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: {
+        fileSize: 10 * 1024 * 1024, // 10MB limit
+    },
+    fileFilter: (req, file, cb) => {
+        // Accept images and PDFs
+        if (file.mimetype.startsWith('image/') || file.mimetype === 'application/pdf') {
+            cb(null, true);
+        } else {
+            cb(new Error('Only images and PDF documents are allowed'));
+        }
+    }
+});
+
+// Daily usage limits for free users
+const DAILY_VISION_LIMIT = 5;
+
+/**
+ * POST /api/ai/analyze-image
+ * Analyze an image or document using GPT-4 Vision
+ */
+router.post("/analyze-image", upload.single('file'), async (req, res) => {
+    try {
+        const { prompt, userId } = req.body;
+
+        if (!req.file) {
+            return res.status(400).json({
+                error: "No file uploaded",
+            });
+        }
+
+        if (!userId) {
+            return res.status(400).json({
+                error: "Missing required field: userId",
+            });
+        }
+
+        // Check daily usage limit
+        const today = new Date().toISOString().split('T')[0];
+        const usageKey = `vision_usage_${userId}_${today}`;
+
+        const usageDoc = await db.collection('ai_usage').doc(usageKey).get();
+        const currentUsage = usageDoc.exists ? usageDoc.data().count : 0;
+
+        if (currentUsage >= DAILY_VISION_LIMIT) {
+            return res.status(429).json({
+                error: "Daily vision analysis limit reached",
+                message: `You've reached your daily limit of ${DAILY_VISION_LIMIT} image analyses. Try again tomorrow!`,
+                limit: DAILY_VISION_LIMIT,
+                used: currentUsage,
+            });
+        }
+
+        // Convert image to base64
+        const imageBase64 = req.file.buffer.toString('base64');
+
+        // Fetch user context
+        const userContext = await fetchUserContext(userId);
+
+        // Analyze image
+        const analysis = await analyzeImage(imageBase64, prompt, userContext);
+
+        // Update usage count
+        await db.collection('ai_usage').doc(usageKey).set({
+            userId,
+            date: today,
+            count: currentUsage + 1,
+            lastUsed: new Date().toISOString(),
+        }, { merge: true }); // Use merge to update existing document without overwriting other fields
+
+        res.json({
+            success: true,
+            analysis,
+            timestamp: new Date().toISOString(),
+            usageRemaining: DAILY_VISION_LIMIT - (currentUsage + 1),
+        });
+    } catch (error) {
+        console.error("Error in image analysis:", error);
+
+        // Check for specific billing/quota error
+        if (error.message.includes("out of credits") || error.message.includes("quota")) {
+            return res.status(429).json({
+                error: "The AI service is currently busy (out of credits). Please try again later.",
+                details: error.message
+            });
+        }
+
+        res.status(500).json({
+            error: "Failed to analyze image",
+            details: error.message,
+        });
+    }
+});
+
+/**
+ * GET /api/ai/usage
+ * Get current usage stats for the user
+ */
+router.get("/usage/:userId", async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const today = new Date().toISOString().split('T')[0];
+        const usageKey = `vision_usage_${userId}_${today}`;
+
+        const usageDoc = await db.collection('ai_usage').doc(usageKey).get();
+        const currentUsage = usageDoc.exists ? usageDoc.data().count : 0;
+
+        res.json({
+            success: true,
+            visionLimit: DAILY_VISION_LIMIT,
+            visionUsed: currentUsage,
+            visionRemaining: DAILY_VISION_LIMIT - currentUsage,
+        });
+    } catch (error) {
+        console.error("Error fetching usage:", error);
+        res.status(500).json({
+            error: "Failed to fetch usage",
+            details: error.message,
+        });
+    }
+});
 
 /**
  * POST /api/ai/chat

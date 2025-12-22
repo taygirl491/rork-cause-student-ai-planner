@@ -15,6 +15,7 @@ import {
 	Keyboard,
 	Share,
 	Linking,
+	RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -28,6 +29,8 @@ import {
 	User,
 	Share2,
 	Plus,
+	Edit2,
+	Trash2,
 } from "lucide-react-native";
 import * as DocumentPicker from "expo-document-picker";
 import colors from "@/constants/colors";
@@ -45,10 +48,14 @@ export default function StudyGroupsScreen() {
 		joinStudyGroup,
 		sendGroupMessage,
 		deleteStudyGroup,
+		refreshStudyGroups,
 	} = useApp();
+	const [refreshing, setRefreshing] = useState(false);
 	const { user } = useAuth();
 	const [showCreateGroupModal, setShowCreateGroupModal] = useState(false);
 	const [showJoinGroupModal, setShowJoinGroupModal] = useState(false);
+	const [showActionSheet, setShowActionSheet] = useState(false);
+	const [selectedGroup, setSelectedGroup] = useState<StudyGroup | null>(null);
 	const [searchQuery, setSearchQuery] = useState("");
 
 	// Filter groups based on search query
@@ -164,6 +171,38 @@ export default function StudyGroupsScreen() {
 		setShowJoinGroupModal(false);
 	};
 
+	const handleLongPress = (group: StudyGroup) => {
+		setSelectedGroup(group);
+		setShowActionSheet(true);
+	};
+
+	const handleDelete = () => {
+		if (!selectedGroup) return;
+
+		Alert.alert(
+			"Delete Study Group",
+			"Are you sure you want to delete this study group?",
+			[
+				{ text: "Cancel", style: "cancel" },
+				{
+					text: "Delete",
+					style: "destructive",
+					onPress: () => {
+						deleteStudyGroup(selectedGroup.id);
+						setShowActionSheet(false);
+						setSelectedGroup(null);
+					},
+				},
+			]
+		);
+	};
+
+	const onRefresh = async () => {
+		setRefreshing(true);
+		await refreshStudyGroups();
+		setRefreshing(false);
+	};
+
 	const openGroupDetail = (group: StudyGroup) => {
 		router.push({
 			pathname: '/group-detail' as any,
@@ -213,6 +252,14 @@ export default function StudyGroupsScreen() {
 			<ScrollView
 				style={styles.scrollView}
 				showsVerticalScrollIndicator={false}
+				refreshControl={
+					<RefreshControl
+						refreshing={refreshing}
+						onRefresh={onRefresh}
+						colors={[colors.primary]}
+						tintColor={colors.primary}
+					/>
+				}
 			>
 				{filteredGroups.length === 0 ? (
 					<View style={styles.emptyState}>
@@ -233,7 +280,7 @@ export default function StudyGroupsScreen() {
 								key={group.id}
 								style={styles.groupCard}
 								onPress={() => openGroupDetail(group)}
-								onLongPress={() => deleteStudyGroup(group.id)}
+								onLongPress={() => handleLongPress(group)}
 							>
 								<View style={styles.groupIconContainer}>
 									<Users size={28} color={colors.primary} />
@@ -405,6 +452,32 @@ export default function StudyGroupsScreen() {
 						</TouchableOpacity>
 					</TouchableOpacity>
 				</KeyboardAvoidingView>
+			</Modal>
+
+			{/* Action Sheet Modal */}
+			<Modal
+				visible={showActionSheet}
+				transparent
+				animationType="fade"
+				onRequestClose={() => setShowActionSheet(false)}
+			>
+				<TouchableOpacity
+					style={styles.actionSheetOverlay}
+					activeOpacity={1}
+					onPress={() => setShowActionSheet(false)}
+				>
+					<View style={styles.actionSheetContent}>
+						<TouchableOpacity
+							style={styles.actionButton}
+							onPress={handleDelete}
+						>
+							<Trash2 size={20} color="#FF3B30" />
+							<Text style={[styles.actionButtonText, { color: "#FF3B30" }]}>
+								Delete Study Group
+							</Text>
+						</TouchableOpacity>
+					</View>
+				</TouchableOpacity>
 			</Modal>
 
 		</SafeAreaView>
@@ -811,5 +884,29 @@ const styles = StyleSheet.create({
 		color: colors.primary,
 		fontWeight: "600" as const,
 		maxWidth: 150,
+	},
+	actionSheetOverlay: {
+		flex: 1,
+		backgroundColor: "rgba(0, 0, 0, 0.5)",
+		justifyContent: "flex-end",
+	},
+	actionSheetContent: {
+		backgroundColor: colors.surface,
+		borderTopLeftRadius: 24,
+		borderTopRightRadius: 24,
+		padding: 20,
+		paddingBottom: 40,
+	},
+	actionButton: {
+		flexDirection: "row",
+		alignItems: "center",
+		paddingVertical: 16,
+		paddingHorizontal: 20,
+	},
+	actionButtonText: {
+		fontSize: 16,
+		fontWeight: "600" as const,
+		color: colors.text,
+		marginLeft: 16,
 	},
 });

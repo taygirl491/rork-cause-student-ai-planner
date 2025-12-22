@@ -15,6 +15,7 @@ import {
   KeyboardAvoidingView,
   TouchableWithoutFeedback,
   Keyboard,
+  RefreshControl,
 } from 'react-native';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -42,15 +43,14 @@ export default function ClassesScreen() {
     addClass,
     updateClass,
     deleteClass,
-    loadMoreClasses,
-    hasMoreClasses,
-    loadingMoreClasses,
+    refreshClasses,
   } = useApp();
 
   const [showClassModal, setShowClassModal] = useState(false);
   const [showActionSheet, setShowActionSheet] = useState(false);
   const [selectedClass, setSelectedClass] = useState<Class | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const [name, setName] = useState('');
   const [section, setSection] = useState('');
@@ -218,14 +218,11 @@ export default function ClassesScreen() {
     );
   };
 
-  const renderFooter = () => {
-    if (!loadingMoreClasses) return null;
-    return (
-      <View style={styles.footerLoader}>
-        <ActivityIndicator size="small" color={colors.primary} />
-        <Text style={styles.footerText}>Loading more classes...</Text>
-      </View>
-    );
+  // Pull-to-refresh handler
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await refreshClasses();
+    setRefreshing(false);
   };
 
   const renderClassItem = ({ item: cls }: { item: Class }) => (
@@ -272,6 +269,14 @@ export default function ClassesScreen() {
         renderItem={renderClassItem}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.classList}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[colors.primary]}
+            tintColor={colors.primary}
+          />
+        }
         ListHeaderComponent={
           <>
             <View style={styles.header}>
@@ -304,13 +309,6 @@ export default function ClassesScreen() {
             </Text>
           </View>
         )}
-        ListFooterComponent={renderFooter}
-        onEndReached={() => {
-          if (hasMoreClasses && !loadingMoreClasses) {
-            loadMoreClasses();
-          }
-        }}
-        onEndReachedThreshold={0.5}
         showsVerticalScrollIndicator={false}
       />
 

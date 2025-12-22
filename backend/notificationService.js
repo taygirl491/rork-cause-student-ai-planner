@@ -1,5 +1,5 @@
 const { Expo } = require("expo-server-sdk");
-const { db } = require("./firebase");
+const User = require('./models/User');
 
 // Initialize Expo SDK
 const expo = new Expo();
@@ -14,49 +14,22 @@ async function getTokensForEmails(emails) {
         if (!emails || emails.length === 0) return [];
 
         const tokens = [];
-        const usersSnapshot = await db
-            .collection("users")
-            .where("email", "in", emails)
-            .get();
+        const users = await User.find({ email: { $in: emails } });
 
-        console.log(`[PushDebug] Found ${usersSnapshot.size} user docs for ${emails.length} emails`);
+        console.log(`[PushDebug] Found ${users.length} user docs for ${emails.length} emails`);
 
-        usersSnapshot.forEach((doc) => {
-            const userData = doc.data();
-            console.log(`[PushDebug] User ${userData.email} has token: ${userData.pushToken ? 'YES' : 'NO'}`);
-            if (userData.pushToken && Expo.isExpoPushToken(userData.pushToken)) {
-                tokens.push(userData.pushToken);
+        users.forEach((user) => {
+            console.log(`[PushDebug] User ${user.email} has token: ${user.pushToken ? 'YES' : 'NO'}`);
+            if (user.pushToken && Expo.isExpoPushToken(user.pushToken)) {
+                tokens.push(user.pushToken);
             } else {
-                console.log(`[PushDebug] Token invalid or missing for ${userData.email}: ${userData.pushToken}`);
+                console.log(`[PushDebug] Token invalid or missing for ${user.email}: ${user.pushToken}`);
             }
         });
 
         return tokens;
     } catch (error) {
         console.error("Error fetching tokens for emails:", error);
-        // Fallback: fetch individually if "in" query fails (e.g. > 10 items)
-        if (error.code === 3) {
-            // invalid argument (e.g. too many items)
-            console.log("Falling back to individual token fetch...");
-            const tokens = [];
-            for (const email of emails) {
-                try {
-                    const snapshot = await db
-                        .collection("users")
-                        .where("email", "==", email)
-                        .get();
-                    if (!snapshot.empty) {
-                        const userData = snapshot.docs[0].data();
-                        if (userData.pushToken && Expo.isExpoPushToken(userData.pushToken)) {
-                            tokens.push(userData.pushToken);
-                        }
-                    }
-                } catch (e) {
-                    console.error(`Error fetching token for ${email}:`, e);
-                }
-            }
-            return tokens;
-        }
         return [];
     }
 }
@@ -102,14 +75,6 @@ async function sendPushNotifications(tokens, title, body, data = {}) {
 async function sendJoinNotification(groupData, newMembers, existingMembers) {
     try {
         const existingMemberEmails = existingMembers.map((m) => m.email);
-        // Firestore 'in' query supports up to 10 values.
-        // If we have more, we need to batch or implementation logic above handles fallback roughly.
-        // But typically detailed handling is better. For now we rely on the function which handles it.
-
-        // We need to batch emails if there are many members, because 'in' operator limits to 10/30 depending on context
-        // Our getTokensForEmails handles simple cases, but let's just loop if the list is huge?
-        // Actually, let's keep it simple. If the group is huge, this might miss some unless we implement batching.
-        // Let's implement simple batching here just in case.
 
         const tokens = [];
         // Process in batches of 10
@@ -182,22 +147,20 @@ async function sendMessageNotification(groupData, message, recipients) {
  */
 async function sendTaskReminder(userId, taskData) {
     try {
-        const userDoc = await db.collection('users').doc(userId).get();
+        const user = await User.findById(userId);
 
-        if (!userDoc.exists) {
+        if (!user) {
             console.log('User not found:', userId);
             return;
         }
 
-        const userData = userDoc.data();
-
-        if (!userData?.pushToken || !Expo.isExpoPushToken(userData.pushToken)) {
+        if (!user.pushToken || !Expo.isExpoPushToken(user.pushToken)) {
             console.log('No valid push token for user:', userId);
             return;
         }
 
         await sendPushNotifications(
-            [userData.pushToken],
+            [user.pushToken],
             `Reminder: ${taskData.type.toUpperCase()}`,
             taskData.description,
             { taskId: taskData.id, type: 'task_reminder', className: taskData.className }
