@@ -9,7 +9,8 @@ const {
     getPaymentIntent,
     getSubscription,
 } = require('./stripeService');
-const { db } = require('./firebase');
+const User = require('./models/User');
+const Subscription = require('./models/Subscription');
 
 /**
  * POST /api/stripe/create-payment-intent
@@ -26,23 +27,24 @@ router.post('/create-payment-intent', async (req, res) => {
         }
 
         // Get or create Stripe customer
-        const userDoc = await db.collection('users').doc(userId).get();
-        const userData = userDoc.data();
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
 
-        let customerId = userData?.stripeCustomerId;
+        let customerId = user.stripeCustomerId;
 
         if (!customerId) {
             const customer = await createOrGetCustomer(
-                userData?.email || '',
+                user.email || '',
                 userId,
-                userData?.name || null
+                user.name || null
             );
             customerId = customer.id;
 
-            // Save customer ID to Firestore
-            await db.collection('users').doc(userId).update({
-                stripeCustomerId: customerId,
-            });
+            // Save customer ID to MongoDB
+            user.stripeCustomerId = customerId;
+            await user.save();
         }
 
         // Create payment intent
@@ -83,23 +85,24 @@ router.post('/create-subscription', async (req, res) => {
         }
 
         // Get or create Stripe customer
-        const userDoc = await db.collection('users').doc(userId).get();
-        const userData = userDoc.data();
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
 
-        let customerId = userData?.stripeCustomerId;
+        let customerId = user.stripeCustomerId;
 
         if (!customerId) {
             const customer = await createOrGetCustomer(
-                userData?.email || '',
+                user.email || '',
                 userId,
-                userData?.name || null
+                user.name || null
             );
             customerId = customer.id;
 
-            // Save customer ID to Firestore
-            await db.collection('users').doc(userId).update({
-                stripeCustomerId: customerId,
-            });
+            // Save customer ID to MongoDB
+            user.stripeCustomerId = customerId;
+            await user.save();
         }
 
         // Create subscription
@@ -109,13 +112,16 @@ router.post('/create-subscription', async (req, res) => {
             { ...metadata, userId }
         );
 
-        // Save subscription to Firestore
-        await db.collection('subscriptions').doc(subscriptionId).set({
+        // Save subscription to MongoDB
+        await Subscription.create({
+            _id: subscriptionId,
             userId,
-            subscriptionId,
+            customerId,
             priceId,
             status: 'incomplete',
-            createdAt: new Date().toISOString(),
+            currentPeriodStart: new Date(),
+            currentPeriodEnd: new Date(),
+            createdAt: new Date(),
         });
 
         res.json({
@@ -148,8 +154,8 @@ router.post('/cancel-subscription', async (req, res) => {
         }
 
         // Verify subscription belongs to user
-        const subDoc = await db.collection('subscriptions').doc(subscriptionId).get();
-        if (!subDoc.exists || subDoc.data().userId !== userId) {
+        const sub = await Subscription.findById(subscriptionId);
+        if (!sub || sub.userId !== userId) {
             return res.status(403).json({
                 error: 'Unauthorized',
             });
@@ -158,11 +164,10 @@ router.post('/cancel-subscription', async (req, res) => {
         // Cancel subscription
         const subscription = await cancelSubscription(subscriptionId);
 
-        // Update Firestore
-        await db.collection('subscriptions').doc(subscriptionId).update({
-            status: 'canceled',
-            canceledAt: new Date().toISOString(),
-        });
+        // Update MongoDB
+        sub.status = 'canceled';
+        sub.cancelAtPeriodEnd = true;
+        await sub.save();
 
         res.json({
             success: true,
@@ -185,8 +190,8 @@ router.get('/payment-methods/:userId', async (req, res) => {
     try {
         const { userId } = req.params;
 
-        const userDoc = await db.collection('users').doc(userId).get();
-        const customerId = userDoc.data()?.stripeCustomerId;
+        const user = await User.findById(userId);
+        const customerId = user?.stripeCustomerId;
 
         if (!customerId) {
             return res.json({
@@ -241,18 +246,7 @@ router.get('/user-subscriptions/:userId', async (req, res) => {
     try {
         const { userId } = req.params;
 
-        const subscriptionsSnapshot = await db
-            .collection('subscriptions')
-            .where('userId', '==', userId)
-            .get();
-
-        const subscriptions = [];
-        subscriptionsSnapshot.forEach((doc) => {
-            subscriptions.push({
-                id: doc.id,
-                ...doc.data(),
-            });
-        });
+        const subscriptions = await Subscription.find({ userId });
 
         res.json({
             success: true,
@@ -303,20 +297,25 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
             case 'customer.subscription.created':
             case 'customer.subscription.updated':
                 const subscription = event.data.object;
-                await db.collection('subscriptions').doc(subscription.id).set({
-                    subscriptionId: subscription.id,
-                    customerId: subscription.customer,
-                    status: subscription.status,
-                    currentPeriodEnd: new Date(subscription.current_period_end * 1000).toISOString(),
-                    updatedAt: new Date().toISOString(),
-                }, { merge: true });
+                await Subscription.findByIdAndUpdate(
+                    subscription.id,
+                    {
+                        _id: subscription.id,
+                        customerId: subscription.customer,
+                        status: subscription.status,
+                        currentPeriodStart: new Date(subscription.current_period_start * 1000),
+                        currentPeriodEnd: new Date(subscription.current_period_end * 1000),
+                        priceId: subscription.items.data[0]?.price?.id,
+                    },
+                    { upsert: true, new: true }
+                );
                 break;
 
             case 'customer.subscription.deleted':
                 const deletedSub = event.data.object;
-                await db.collection('subscriptions').doc(deletedSub.id).update({
+                await Subscription.findByIdAndUpdate(deletedSub.id, {
                     status: 'canceled',
-                    canceledAt: new Date().toISOString(),
+                    cancelAtPeriodEnd: true,
                 });
                 break;
 

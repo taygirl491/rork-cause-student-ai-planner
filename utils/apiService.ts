@@ -74,15 +74,13 @@ class ApiService {
 		}
 	}
 	/**
-	 * Send notification when a message is posted
+	 * Send welcome email to new user
 	 */
-	async notifyGroupMessage(groupId: string, messageId: string) {
+	async sendWelcomeEmail(email: string, name: string) {
 		try {
-			console.log(`[API] Calling ${API_BASE_URL}/api/notify/new-message`);
-			console.log(`[API] Payload: groupId=${groupId}, messageId=${messageId}`);
-
+			console.log(`[API] Sending welcome email to ${email}`);
 			const response = await fetchWithTimeout(
-				`${API_BASE_URL}/api/notify/new-message`,
+				`${API_BASE_URL}/api/auth/welcome-email`,
 				{
 					method: "POST",
 					headers: {
@@ -90,29 +88,25 @@ class ApiService {
 						"x-api-key": API_KEY,
 					},
 					body: JSON.stringify({
-						groupId,
-						messageId,
+						email,
+						name,
 					}),
 				},
-				30000
+				10000 // 10 second timeout
 			);
-
-			console.log("[API] Message response status:", response.status);
 
 			if (!response.ok) {
 				const error = await response.json();
-				console.log("[API] Message response error:", error);
+				console.log("[API] Welcome email error:", error);
 				return { success: false, error: error.message || "Request failed" };
 			}
 
 			const result = await response.json();
-			console.log("[API] Message notification result:", result);
+			console.log("[API] Welcome email sent successfully");
 			return { success: true, ...result };
 		} catch (error: any) {
-			console.error(
-				"[API] Message notification error:",
-				error.message || error
-			);
+			console.error("[API] Welcome email error:", error.message || error);
+			// Don't throw - welcome email failure shouldn't block registration
 			return { success: false, error: error.message || String(error) };
 		}
 	}
@@ -227,6 +221,40 @@ class ApiService {
 	}
 
 	/**
+	 * POST request with FormData (for file uploads)
+	 */
+	async postFormData(endpoint: string, formData: FormData) {
+		try {
+			console.log(`[API] POST (FormData) ${API_BASE_URL}${endpoint}`);
+			const response = await fetchWithTimeout(
+				`${API_BASE_URL}${endpoint}`,
+				{
+					method: "POST",
+					headers: {
+						"x-api-key": API_KEY,
+						// Don't set Content-Type for FormData - browser will set it with boundary
+					},
+					body: formData,
+				},
+				60000 // Longer timeout for file uploads
+			);
+
+			if (!response.ok) {
+				const error = await response.json();
+				console.log("[API] POST FormData error:", error);
+				return { success: false, error: error.error || error.message || "Request failed" };
+			}
+
+			const result = await response.json();
+			console.log("[API] POST FormData result:", result);
+			return result;
+		} catch (error: any) {
+			console.error("[API] POST FormData error:", error.message || error);
+			throw error;
+		}
+	}
+
+	/**
 	 * Generic GET method
 	 */
 	async get(endpoint: string) {
@@ -245,17 +273,204 @@ class ApiService {
 			);
 
 			if (!response.ok) {
-				const error = await response.json();
+				// Clone the response so we can read it multiple times if needed
+				const clonedResponse = response.clone();
+				let error;
+				try {
+					error = await response.json();
+				} catch (e) {
+					// If JSON parse fails, get text from the clone
+					const text = await clonedResponse.text();
+					console.log("[API] GET error (non-JSON):", text);
+					return { success: false, error: "Request failed", details: text };
+				}
 				console.log("[API] GET error:", error);
 				return { success: false, error: error.error || "Request failed" };
 			}
 
-			const result = await response.json();
-			console.log("[API] GET result:", result);
+			// Clone the response for successful responses too
+			const clonedResponse = response.clone();
+			let result;
+			try {
+				result = await response.json();
+			} catch (e) {
+				// If JSON parse fails, get text from the clone
+				const text = await clonedResponse.text();
+				console.error("[API] GET response is not JSON:", text);
+				throw new Error(`Invalid JSON response: ${text.substring(0, 100)}`);
+			}
 			return result;
 		} catch (error: any) {
 			console.error("[API] GET error:", error.message || error);
 			throw error;
+		}
+	}
+
+	/**
+	 * Generic PUT method
+	 */
+	async put(endpoint: string, data: any) {
+		try {
+			console.log(`[API] PUT ${API_BASE_URL}${endpoint}`);
+			const response = await fetchWithTimeout(
+				`${API_BASE_URL}${endpoint}`,
+				{
+					method: "PUT",
+					headers: {
+						"Content-Type": "application/json",
+						"x-api-key": API_KEY,
+					},
+					body: JSON.stringify(data),
+				},
+				30000
+			);
+
+			if (!response.ok) {
+				const error = await response.json();
+				console.log("[API] PUT error:", error);
+				return { success: false, error: error.error || "Request failed" };
+			}
+
+			const result = await response.json();
+			console.log("[API] PUT result:", result);
+			return result;
+		} catch (error: any) {
+			console.error("[API] PUT error:", error.message || error);
+			throw error;
+		}
+	}
+
+	/**
+	 * Generic DELETE method
+	 */
+	async delete(endpoint: string) {
+		try {
+			console.log(`[API] DELETE ${API_BASE_URL}${endpoint}`);
+			const response = await fetchWithTimeout(
+				`${API_BASE_URL}${endpoint}`,
+				{
+					method: "DELETE",
+					headers: {
+						"Content-Type": "application/json",
+						"x-api-key": API_KEY,
+					},
+				},
+				30000
+			);
+
+			if (!response.ok) {
+				const error = await response.json();
+				console.log("[API] DELETE error:", error);
+				return { success: false, error: error.error || "Request failed" };
+			}
+
+			const result = await response.json();
+			console.log("[API] DELETE result:", result);
+			return result;
+		} catch (error: any) {
+			console.error("[API] DELETE error:", error.message || error);
+			throw error;
+		}
+	}
+
+	/**
+	 * Create Stripe subscription
+	 */
+	async createSubscription(userId: string, priceId: string) {
+		try {
+			console.log(`[API] Creating Stripe subscription for user ${userId}`);
+			const response = await fetchWithTimeout(
+				`${API_BASE_URL}/api/stripe/create-subscription`,
+				{
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+						"x-api-key": API_KEY,
+					},
+					body: JSON.stringify({ userId, priceId }),
+				},
+				30000
+			);
+
+			if (!response.ok) {
+				const error = await response.json();
+				console.log("[API] Subscription creation error:", error);
+				return { success: false, error: error.error || "Failed to create subscription" };
+			}
+
+			const result = await response.json();
+			console.log("[API] Subscription created:", result);
+			return result;
+		} catch (error: any) {
+			console.error("[API] Subscription creation error:", error.message || error);
+			return { success: false, error: error.message || String(error) };
+		}
+	}
+
+	/**
+	 * Cancel Stripe subscription
+	 */
+	async cancelSubscription(subscriptionId: string, userId: string) {
+		try {
+			console.log(`[API] Cancelling subscription ${subscriptionId}`);
+			const response = await fetchWithTimeout(
+				`${API_BASE_URL}/api/stripe/cancel-subscription`,
+				{
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+						"x-api-key": API_KEY,
+					},
+					body: JSON.stringify({ subscriptionId, userId }),
+				},
+				30000
+			);
+
+			if (!response.ok) {
+				const error = await response.json();
+				console.log("[API] Subscription cancellation error:", error);
+				return { success: false, error: error.error || "Failed to cancel subscription" };
+			}
+
+			const result = await response.json();
+			console.log("[API] Subscription cancelled:", result);
+			return result;
+		} catch (error: any) {
+			console.error("[API] Subscription cancellation error:", error.message || error);
+			return { success: false, error: error.message || String(error) };
+		}
+	}
+
+	/**
+	 * Get user subscriptions
+	 */
+	async getUserSubscriptions(userId: string) {
+		try {
+			console.log(`[API] Getting subscriptions for user ${userId}`);
+			const response = await fetchWithTimeout(
+				`${API_BASE_URL}/api/stripe/user-subscriptions/${userId}`,
+				{
+					method: "GET",
+					headers: {
+						"Content-Type": "application/json",
+						"x-api-key": API_KEY,
+					},
+				},
+				30000
+			);
+
+			if (!response.ok) {
+				const error = await response.json();
+				console.log("[API] Get subscriptions error:", error);
+				return { success: false, error: error.error || "Failed to get subscriptions" };
+			}
+
+			const result = await response.json();
+			console.log("[API] Subscriptions retrieved:", result);
+			return result;
+		} catch (error: any) {
+			console.error("[API] Get subscriptions error:", error.message || error);
+			return { success: false, error: error.message || String(error) };
 		}
 	}
 }

@@ -119,7 +119,61 @@ async function generateChatResponse(messages, userContext = {}, mode = 'homework
     }
 }
 
+/**
+ * Analyze an image using GPT-4 Vision
+ * @param {string} imageBase64 - Base64 encoded image
+ * @param {string} prompt - User's question about the image
+ * @param {Object} userContext - User's tasks, classes, and goals
+ * @returns {Promise<string>} AI analysis
+ */
+async function analyzeImage(imageBase64, prompt, userContext = {}) {
+    try {
+        const systemPrompt = buildSystemPrompt(userContext, 'homework');
+
+        const completion = await openai.chat.completions.create({
+            model: "gpt-4o", // Has vision built-in
+            messages: [
+                { role: "system", content: systemPrompt },
+                {
+                    role: "user",
+                    content: [
+                        {
+                            type: "text",
+                            text: prompt || "Analyze this image and help me understand it. If it's a homework problem, solve it step-by-step. If it's notes or a diagram, explain the key concepts."
+                        },
+                        {
+                            type: "image_url",
+                            image_url: {
+                                url: `data:image/jpeg;base64,${imageBase64}`,
+                                detail: "high" // High detail for better text recognition
+                            }
+                        }
+                    ]
+                }
+            ],
+            max_tokens: 1500, // More tokens for detailed analysis
+            temperature: 0.7,
+        });
+
+        return completion.choices[0].message.content;
+    } catch (error) {
+        console.error("OpenAI Vision API Error:", error);
+
+        // Handle specific error types
+        if (error.status === 401) {
+            throw new Error("Invalid OpenAI API key");
+        } else if (error.status === 429 || error.code === 'insufficient_quota') {
+            throw new Error("The AI service is currently busy or out of credits. Please try again later.");
+        } else if (error.status === 400 && error.message.includes('image')) {
+            throw new Error("Invalid image format. Please upload a clear image.");
+        }
+
+        throw new Error(`Failed to analyze image: ${error.message}`);
+    }
+}
+
 module.exports = {
     generateChatResponse,
     buildSystemPrompt,
+    analyzeImage,
 };

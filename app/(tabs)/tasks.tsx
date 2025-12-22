@@ -16,6 +16,7 @@ import {
   TouchableWithoutFeedback,
   Keyboard,
   Pressable,
+  RefreshControl,
 } from 'react-native';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -29,9 +30,7 @@ import StreakCard from '@/components/StreakCard';
 import { useStreak } from '@/contexts/StreakContext';
 
 export default function TasksScreen() {
-  const { sortedTasks, addTask, updateTask, deleteTask, classes, loadMoreTasks,
-    hasMoreTasks,
-    loadingMoreTasks, } = useApp();
+  const { sortedTasks, addTask, updateTask, deleteTask, classes, refreshTasks } = useApp();
   const { updateStreak } = useStreak();
   const [showModal, setShowModal] = useState(false);
   const [showActionSheet, setShowActionSheet] = useState(false);
@@ -39,6 +38,7 @@ export default function TasksScreen() {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [selectedTaskForDetail, setSelectedTaskForDetail] = useState<Task | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [description, setDescription] = useState('');
   const [taskType, setTaskType] = useState<TaskType>('task');
   const [selectedClass, setSelectedClass] = useState<string>('');
@@ -274,8 +274,9 @@ export default function TasksScreen() {
 
   const handleEditFromDetail = () => {
     if (!selectedTaskForDetail) return;
+    setSelectedTask(selectedTaskForDetail); // Set selectedTask first
     setShowDetailModal(false);
-    handleEdit(selectedTaskForDetail);
+    handleEdit();
   };
 
   const handleDeleteFromDetail = () => {
@@ -342,16 +343,13 @@ export default function TasksScreen() {
       <View style={[styles.priorityDot, { backgroundColor: colors.priorityColors[task.priority] }]} />
     </Pressable>
   );
-  // Footer component for loading indicator
-  const renderFooter = () => {
-    if (!loadingMoreTasks) return null;
-    return (
-      <View style={styles.footerLoader}>
-        <ActivityIndicator size="small" color={colors.primary} />
-        <Text style={styles.footerText}>Loading more tasks...</Text>
-      </View>
-    );
+  // Pull-to-refresh handler
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await refreshTasks();
+    setRefreshing(false);
   };
+
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
       <FlatList
@@ -359,6 +357,14 @@ export default function TasksScreen() {
         renderItem={renderTaskItem}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.taskListContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[colors.primary]}
+            tintColor={colors.primary}
+          />
+        }
         ListHeaderComponent={
           <>
             <View style={styles.header}>
@@ -432,13 +438,6 @@ export default function TasksScreen() {
             </Text>
           </View>
         )}
-        ListFooterComponent={renderFooter}
-        onEndReached={() => {
-          if (hasMoreTasks && !loadingMoreTasks) {
-            loadMoreTasks();
-          }
-        }}
-        onEndReachedThreshold={0.5}
         showsVerticalScrollIndicator={false}
       />
 
@@ -1179,19 +1178,6 @@ const styles = StyleSheet.create({
     height: 24,
     backgroundColor: colors.border,
     marginHorizontal: 4,
-  },
-  taskListContent: {
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-  },
-  footerLoader: {
-    paddingVertical: 20,
-    alignItems: 'center',
-  },
-  footerText: {
-    marginTop: 8,
-    fontSize: 14,
-    color: colors.text,
   },
   keyboardAvoidingView: {
     flex: 1,

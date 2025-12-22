@@ -13,6 +13,15 @@ import * as Notifications from "expo-notifications";
 import LogoButton from "@/components/LogoButton";
 import colors from "@/constants/colors";
 import { auth } from "@/firebaseConfig";
+import * as Sentry from '@sentry/react-native';
+
+// Initialize Sentry
+Sentry.init({
+  dsn: process.env.EXPO_PUBLIC_SENTRY_DSN,
+  enableInExpoDevelopment: false,
+  debug: false,
+  tracesSampleRate: 1.0,
+});
 
 SplashScreen.preventAutoHideAsync();
 
@@ -104,9 +113,21 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { registerForPushNotificationsAsync } from "@/functions/Notify";
 
 function RootLayoutNav() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
   const router = useRouter();
   const [onboardingComplete, setOnboardingComplete] = useState<boolean | null>(null);
+
+  // Set Sentry user context when user changes
+  useEffect(() => {
+    if (user) {
+      Sentry.setUser({
+        id: user.uid,
+        email: user.email || undefined,
+      });
+    } else {
+      Sentry.setUser(null);
+    }
+  }, [user]);
 
   useEffect(() => {
     checkOnboarding();

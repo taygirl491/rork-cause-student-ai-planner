@@ -98,6 +98,15 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
 
         // Reload user to get updated profile
         await userCredential.user.reload();
+
+        // Send welcome email (fire and forget - don't block registration)
+        try {
+          const apiService = await import('@/utils/apiService');
+          apiService.default.sendWelcomeEmail(data.email, data.name)
+            .catch(err => console.log('Welcome email failed (non-blocking):', err));
+        } catch (error) {
+          console.log('Failed to send welcome email (non-blocking):', error);
+        }
       }
 
       return auth.currentUser;

@@ -86,44 +86,46 @@ export default function HomeScreen() {
                 <Text style={styles.viewAllText}>View All</Text>
               </TouchableOpacity>
             </View>
-            {upcomingTasks.map((task) => (
-              <TouchableOpacity
-                key={task.id}
-                style={styles.taskCard}
-                onPress={() => router.push('/(tabs)/tasks')}
-              >
-                <View style={[styles.taskIcon, { backgroundColor: colors.taskColors[task.type] }]}>
-                  {task.completed ? (
-                    <CheckCircle size={20} color={colors.surface} />
-                  ) : (
-                    <Circle size={20} color={colors.surface} />
-                  )}
-                </View>
-                <View style={styles.taskContent}>
-                  <Text style={styles.taskTitle} numberOfLines={1}>
-                    {task.description}
-                  </Text>
-                  <View style={styles.taskMeta}>
-                    <View style={[styles.typeBadge, { backgroundColor: colors.taskColors[task.type] + '20' }]}>
-                      <Text style={[styles.typeBadgeText, { color: colors.taskColors[task.type] }]}>
-                        {task.type}
-                      </Text>
-                    </View>
-                    {task.className && (
-                      <Text style={styles.taskClass}>{task.className}</Text>
+            {upcomingTasks
+              .filter(task => task.id) // Filter out tasks without IDs
+              .map((task, index) => (
+                <TouchableOpacity
+                  key={`${task.id}-${index}`}
+                  style={styles.taskCard}
+                  onPress={() => router.push('/(tabs)/tasks')}
+                >
+                  <View style={[styles.taskIcon, { backgroundColor: colors.taskColors[task.type] }]}>
+                    {task.completed ? (
+                      <CheckCircle size={20} color={colors.surface} />
+                    ) : (
+                      <Circle size={20} color={colors.surface} />
                     )}
                   </View>
-                  <View style={styles.taskDateRow}>
-                    <Clock size={12} color={colors.textLight} />
-                    <Text style={styles.taskDate}>
-                      {getDaysUntil(task.dueDate)}
-                      {task.dueTime && ` at ${task.dueTime}`}
+                  <View style={styles.taskContent}>
+                    <Text style={styles.taskTitle} numberOfLines={1}>
+                      {task.description}
                     </Text>
+                    <View style={styles.taskMeta}>
+                      <View style={[styles.typeBadge, { backgroundColor: colors.taskColors[task.type] + '20' }]}>
+                        <Text style={[styles.typeBadgeText, { color: colors.taskColors[task.type] }]}>
+                          {task.type}
+                        </Text>
+                      </View>
+                      {task.className && (
+                        <Text style={styles.taskClass}>{task.className}</Text>
+                      )}
+                    </View>
+                    <View style={styles.taskDateRow}>
+                      <Clock size={12} color={colors.textLight} />
+                      <Text style={styles.taskDate}>
+                        {getDaysUntil(task.dueDate)}
+                        {task.dueTime && ` at ${task.dueTime}`}
+                      </Text>
+                    </View>
                   </View>
-                </View>
-                <View style={[styles.priorityDot, { backgroundColor: colors.priorityColors[task.priority] }]} />
-              </TouchableOpacity>
-            ))}
+                  <View style={[styles.priorityDot, { backgroundColor: colors.priorityColors[task.priority] }]} />
+                </TouchableOpacity>
+              ))}
           </View>
         )}
 

@@ -13,6 +13,7 @@ import {
   KeyboardAvoidingView,
   TouchableWithoutFeedback,
   Keyboard,
+  RefreshControl,
 } from 'react-native';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -22,8 +23,9 @@ import { useApp } from '@/contexts/AppContext';
 import { Goal, Habit } from '@/types';
 
 export default function GoalsScreen() {
-  const { goals, addGoal, updateGoal, deleteGoal } = useApp();
+  const { goals, addGoal, updateGoal, deleteGoal, refreshGoals } = useApp();
   const [showModal, setShowModal] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [dueDate, setDueDate] = useState(new Date());
@@ -165,6 +167,13 @@ export default function GoalsScreen() {
     return Math.round((completed / goal.habits.length) * 100);
   };
 
+  // Pull-to-refresh handler
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await refreshGoals();
+    setRefreshing(false);
+  };
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
@@ -177,7 +186,18 @@ export default function GoalsScreen() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[colors.primary]}
+            tintColor={colors.primary}
+          />
+        }
+      >
         {goals.length === 0 ? (
           <View style={styles.emptyState}>
             <Target size={64} color={colors.textLight} />
@@ -336,7 +356,7 @@ export default function GoalsScreen() {
                   {habits.length > 0 && (
                     <View style={styles.habitsList}>
                       {habits.map((habit, index) => (
-                        <View key={index} style={styles.habitChip}>
+                        <View key={habit.id || `habit-${index}-${habit.title}`} style={styles.habitChip}>
                           <Text style={styles.habitChipText}>{habit.title}</Text>
                           <TouchableOpacity onPress={() => removeHabit(index)}>
                             <Trash2 size={16} color={colors.error} />
