@@ -68,8 +68,7 @@
             "./assets/sound/alarm_clock_90867.wav"
           ]
         }
-      ],
-      "@sentry/react-native/expo"
+      ]
     ],
     "experiments": {
       "typedRoutes": true
