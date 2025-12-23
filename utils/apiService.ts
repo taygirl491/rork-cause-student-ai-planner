@@ -399,10 +399,42 @@ class ApiService {
 			}
 
 			const result = await response.json();
-			console.log("[API] Subscription created:", result);
-			return result;
+			return { success: true, ...result };
 		} catch (error: any) {
-			console.error("[API] Subscription creation error:", error.message || error);
+			console.error("[API] Subscription creation error:", error);
+			return { success: false, error: error.message || String(error) };
+		}
+	}
+
+	/**
+	 * Create Payment Intent (for one-time payment)
+	 */
+	async createPaymentIntent(userId: string, amount: number) {
+		try {
+			console.log(`[API] Creating payment intent for user ${userId}, amount: ${amount}`);
+			const response = await fetchWithTimeout(
+				`${API_BASE_URL}/api/stripe/create-payment-intent`,
+				{
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+						"x-api-key": API_KEY,
+					},
+					body: JSON.stringify({ userId, amount }),
+				},
+				30000
+			);
+
+			if (!response.ok) {
+				const error = await response.json();
+				console.log("[API] Payment intent error:", error);
+				return { success: false, error: error.error || "Failed to create payment intent" };
+			}
+
+			const result = await response.json();
+			return { success: true, ...result };
+		} catch (error: any) {
+			console.error("[API] Payment intent error:", error);
 			return { success: false, error: error.message || String(error) };
 		}
 	}

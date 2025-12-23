@@ -212,32 +212,48 @@ export default function AccountScreen() {
     if (tier === 'free' || !user?.uid) return;
 
     try {
-      const priceId = SUBSCRIPTION_PLANS[tier];
-      if (!priceId) {
-        Alert.alert('Error', 'Invalid subscription plan selected');
-        return;
+      setLoadingSubscription(true);
+      let clientSecret, customerId, response;
+
+      if (tier === 'unlimited') {
+        // Handle One-Time Payment
+        // 9999 cents = $99.99
+        response = await apiService.createPaymentIntent(user.uid, 9999);
+
+        if (!response.success) {
+          throw new Error(response.error || 'Failed to initialize payment');
+        }
+
+        clientSecret = response.clientSecret;
+        customerId = response.customerId;
+
+      } else {
+        // Handle Subscription
+        const priceId = SUBSCRIPTION_PLANS[tier];
+        if (!priceId) {
+          throw new Error('Invalid subscription plan selected');
+        }
+
+        response = await apiService.createSubscription(user.uid, priceId);
+
+        if (!response.success) {
+          throw new Error(response.error || 'Failed to initialize subscription');
+        }
+
+        clientSecret = response.clientSecret;
+        customerId = response.customerId; // Assuming createSubscription returns this now, or we get it from auth
       }
 
-      setLoadingSubscription(true);
-      const response = await apiService.createSubscription(user.uid, priceId);
       setLoadingSubscription(false);
 
-      if (!response.success) {
-        Alert.alert('Error', response.error || 'Failed to initialize subscription');
-        return;
-      }
-
-      const { clientSecret, customerId } = response;
-
       if (!clientSecret) {
-        Alert.alert('Error', 'Failed to get payment details');
-        return;
+        throw new Error('Failed to get payment details');
       }
 
       const { error } = await initPaymentSheet({
         paymentIntentClientSecret: clientSecret,
         merchantDisplayName: 'Cause Student AI Planner',
-        customerId: customerId,
+        customerId: customerId, // Optional but good for saving payment methods
         returnURL: 'cause-student-ai-planner://stripe-redirect',
       });
 
@@ -251,13 +267,21 @@ export default function AccountScreen() {
       if (paymentError) {
         Alert.alert('Error', paymentError.message);
       } else {
-        Alert.alert('Success', 'Thank you for subscribing!');
-        fetchSubscription();
-        setShowPaymentModal(false);
+        Alert.alert('Success', tier === 'unlimited' ? 'Lifetime access unlocked!' : 'Thank you for subscribing!');
+
+        if (tier === 'unlimited') {
+          // Provide immediate local feedback for unlimited since there's no subscription object to fetch immediately
+          setCurrentSubscription('unlimited');
+          setShowPaymentModal(false);
+          // You might want to call an API to mark user as permanent premium here if webhook doesn't handle it fast enough
+        } else {
+          fetchSubscription();
+          setShowPaymentModal(false);
+        }
       }
     } catch (error: any) {
       setLoadingSubscription(false);
-      console.error('Subscription error:', error);
+      console.error('Payment error:', error);
       Alert.alert('Error', error.message || 'Something went wrong');
     }
   };
@@ -489,13 +513,13 @@ export default function AccountScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Subscription & Billing</Text>
 
-          <TouchableOpacity style={styles.menuItem} onPress={handleManagePayment}>
+          <TouchableOpacity style={styles.menuItem} onPress={() => setShowPaymentModal(true)}>
             <View style={styles.menuItemLeft}>
               <View style={[styles.menuIcon, { backgroundColor: colors.primary + '15' }]}>
                 <CreditCard size={20} color={colors.primary} />
               </View>
               <Text style={styles.menuItemText}>
-                {activeSubscription ? 'Upgrade Plan' : 'Manage Payment'}
+                {currentSubscription !== 'free' ? 'Upgrade Plan' : 'Subscribe to Premium'}
               </Text>
             </View>
             <ChevronRight size={20} color={colors.textLight} />
