@@ -150,7 +150,7 @@ export default function AIBuddyScreen() {
   };
 
   const animateTyping = async (messageId: string, fullText: string) => {
-    const typingSpeed = 5; // milliseconds per character
+    const typingSpeed = 1; // milliseconds per character
     let currentIndex = 0;
 
     return new Promise<void>((resolve) => {

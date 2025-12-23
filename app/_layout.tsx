@@ -14,6 +14,7 @@ import LogoButton from "@/components/LogoButton";
 import colors from "@/constants/colors";
 import { auth } from "@/firebaseConfig";
 import * as Sentry from '@sentry/react-native';
+import { StripeProvider } from '@stripe/stripe-react-native';
 
 // Initialize Sentry
 Sentry.init({
@@ -246,17 +247,21 @@ export default function RootLayout() {
 
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <GestureHandlerRootView style={{ flex: 1 }}>
-        <AuthProvider>
-          <StreakProvider>
-            <AppProvider>
-              <RootLayoutNav />
-            </AppProvider>
-          </StreakProvider>
-        </AuthProvider>
-      </GestureHandlerRootView>
-    </QueryClientProvider>
+    <StripeProvider
+      publishableKey={process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY || ''}
+    >
+      <QueryClientProvider client={queryClient}>
+        <GestureHandlerRootView style={{ flex: 1 }}>
+          <AuthProvider>
+            <StreakProvider>
+              <AppProvider>
+                <RootLayoutNav />
+              </AppProvider>
+            </StreakProvider>
+          </AuthProvider>
+        </GestureHandlerRootView>
+      </QueryClientProvider>
+    </StripeProvider>
   );
 }
 

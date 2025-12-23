@@ -87,8 +87,26 @@ async function createOrGetCustomer(email, userId, name = null) {
  * @param {object} metadata - Optional metadata
  * @returns {Promise<object>} Subscription with client secret
  */
-async function createSubscription(customerId, priceId, metadata = {}) {
+async function createSubscription(customerId, priceIdOrProductId, metadata = {}) {
     try {
+        let priceId = priceIdOrProductId;
+
+        // If a Product ID is provided (starts with 'prod_'), fetch its default price
+        if (priceIdOrProductId && priceIdOrProductId.startsWith('prod_')) {
+            console.log(`[Stripe] Resolving price for product: ${priceIdOrProductId}`);
+            const prices = await stripe.prices.list({
+                product: priceIdOrProductId,
+                active: true,
+                limit: 1,
+            });
+
+            if (prices.data.length === 0) {
+                throw new Error(`No active price found for product ${priceIdOrProductId}`);
+            }
+            priceId = prices.data[0].id;
+            console.log(`[Stripe] Resolved price ID: ${priceId}`);
+        }
+
         const subscription = await stripe.subscriptions.create({
             customer: customerId,
             items: [{ price: priceId }],

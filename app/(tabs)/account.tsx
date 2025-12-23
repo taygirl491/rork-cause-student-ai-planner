@@ -38,8 +38,15 @@ import { useRouter } from 'expo-router';
 import apiService from '@/utils/apiService';
 // TextInput is imported from react-native above
 import { TERMS_AND_CONDITIONS, PRIVACY_POLICY } from '@/constants/LegalText';
+import { useStripe } from '@stripe/stripe-react-native';
 
-type SubscriptionTier = 'free' | 'monthly' | 'yearly';
+const SUBSCRIPTION_PLANS = {
+  monthly: 'prod_Tebp7Br16NRut1',
+  yearly: 'prod_TebnBoSwztCMC8',
+  unlimited: 'prod_Tel4YORsn796VE',
+};
+
+type SubscriptionTier = 'free' | 'monthly' | 'yearly' | 'unlimited';
 
 export default function AccountScreen() {
   const [currentSubscription, setCurrentSubscription] = useState<SubscriptionTier>('free');
@@ -48,6 +55,7 @@ export default function AccountScreen() {
   const [loadingSubscription, setLoadingSubscription] = useState(true);
   const { user, logout, changePassword } = useAuth();
   const router = useRouter();
+  const { initPaymentSheet, presentPaymentSheet } = useStripe();
 
   // Change Password State
   const [showPasswordModal, setShowPasswordModal] = useState(false);
@@ -200,24 +208,58 @@ export default function AccountScreen() {
     );
   };
 
-  const handleUpgrade = (tier: SubscriptionTier) => {
-    Alert.alert(
-      'Upgrade Subscription',
-      tier === 'monthly'
-        ? 'Subscribe for $4.99/month and support education causes with $1 from every payment!'
-        : 'Subscribe for $19.99/year and support education causes with $4 from every payment!',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Subscribe',
-          onPress: () => {
-            setCurrentSubscription(tier);
-            setShowPaymentModal(false);
-            Alert.alert('Success!', 'Thank you for subscribing and supporting education causes!');
-          },
-        },
-      ]
-    );
+  const handleUpgrade = async (tier: SubscriptionTier) => {
+    if (tier === 'free' || !user?.uid) return;
+
+    try {
+      const priceId = SUBSCRIPTION_PLANS[tier];
+      if (!priceId) {
+        Alert.alert('Error', 'Invalid subscription plan selected');
+        return;
+      }
+
+      setLoadingSubscription(true);
+      const response = await apiService.createSubscription(user.uid, priceId);
+      setLoadingSubscription(false);
+
+      if (!response.success) {
+        Alert.alert('Error', response.error || 'Failed to initialize subscription');
+        return;
+      }
+
+      const { clientSecret, customerId } = response;
+
+      if (!clientSecret) {
+        Alert.alert('Error', 'Failed to get payment details');
+        return;
+      }
+
+      const { error } = await initPaymentSheet({
+        paymentIntentClientSecret: clientSecret,
+        merchantDisplayName: 'Cause Student AI Planner',
+        customerId: customerId,
+        returnURL: 'cause-student-ai-planner://stripe-redirect',
+      });
+
+      if (error) {
+        Alert.alert('Error', error.message);
+        return;
+      }
+
+      const { error: paymentError } = await presentPaymentSheet();
+
+      if (paymentError) {
+        Alert.alert('Error', paymentError.message);
+      } else {
+        Alert.alert('Success', 'Thank you for subscribing!');
+        fetchSubscription();
+        setShowPaymentModal(false);
+      }
+    } catch (error: any) {
+      setLoadingSubscription(false);
+      console.error('Subscription error:', error);
+      Alert.alert('Error', error.message || 'Something went wrong');
+    }
   };
 
 
@@ -388,6 +430,8 @@ export default function AccountScreen() {
         return 'Premium Monthly - $4.99/mo';
       case 'yearly':
         return 'Premium Yearly - $19.99/yr';
+      case 'unlimited':
+        return 'Unlimited Access - Lifetime';
       default:
         return 'Free Plan';
     }
@@ -626,6 +670,31 @@ export default function AccountScreen() {
                 </View>
                 <Text style={styles.pricingDescription}>
                   Save $40 per year and maximize your impact!
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.pricingCard,
+                  currentSubscription === 'unlimited' && styles.pricingCardActive,
+                ]}
+                onPress={() => handleUpgrade('unlimited')}
+              >
+                <View style={styles.pricingHeader}>
+                  <Text style={styles.pricingTitle}>Unlimited</Text>
+                  {currentSubscription === 'unlimited' && (
+                    <CheckCircle2 size={20} color={colors.secondary} fill={colors.secondary} />
+                  )}
+                </View>
+                <Text style={styles.pricingPrice}>$99.99</Text>
+                <Text style={styles.pricingPeriod}>one time</Text>
+                <View style={styles.pricingDivider} />
+                <View style={styles.pricingFeature}>
+                  <Heart size={16} color={colors.secondary} fill={colors.secondary} />
+                  <Text style={styles.pricingFeatureText}>$20 to education causes</Text>
+                </View>
+                <Text style={styles.pricingDescription}>
+                  Lifetime access to all features forever!
                 </Text>
               </TouchableOpacity>
             </View>
