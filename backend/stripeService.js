@@ -116,9 +116,60 @@ async function createSubscription(customerId, priceIdOrProductId, metadata = {})
             metadata,
         });
 
+        console.log(`[Stripe] Subscription created: ${subscription.id}, Status: ${subscription.status}`);
+
+        // Robust handling of latest_invoice
+        let clientSecret = null;
+        let invoice = subscription.latest_invoice;
+
+        if (invoice && typeof invoice === 'object') {
+            if (invoice.payment_intent) {
+                clientSecret = invoice.payment_intent.client_secret;
+                console.log(`[Stripe] Payment Intent found directly: ${invoice.payment_intent.id}`);
+            } else {
+                console.warn(`[Stripe] Payment Intent missing in expanded invoice ${invoice.id}. Attempting explicit retrieval...`);
+                // Fallback: Retrieve invoice explicitly
+                try {
+                    const fullInvoice = await stripe.invoices.retrieve(invoice.id, {
+                        expand: ['payment_intent']
+                    });
+                    if (fullInvoice.payment_intent) {
+                        clientSecret = fullInvoice.payment_intent.client_secret;
+                        console.log(`[Stripe] Payment Intent found after explicit retrieval: ${fullInvoice.payment_intent.id}`);
+                    } else {
+                        console.error(`[Stripe] CRITICAL: Invoice ${invoice.id} still has no payment_intent even after retrieval.`);
+                        console.log('[Stripe] Invoice Dump:', JSON.stringify(fullInvoice, null, 2));
+                    }
+                } catch (err) {
+                    console.error(`[Stripe] Error retrieving invoice ${invoice.id}:`, err);
+                }
+            }
+        } else if (typeof invoice === 'string') {
+            console.warn(`[Stripe] latest_invoice is a string ID (${invoice}). Attempting retrieval...`);
+            try {
+                const fullInvoice = await stripe.invoices.retrieve(invoice, {
+                    expand: ['payment_intent']
+                });
+                if (fullInvoice.payment_intent) {
+                    clientSecret = fullInvoice.payment_intent.client_secret;
+                }
+            } catch (err) {
+                console.error(`[Stripe] Error retrieving invoice ${invoice}:`, err);
+            }
+        } else {
+            console.error('[Stripe] CRITICAL: latest_invoice is missing from subscription.');
+        }
+
+        if (!clientSecret) {
+            // Don't crash, return what we have, but log error. Frontend might fail but backend stays up.
+            console.error(`[Stripe] Failed to resolve client_secret for subscription ${subscription.id}`);
+            // throw new Error(`Failed to generated payment intent. Invoice: ${invoice?.id}`);
+        }
+
         return {
             subscriptionId: subscription.id,
-            clientSecret: subscription.latest_invoice.payment_intent.client_secret,
+            clientSecret: clientSecret,
+            customerId: customerId, // Ensure we return this too
         };
     } catch (error) {
         console.error('Error creating subscription:', error);

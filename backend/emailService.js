@@ -12,6 +12,10 @@ const transporter = nodemailer.createTransport({
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,
   },
+  // Add timeouts to fail fast and allow retries rather than hanging
+  connectionTimeout: 10000, // 10 seconds
+  greetingTimeout: 5000,    // 5 seconds
+  socketTimeout: 30000,     // 30 seconds
 });
 
 // Verify connection configuration
@@ -24,6 +28,26 @@ transporter.verify(function (error, success) {
 });
 
 /**
+ * Helper to send email with retry logic
+ */
+async function sendMailWithRetry(mailOptions, retries = 3) {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      return await transporter.sendMail(mailOptions);
+    } catch (error) {
+      console.warn(`[Email] Attempt ${attempt} failed: ${error.message}`);
+
+      if (attempt === retries) {
+        throw error;
+      }
+
+      // Wait 1 second before retrying
+      await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+    }
+  }
+}
+
+/**
  * Send email notification when a user joins a study group
  */
 async function sendJoinNotification(groupData, newMembers, existingMembers) {
@@ -31,7 +55,7 @@ async function sendJoinNotification(groupData, newMembers, existingMembers) {
     const newMemberEmails = newMembers.map((m) => m.email).join(", ");
 
     const emailPromises = existingMembers.map((member) => {
-      return transporter.sendMail({
+      const mailOptions = {
         from: `"${process.env.FROM_NAME}" <${process.env.FROM_EMAIL}>`,
         to: member.email,
         subject: `New member joined ${groupData.name}`,
@@ -82,7 +106,9 @@ async function sendJoinNotification(groupData, newMembers, existingMembers) {
         text: `New member joined ${groupData.name}: ${newMemberEmails}. Group: ${groupData.name
           }, Class: ${groupData.className || "N/A"}, School: ${groupData.school || "N/A"
           }. Open your CauseAI app to see details.`,
-      });
+      };
+
+      return sendMailWithRetry(mailOptions);
     });
 
     await Promise.all(emailPromises);
@@ -92,7 +118,9 @@ async function sendJoinNotification(groupData, newMembers, existingMembers) {
     return { success: true, emailsSent: emailPromises.length };
   } catch (error) {
     console.error("Error sending join notification:", error);
-    throw error;
+    // Don't throw error to avoid crashing the whole request if email fails, just log it
+    // throw error; 
+    return { success: false, error: error.message };
   }
 }
 
@@ -102,7 +130,7 @@ async function sendJoinNotification(groupData, newMembers, existingMembers) {
  */
 async function sendWelcomeEmail(email, name) {
   try {
-    await transporter.sendMail({
+    const mailOptions = {
       from: `"${process.env.FROM_NAME}" <${process.env.FROM_EMAIL}>`,
       to: email,
       subject: "Welcome to CauseAI Student Planner! 🎉",
@@ -178,13 +206,16 @@ async function sendWelcomeEmail(email, name) {
         </div>
       `,
       text: `Welcome to CauseAI Student Planner!\n\nHi ${name},\n\nWelcome to CauseAI Student Planner! We're thrilled to have you join our community.\n\nGet started with these features:\n- Smart Task Management: Organize assignments, exams, and projects\n- Study Groups: Collaborate with classmates\n- Goal Tracking: Set and achieve your academic goals\n- AI Study Buddy: Get instant help with homework\n- Class Scheduling: Keep track of your classes\n\nHappy studying!\nThe CauseAI Team`,
-    });
+    };
+
+    await sendMailWithRetry(mailOptions);
 
     console.log(`✓ Sent welcome email to ${email}`);
     return { success: true };
   } catch (error) {
     console.error("Error sending welcome email:", error);
-    throw error;
+    // Don't throw, return failure
+    return { success: false, error: error.message };
   }
 }
 
@@ -193,7 +224,7 @@ async function sendWelcomeEmail(email, name) {
  */
 async function sendGroupCreatedNotification(creatorEmail, groupData) {
   try {
-    await transporter.sendMail({
+    const mailOptions = {
       from: `"${process.env.FROM_NAME}" <${process.env.FROM_EMAIL}>`,
       to: creatorEmail,
       subject: `Study group "${groupData.name}" created successfully!`,
@@ -236,13 +267,16 @@ async function sendGroupCreatedNotification(creatorEmail, groupData) {
         </div>
       `,
       text: `Your study group "${groupData.name}" has been created! Group code: ${groupData.code}. Share this code with your classmates.`,
-    });
+    };
+
+    await sendMailWithRetry(mailOptions);
 
     console.log(`✓ Sent group creation confirmation to ${creatorEmail}`);
     return { success: true };
   } catch (error) {
     console.error("Error sending group creation notification:", error);
-    throw error;
+    // Don't throw, return failure
+    return { success: false, error: error.message };
   }
 }
 
