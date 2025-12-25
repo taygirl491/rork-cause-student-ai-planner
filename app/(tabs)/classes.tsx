@@ -1,4 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { useFocusEffect } from 'expo-router';
 import {
   View,
   Text,
@@ -73,6 +74,12 @@ export default function ClassesScreen() {
   const [searchQuery, setSearchQuery] = useState('');
 
   const scaleAnim = useRef(new Animated.Value(0)).current;
+
+  useFocusEffect(
+    useCallback(() => {
+      refreshClasses();
+    }, [])
+  );
 
   // Filter classes based on search query
   const filteredClasses = React.useMemo(() => {
@@ -163,6 +170,7 @@ export default function ClassesScreen() {
       addClass(newClass);
     }
 
+    refreshClasses();
     resetClassForm();
     setShowClassModal(false);
     setIsEditing(false);
@@ -210,6 +218,7 @@ export default function ClassesScreen() {
           style: 'destructive',
           onPress: () => {
             deleteClass(selectedClass.id);
+            refreshClasses();
             setShowActionSheet(false);
             setSelectedClass(null);
           },

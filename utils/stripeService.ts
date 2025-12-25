@@ -167,7 +167,7 @@ export const PRICING_TIERS = {
     PREMIUM_MONTHLY: {
         name: 'Premium Monthly',
         price: 499, // $4.99 in cents
-        priceId: 'price_premium_monthly', // Replace with actual Stripe price ID
+        priceId: 'prod_Tebp7Br16NRut1',
         interval: 'month',
         features: [
             'Unlimited AI conversations',
@@ -176,6 +176,21 @@ export const PRICING_TIERS = {
             'Cross-mode memory',
             'Priority support',
             'Ad-free experience',
+        ],
+    },
+    PREMIUM_YEARLY: {
+        name: 'Premium Yearly',
+        price: 1999, // $19.99 in cents
+        priceId: 'prod_TebnBoSwztCMC8',
+        interval: 'year',
+        features: [
+            'Unlimited AI conversations',
+            'Advanced quiz generation',
+            'Document & image uploads',
+            'Cross-mode memory',
+            'Priority support',
+            'Ad-free experience',
+            'Save ~33%',
         ],
     },
 };

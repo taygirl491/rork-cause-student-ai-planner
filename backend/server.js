@@ -18,6 +18,7 @@ const classesRoutes = require("./routes/classesRoutes");
 const notesRoutes = require("./routes/notesRoutes");
 const goalsRoutes = require("./routes/goalsRoutes");
 const studyGroupsRoutes = require("./routes/studyGroupsRoutes");
+const adminRoutes = require("./routes/adminRoutes");
 
 const app = express();
 const server = http.createServer(app);
@@ -498,6 +499,7 @@ app.use("/api/classes", authenticate, classesRoutes);
 app.use("/api/notes", authenticate, notesRoutes);
 app.use("/api/goals", authenticate, goalsRoutes);
 app.use("/api/study-groups", authenticate, studyGroupsRoutes);
+app.use("/api/admin", authenticate, adminRoutes);
 
 // Stripe Routes
 const stripeRoutes = require("./stripeRoutes");

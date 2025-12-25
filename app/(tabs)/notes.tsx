@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import {
 	View,
 	Text,
@@ -16,6 +16,7 @@ import {
 	Share,
 	RefreshControl,
 } from "react-native";
+import { useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Plus, X, FileText, Edit2, Trash2, Download } from "lucide-react-native";
 import colors from "@/constants/colors";
@@ -38,6 +39,12 @@ export default function NotesScreen() {
 
 	const scaleAnim = React.useRef(new Animated.Value(0)).current;
 	const detailScaleAnim = React.useRef(new Animated.Value(0)).current;
+
+	useFocusEffect(
+		useCallback(() => {
+			refreshNotes();
+		}, [])
+	);
 
 	React.useEffect(() => {
 		if (showModal) {
@@ -90,6 +97,7 @@ export default function NotesScreen() {
 				style: "destructive",
 				onPress: () => {
 					deleteNote(selectedNote.id);
+					refreshNotes();
 					setShowActionSheet(false);
 					setSelectedNote(null);
 				},
@@ -117,6 +125,7 @@ export default function NotesScreen() {
 			});
 		}
 
+		refreshNotes();
 		setShowModal(false);
 		setTitle("");
 		setSelectedClass("");

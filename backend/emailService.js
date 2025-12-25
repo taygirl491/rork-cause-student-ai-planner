@@ -280,9 +280,74 @@ async function sendGroupCreatedNotification(creatorEmail, groupData) {
   }
 }
 
+
+/**
+ * Send an announcement email to a list of recipients (using BCC for privacy)
+ */
+async function sendAnnouncement(recipientEmails, subject, bodyContent) {
+  try {
+    // SendGrid SMTP limits: 100 recipients per email recommended for better deliverability
+    // We will batch them in groups of 90 to be safe
+    const BATCH_SIZE = 90;
+    const batches = [];
+
+    for (let i = 0; i < recipientEmails.length; i += BATCH_SIZE) {
+      batches.push(recipientEmails.slice(i, i + BATCH_SIZE));
+    }
+
+    console.log(`Sending announcement to ${recipientEmails.length} users in ${batches.length} batches.`);
+
+    let sentCount = 0;
+
+    for (const batch of batches) {
+      const mailOptions = {
+        from: `"${process.env.FROM_NAME}" <${process.env.FROM_EMAIL}>`,
+        to: process.env.FROM_EMAIL, // Send to self
+        bcc: batch, // Hidden recipients
+        subject: subject,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 10px 10px 0 0;">
+              <h1 style="color: white; margin: 0; font-size: 24px;">📢 Announcement</h1>
+            </div>
+            
+            <div style="background-color: #ffffff; padding: 30px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 10px 10px;">
+              <h2 style="color: #1f2937; margin-top: 0;">${subject}</h2>
+              
+              <div style="font-size: 16px; color: #374151; line-height: 1.6; margin: 20px 0; white-space: pre-wrap;">${bodyContent}</div>
+              
+              <p style="font-size: 16px; color: #374151; margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px;">
+                Happy studying! 📖<br/>
+                <strong>The CauseAI Team</strong>
+              </p>
+            </div>
+            
+            <div style="text-align: center; margin-top: 20px; padding: 20px;">
+              <p style="font-size: 12px; color: #6b7280; margin: 0;">
+                You are receiving this announcement as a registered user of CauseAI.
+              </p>
+            </div>
+          </div>
+        `,
+        text: `${subject}\n\n${bodyContent}\n\nHappy studying!\nThe CauseAI Team`,
+      };
+
+      await sendMailWithRetry(mailOptions);
+      sentCount += batch.length;
+      console.log(`✓ Sent batch of ${batch.length} emails`);
+    }
+
+    return { success: true, count: sentCount };
+  } catch (error) {
+    console.error("Error sending announcement:", error);
+    return { success: false, error: error.message };
+  }
+}
+
 module.exports = {
   sendJoinNotification,
   sendWelcomeEmail,
   sendGroupCreatedNotification,
+  sendAnnouncement,
   transporter,
 };

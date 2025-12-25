@@ -430,22 +430,7 @@ export default function AccountScreen() {
   };
 
   const handleHelpCenter = () => {
-    Alert.alert(
-      'Help Center',
-      'Visit our help center for FAQs, tutorials, and guides.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Open Help Center',
-          onPress: () => {
-            // In a real app, this would open a help center URL
-            Linking.openURL('https://causestudentplanner.com/help').catch(() => {
-              Alert.alert('Coming Soon', 'Our help center is currently being built. Please contact support for assistance.');
-            });
-          }
-        }
-      ]
-    );
+    router.push('/faq');
   };
 
   const getSubscriptionLabel = () => {

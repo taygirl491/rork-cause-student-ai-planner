@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -15,6 +15,7 @@ import {
   Keyboard,
   RefreshControl,
 } from 'react-native';
+import { useFocusEffect } from 'expo-router';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Plus, X, Target, CheckCircle, Circle, Trash2, Edit2 } from 'lucide-react-native';
@@ -39,6 +40,12 @@ export default function GoalsScreen() {
   const [isEditing, setIsEditing] = useState(false);
 
   const scaleAnim = React.useRef(new Animated.Value(0)).current;
+
+  useFocusEffect(
+    useCallback(() => {
+      refreshGoals();
+    }, [])
+  );
 
   React.useEffect(() => {
     if (showModal) {
@@ -98,6 +105,7 @@ export default function GoalsScreen() {
       addGoal(newGoal);
     }
 
+    refreshGoals();
     resetForm();
     setShowModal(false);
     setIsEditing(false);
@@ -146,6 +154,7 @@ export default function GoalsScreen() {
     // Simple confirmation could be added here if desired, 
     // strictly following the task request to "add delete function"
     deleteGoal(selectedGoal.id);
+    refreshGoals();
     setShowActionSheet(false);
     setSelectedGoal(null);
   };

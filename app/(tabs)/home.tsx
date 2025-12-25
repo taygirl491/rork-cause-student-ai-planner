@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,14 +9,20 @@ import {
 } from 'react-native';
 import YoutubePlayer from 'react-native-youtube-iframe';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { CheckCircle, Circle, Clock } from 'lucide-react-native';
 import colors from '@/constants/colors';
 import { useApp } from '@/contexts/AppContext';
 
 export default function HomeScreen() {
-  const { sortedTasks, videoConfig, isLoading } = useApp();
+  const { sortedTasks, videoConfig, isLoading, refreshTasks } = useApp();
   const router = useRouter();
+
+  useFocusEffect(
+    useCallback(() => {
+      refreshTasks();
+    }, [])
+  );
 
   const educationQuotes = useMemo(() => [
     "Education is the most powerful weapon which you can use to change the world. - Nelson Mandela",
