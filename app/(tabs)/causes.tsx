@@ -134,6 +134,42 @@ export default function CausesScreen() {
           </Text>
         </View>
 
+        {((videoConfig as any)?.essay1?.content || (videoConfig as any)?.essay2?.content) && (
+          <>
+            <Text style={styles.sectionTitle}>Featured Student Essays</Text>
+
+            {(videoConfig as any)?.essay1?.content ? (
+              <View style={styles.essayCard}>
+                <View style={styles.essayHeader}>
+                  <View style={styles.essayIcon}>
+                    <BookOpen size={20} color={colors.primary} />
+                  </View>
+                  <View>
+                    <Text style={styles.essayTitle}>{(videoConfig as any).essay1.title}</Text>
+                    <Text style={styles.essayAuthor}>By {(videoConfig as any).essay1.author}</Text>
+                  </View>
+                </View>
+                <Text style={styles.essayContent}>{(videoConfig as any).essay1.content}</Text>
+              </View>
+            ) : null}
+
+            {(videoConfig as any)?.essay2?.content ? (
+              <View style={styles.essayCard}>
+                <View style={styles.essayHeader}>
+                  <View style={styles.essayIcon}>
+                    <BookOpen size={20} color={colors.primary} />
+                  </View>
+                  <View>
+                    <Text style={styles.essayTitle}>{(videoConfig as any).essay2.title}</Text>
+                    <Text style={styles.essayAuthor}>By {(videoConfig as any).essay2.author}</Text>
+                  </View>
+                </View>
+                <Text style={styles.essayContent}>{(videoConfig as any).essay2.content}</Text>
+              </View>
+            ) : null}
+          </>
+        )}
+
         <Text style={styles.sectionTitle}>Student Inspirational Talks</Text>
         <Text style={styles.sectionSubtitle}>Watch inspiring stories from students making a difference</Text>
 
@@ -433,5 +469,48 @@ const styles = StyleSheet.create({
     fontWeight: '700' as const,
     color: colors.text,
     marginBottom: 12,
+  },
+  essayCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    padding: 20,
+    marginHorizontal: 20,
+    marginBottom: 16,
+    shadowColor: colors.cardShadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.primary,
+  },
+  essayHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  essayIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.primary + '20',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  essayTitle: {
+    fontSize: 18,
+    fontWeight: '700' as const,
+    color: colors.text,
+  },
+  essayAuthor: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  essayContent: {
+    fontSize: 15,
+    color: colors.text,
+    lineHeight: 24,
   },
 });

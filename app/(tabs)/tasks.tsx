@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
+import { useFocusEffect } from 'expo-router';
 import {
   View,
   Text,
@@ -58,6 +59,12 @@ export default function TasksScreen() {
 
   const scaleAnim = React.useRef(new Animated.Value(0)).current;
   const detailScaleAnim = React.useRef(new Animated.Value(0)).current;
+
+  useFocusEffect(
+    useCallback(() => {
+      refreshTasks();
+    }, [])
+  );
 
   React.useEffect(() => {
     if (showModal) {
@@ -161,6 +168,7 @@ export default function TasksScreen() {
       addTask(newTask);
     }
 
+    refreshTasks();
     resetForm();
     setShowModal(false);
     setIsEditing(false);
@@ -198,6 +206,9 @@ export default function TasksScreen() {
         console.error('Error updating streak:', error);
       }
     }
+
+    // Refresh to update sorted list
+    refreshTasks();
   };
 
   const handleLongPress = (task: Task) => {
@@ -237,6 +248,7 @@ export default function TasksScreen() {
           style: 'destructive',
           onPress: () => {
             deleteTask(selectedTask.id);
+            refreshTasks();
             setShowActionSheet(false);
             setSelectedTask(null);
           },

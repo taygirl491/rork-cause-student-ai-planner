@@ -117,6 +117,9 @@ export default function StudyGroupsScreen() {
 				data: { group: newGroup },
 			});
 
+			await refreshStudyGroups();
+
+			await refreshStudyGroups();
 			resetGroupForm();
 			setShowCreateGroupModal(false);
 		} else {
@@ -167,6 +170,7 @@ export default function StudyGroupsScreen() {
 
 
 		Alert.alert("Success", `You have joined the group: ${group.name}`);
+		await refreshStudyGroups();
 		setJoinCode("");
 		setShowJoinGroupModal(false);
 	};
@@ -187,8 +191,9 @@ export default function StudyGroupsScreen() {
 				{
 					text: "Delete",
 					style: "destructive",
-					onPress: () => {
-						deleteStudyGroup(selectedGroup.id);
+					onPress: async () => {
+						await deleteStudyGroup(selectedGroup.id);
+						await refreshStudyGroups();
 						setShowActionSheet(false);
 						setSelectedGroup(null);
 					},

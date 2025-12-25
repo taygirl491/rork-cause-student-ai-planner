@@ -50,10 +50,10 @@ export const [AppProvider, useApp] = createContextHook(() => {
 	const [goals, setGoals] = useState<Goal[]>([]);
 	const [notes, setNotes] = useState<Note[]>([]);
 	const [studyGroups, setStudyGroups] = useState<StudyGroup[]>([]);
-	const [tasksLoading, setTasksLoading] = useState(true);
-	const [classesLoading, setClassesLoading] = useState(true);
-	const [goalsLoading, setGoalsLoading] = useState(true);
-	const [notesLoading, setNotesLoading] = useState(true);
+	const [tasksLoading, setTasksLoading] = useState(false);
+	const [classesLoading, setClassesLoading] = useState(false);
+	const [goalsLoading, setGoalsLoading] = useState(false);
+	const [notesLoading, setNotesLoading] = useState(false);
 	const [calendarSyncEnabled, setCalendarSyncEnabled] = useState(false);
 	const [appCalendarId, setAppCalendarId] = useState<string | null>(null);
 	const [isOnline, setIsOnline] = useState(true);
@@ -62,7 +62,13 @@ export const [AppProvider, useApp] = createContextHook(() => {
 	// Video Configuration State
 	const [videoConfig, setVideoConfig] = useState({
 		homeVideoId: "VRSnKzgVTiU", // Default Home Video
-		causesVideoId: "dQw4w9WgXcQ" // Default Causes Video
+		causesVideoId: "dQw4w9WgXcQ", // Default Causes Video
+		causesVideo1Id: "dQw4w9WgXcQ",
+		causesVideo2Id: "dQw4w9WgXcQ",
+		causesVideo3Id: "dQw4w9WgXcQ",
+		causesVideo4Id: "dQw4w9WgXcQ",
+		essay1: { title: '', author: '', content: '' },
+		essay2: { title: '', author: '', content: '' }
 	});
 
 	// Manual refresh function for tasks
@@ -76,17 +82,8 @@ export const [AppProvider, useApp] = createContextHook(() => {
 		}
 	};
 
-	// API-based tasks loading (WebSocket handles updates)
-	useEffect(() => {
-		if (!user?.uid) {
-			setTasks([]);
-			setTasksLoading(false);
-			return;
-		}
+	// Auto-fetch removed for Tasks - see task.md
 
-		// Load initially only - WebSocket will handle updates
-		refreshTasks().then(() => setTasksLoading(false));
-	}, [user?.uid]);
 
 	// Manual refresh function for classes
 	const refreshClasses = async () => {
@@ -105,17 +102,8 @@ export const [AppProvider, useApp] = createContextHook(() => {
 		}
 	};
 
-	// API-based classes loading (WebSocket handles updates)
-	useEffect(() => {
-		if (!user?.uid) {
-			setClasses([]);
-			setClassesLoading(false);
-			return;
-		}
+	// Auto-fetch removed for Classes
 
-		// Load initially only - WebSocket will handle updates
-		refreshClasses().then(() => setClassesLoading(false));
-	}, [user?.uid]);
 
 
 	// Manual refresh function for goals
@@ -135,17 +123,8 @@ export const [AppProvider, useApp] = createContextHook(() => {
 		}
 	};
 
-	// API-based goals loading (WebSocket handles updates)
-	useEffect(() => {
-		if (!user?.uid) {
-			setGoals([]);
-			setGoalsLoading(false);
-			return;
-		}
+	// Auto-fetch removed for Goals
 
-		// Load initially only - WebSocket will handle updates
-		refreshGoals().then(() => setGoalsLoading(false));
-	}, [user?.uid]);
 
 	// Manual refresh function for notes
 	const refreshNotes = async () => {
@@ -158,17 +137,8 @@ export const [AppProvider, useApp] = createContextHook(() => {
 		}
 	};
 
-	// API-based notes loading (WebSocket handles updates)
-	useEffect(() => {
-		if (!user?.uid) {
-			setNotes([]);
-			setNotesLoading(false);
-			return;
-		}
+	// Auto-fetch removed for Notes
 
-		// Load initially only - WebSocket will handle updates
-		refreshNotes().then(() => setNotesLoading(false));
-	}, [user?.uid]);
 
 	// Video Configuration Listener
 	useEffect(() => {
@@ -178,7 +148,13 @@ export const [AppProvider, useApp] = createContextHook(() => {
 				const data = docSnap.data();
 				setVideoConfig({
 					homeVideoId: data.homeVideoId || "VRSnKzgVTiU",
-					causesVideoId: data.causesVideoId || "dQw4w9WgXcQ"
+					causesVideoId: data.causesVideoId || "dQw4w9WgXcQ",
+					causesVideo1Id: data.causesVideo1Id || "dQw4w9WgXcQ",
+					causesVideo2Id: data.causesVideo2Id || "dQw4w9WgXcQ",
+					causesVideo3Id: data.causesVideo3Id || "dQw4w9WgXcQ",
+					causesVideo4Id: data.causesVideo4Id || "dQw4w9WgXcQ",
+					essay1: data.essay1 || { title: '', author: '', content: '' },
+					essay2: data.essay2 || { title: '', author: '', content: '' }
 				});
 			}
 		}, (error) => {
@@ -769,27 +745,7 @@ export const [AppProvider, useApp] = createContextHook(() => {
 		};
 
 		// Register all event listeners
-		// Tasks
-		socketService.on('task-created', handleTaskCreated);
-		socketService.on('task-updated', handleTaskUpdated);
-		socketService.on('task-deleted', handleTaskDeleted);
-
-		// Classes
-		socketService.on('class-created', handleClassCreated);
-		socketService.on('class-updated', handleClassUpdated);
-		socketService.on('class-deleted', handleClassDeleted);
-
-		// Notes
-		socketService.on('note-created', handleNoteCreated);
-		socketService.on('note-updated', handleNoteUpdated);
-		socketService.on('note-deleted', handleNoteDeleted);
-
-		// Goals
-		socketService.on('goal-created', handleGoalCreated);
-		socketService.on('goal-updated', handleGoalUpdated);
-		socketService.on('goal-deleted', handleGoalDeleted);
-
-		// Study Groups
+		// Study Groups (Only real-time feature)
 		socketService.on('group-created', handleGroupCreated);
 		socketService.on('member-joined', handleMemberJoined);
 		socketService.on('new-message', handleNewMessage);

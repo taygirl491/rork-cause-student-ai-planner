@@ -1,6 +1,6 @@
 import { readAsStringAsync } from "expo-file-system/legacy";
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:3000";
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || "https://rork-cause-student-ai-planner.onrender.com";
 const API_KEY = process.env.EXPO_PUBLIC_API_KEY || "";
 
 // Timeout helper with better error handling

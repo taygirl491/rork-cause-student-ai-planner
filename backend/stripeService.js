@@ -123,9 +123,18 @@ async function createSubscription(customerId, priceIdOrProductId, metadata = {})
         let invoice = subscription.latest_invoice;
 
         if (invoice && typeof invoice === 'object') {
+            console.log(`[Stripe] Invoice ID: ${invoice.id}, Status: ${invoice.status}, Amount Due: ${invoice.amount_due}`);
             if (invoice.payment_intent) {
-                clientSecret = invoice.payment_intent.client_secret;
-                console.log(`[Stripe] Payment Intent found directly: ${invoice.payment_intent.id}`);
+                // Handle both object and string cases for payment_intent
+                if (typeof invoice.payment_intent === 'object') {
+                    clientSecret = invoice.payment_intent.client_secret;
+                    console.log(`[Stripe] Payment Intent object found: ${invoice.payment_intent.id}`);
+                } else {
+                    // It's a string ID, retrieve it
+                    console.log(`[Stripe] Payment Intent ID found: ${invoice.payment_intent}, retrieving...`);
+                    const pi = await stripe.paymentIntents.retrieve(invoice.payment_intent);
+                    clientSecret = pi.client_secret;
+                }
             } else {
                 console.warn(`[Stripe] Payment Intent missing in expanded invoice ${invoice.id}. Attempting explicit retrieval...`);
                 // Fallback: Retrieve invoice explicitly
@@ -133,9 +142,16 @@ async function createSubscription(customerId, priceIdOrProductId, metadata = {})
                     const fullInvoice = await stripe.invoices.retrieve(invoice.id, {
                         expand: ['payment_intent']
                     });
+                    console.log(`[Stripe] Retrieved full invoice. Payment Intent: ${fullInvoice.payment_intent ? (typeof fullInvoice.payment_intent === 'object' ? fullInvoice.payment_intent.id : fullInvoice.payment_intent) : 'NULL'}`);
+
                     if (fullInvoice.payment_intent) {
-                        clientSecret = fullInvoice.payment_intent.client_secret;
-                        console.log(`[Stripe] Payment Intent found after explicit retrieval: ${fullInvoice.payment_intent.id}`);
+                        if (typeof fullInvoice.payment_intent === 'object') {
+                            clientSecret = fullInvoice.payment_intent.client_secret;
+                        } else {
+                            const pi = await stripe.paymentIntents.retrieve(fullInvoice.payment_intent);
+                            clientSecret = pi.client_secret;
+                        }
+                        console.log(`[Stripe] Payment Intent found after explicit retrieval: ${clientSecret ? 'HAS SECRET' : 'NO SECRET'}`);
                     } else {
                         console.error(`[Stripe] CRITICAL: Invoice ${invoice.id} still has no payment_intent even after retrieval.`);
                         console.log('[Stripe] Invoice Dump:', JSON.stringify(fullInvoice, null, 2));
@@ -151,13 +167,19 @@ async function createSubscription(customerId, priceIdOrProductId, metadata = {})
                     expand: ['payment_intent']
                 });
                 if (fullInvoice.payment_intent) {
-                    clientSecret = fullInvoice.payment_intent.client_secret;
+                    if (typeof fullInvoice.payment_intent === 'object') {
+                        clientSecret = fullInvoice.payment_intent.client_secret;
+                    } else {
+                        const pi = await stripe.paymentIntents.retrieve(fullInvoice.payment_intent);
+                        clientSecret = pi.client_secret;
+                    }
                 }
             } catch (err) {
                 console.error(`[Stripe] Error retrieving invoice ${invoice}:`, err);
             }
         } else {
-            console.error('[Stripe] CRITICAL: latest_invoice is missing from subscription.');
+            console.error('[Stripe] CRITICAL: latest_invoice is missing from subscription or null.');
+            console.log('[Stripe] Subscription Dump:', JSON.stringify(subscription, null, 2));
         }
 
         if (!clientSecret) {
