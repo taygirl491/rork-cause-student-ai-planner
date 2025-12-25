@@ -16,6 +16,7 @@ const transporter = nodemailer.createTransport({
   connectionTimeout: 10000, // 10 seconds
   greetingTimeout: 5000,    // 5 seconds
   socketTimeout: 30000,     // 30 seconds
+  family: 4, // Force IPv4, solves frequent ETIMEDOUT issues with SendGrid on Node 18+
 });
 
 // Verify connection configuration

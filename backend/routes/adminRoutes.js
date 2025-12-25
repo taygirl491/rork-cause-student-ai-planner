@@ -29,21 +29,24 @@ router.post('/broadcast-email', async (req, res) => {
 
         console.log(`Starting broadcast to ${recipients.length} users...`);
 
-        // Send the announcement
-        const result = await emailService.sendAnnouncement(recipients, subject, body);
+        // Send the announcement in the background (fire and forget)
+        // We do NOT await this, so the frontend gets an immediate response
+        emailService.sendAnnouncement(recipients, subject, body)
+            .then(result => {
+                if (result.success) {
+                    console.log(`✓ Broadcast complete: Sent to ${result.count} users`);
+                } else {
+                    console.error('✗ Broadcast failed:', result.error);
+                }
+            })
+            .catch(err => console.error('✗ Broadcast critical error:', err));
 
-        if (result.success) {
-            res.json({
-                success: true,
-                message: `Announcement sent to ${result.count} users`,
-                recipientCount: result.count
-            });
-        } else {
-            res.status(500).json({
-                error: 'Failed to send announcement',
-                details: result.error
-            });
-        }
+        // Respond immediately
+        res.json({
+            success: true,
+            message: `Broadcast initiated for ${recipients.length} users. You will receive the email shortly.`,
+            recipientCount: recipients.length
+        });
 
     } catch (error) {
         console.error('Error in broadcast-email:', error);
