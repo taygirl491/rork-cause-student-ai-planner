@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
-const emailService = require('../emailService');
+const emailService = require('../emailServiceResend'); // Use Resend API instead of SMTP
 
 /**
  * POST /api/admin/broadcast-email
