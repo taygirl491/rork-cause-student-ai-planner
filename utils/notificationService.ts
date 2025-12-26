@@ -165,7 +165,7 @@ export async function scheduleTaskReminder(task: Task): Promise<string | null> {
           type: 'task_reminder',
           className: task.className,
         },
-        sound: task.alarmEnabled ? 'default' : undefined,
+        sound: 'default', // Always play notification sound
         badge: 1,
         color: '#6366F1',
         // @ts-ignore
@@ -233,7 +233,7 @@ export async function scheduleDueDateNotification(task: Task): Promise<string | 
           type: 'task_due',
           className: task.className,
         },
-        sound: task.alarmEnabled ? 'default' : undefined,
+        sound: 'default', // Always play notification sound
         badge: 1,
         color: '#6366F1',
         // @ts-ignore

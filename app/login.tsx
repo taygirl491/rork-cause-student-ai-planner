@@ -61,9 +61,10 @@ export default function LoginScreen() {
         await savePushToken(user.uid, token, user.email || undefined);
       }
 
+      // Let _layout.tsx handle admin routing automatically
+      // Don't navigate here to avoid double navigation
       if (user?.email === 'minatoventuresinc@gmail.com') {
-        router.replace('/admin' as any);
-        return;
+        return; // _layout.tsx will redirect to /admin
       }
 
       if (returnTo) {
@@ -78,8 +79,7 @@ export default function LoginScreen() {
         try {
           setIsNavigating(true);
           await createUserWithEmailAndPassword(auth, email.trim(), password);
-          // If successful, proceed to admin
-          router.replace('/admin' as any);
+          // If successful, _layout.tsx will handle navigation to /admin
           return;
         } catch (createError: any) {
           setIsNavigating(false);
