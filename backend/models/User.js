@@ -62,7 +62,8 @@ const userSchema = new mongoose.Schema({
 });
 
 // Indexes
-userSchema.index({ email: 1 });
-userSchema.index({ stripeCustomerId: 1 });
+// Indexes handled by schema definitions
+// userSchema.index({ email: 1 });
+// userSchema.index({ stripeCustomerId: 1 });
 
 module.exports = mongoose.model('User', userSchema);

@@ -67,7 +67,9 @@ const taskSchema = new mongoose.Schema({
 });
 
 // Indexes
-taskSchema.index({ userId: 1, createdAt: -1 });
-taskSchema.index({ userId: 1, completed: 1 });
+// taskSchema.index({ userId: 1, createdAt: -1 }); // userId already indexed in schema
+// taskSchema.index({ userId: 1, completed: 1 }); // userId already indexed in schema
+taskSchema.index({ createdAt: -1 });
+taskSchema.index({ completed: 1 });
 
 module.exports = mongoose.model('Task', taskSchema);

@@ -35,8 +35,24 @@ async function connectMongoDB() {
         });
 
         mongoose.connection.on('disconnected', () => {
-            console.log('⚠️  MongoDB disconnected');
+            console.log('⚠️  MongoDB disconnected - attempting to reconnect...');
             isConnected = false;
+
+            // Attempt to reconnect after 5 seconds
+            setTimeout(async () => {
+                try {
+                    console.log('🔄 Reconnecting to MongoDB...');
+                    await mongoose.connect(uri, {
+                        dbName: process.env.MONGODB_DB_NAME || 'cause-student-planner',
+                        serverSelectionTimeoutMS: 5000,
+                        socketTimeoutMS: 45000,
+                    });
+                    isConnected = true;
+                    console.log('✅ Reconnected to MongoDB');
+                } catch (reconnectError) {
+                    console.error('❌ Reconnection failed:', reconnectError);
+                }
+            }, 5000);
         });
 
     } catch (error) {

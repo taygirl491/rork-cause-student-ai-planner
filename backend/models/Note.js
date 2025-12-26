@@ -39,7 +39,7 @@ const noteSchema = new mongoose.Schema({
 });
 
 // Indexes
-noteSchema.index({ userId: 1 });
+// noteSchema.index({ userId: 1 });
 noteSchema.index({ classId: 1 });
 
 module.exports = mongoose.model('Note', noteSchema);

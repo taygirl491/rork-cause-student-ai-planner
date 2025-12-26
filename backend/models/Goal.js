@@ -37,7 +37,7 @@ const goalSchema = new mongoose.Schema({
 });
 
 // Indexes
-goalSchema.index({ userId: 1 });
+// goalSchema.index({ userId: 1 });
 goalSchema.index({ completed: 1 });
 
 module.exports = mongoose.model('Goal', goalSchema);

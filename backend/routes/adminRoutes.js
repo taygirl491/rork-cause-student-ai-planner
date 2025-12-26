@@ -28,6 +28,7 @@ router.post('/broadcast-email', async (req, res) => {
         }
 
         console.log(`Starting broadcast to ${recipients.length} users...`);
+        console.log('Recipients:', recipients.slice(0, 3), recipients.length > 3 ? `... and ${recipients.length - 3} more` : '');
 
         // Send the announcement in the background (fire and forget)
         // We do NOT await this, so the frontend gets an immediate response
@@ -37,9 +38,13 @@ router.post('/broadcast-email', async (req, res) => {
                     console.log(`✓ Broadcast complete: Sent to ${result.count} users`);
                 } else {
                     console.error('✗ Broadcast failed:', result.error);
+                    console.error('Full error details:', JSON.stringify(result, null, 2));
                 }
             })
-            .catch(err => console.error('✗ Broadcast critical error:', err));
+            .catch(err => {
+                console.error('✗ Broadcast critical error:', err.message);
+                console.error('Stack trace:', err.stack);
+            });
 
         // Respond immediately
         res.json({

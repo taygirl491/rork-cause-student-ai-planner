@@ -44,7 +44,7 @@ const subscriptionSchema = new mongoose.Schema({
 });
 
 // Indexes
-subscriptionSchema.index({ userId: 1 });
+// subscriptionSchema.index({ userId: 1 }); // Already indexed in schema
 subscriptionSchema.index({ customerId: 1 });
 subscriptionSchema.index({ status: 1 });
 

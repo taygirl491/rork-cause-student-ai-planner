@@ -1,0 +1,39 @@
+﻿≡ƒöì Testing Broadcast Email Configuration...
+
+≡ƒôº SMTP Configuration:
+  SMTP_HOST: smtp.gmail.com
+  SMTP_PORT: 465
+  SMTP_SECURE: true
+  SMTP_USER: emmaeluwa2021@gmail.com
+  SMTP_PASS: Γ£ô SET (***vwbq)
+  FROM_EMAIL: noreply@causeai.com
+  FROM_NAME: CauseAI Study Groups
+
+ΓÜá∩╕Å  WARNING: SMTP_PASS contains spaces! Gmail App Passwords should not have spaces.
+   Current length: 19
+   Without spaces: 16
+
+≡ƒöî Connecting to MongoDB...
+SMTP server is ready to send emails (Pooling Enabled)
+Γ£à Connected to MongoDB Atlas
+Γ£ô MongoDB connected
+
+≡ƒæÑ Checking users in database...
+Γ£ô Found 5 users
+
+Sample users:
+  1. emmaeluwa2021@gmail.com (No name)
+  2. tuaseboluwatife@gmail.com (Boluwatife O)
+  3. minatoventuresinc@gmail.com (No name)
+  4. fayluwaiz2@gmail.com (No name)
+  5. emmanueleluwa39@gmail.com (No name)
+
+Γ£ô Valid emails: 5
+
+Γ£à Diagnostic complete!
+
+Next steps:
+1. If SMTP_PASS has spaces, remove them from .env file
+2. Restart the backend server
+3. Check server logs for "SMTP server is ready to send emails"
+4. Try the broadcast email feature again
