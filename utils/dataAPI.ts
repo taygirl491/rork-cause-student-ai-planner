@@ -310,8 +310,9 @@ export const studyGroupsAPI = {
                     className: group.className,
                     school: group.school,
                     description: group.description,
-                    code: group.code,
+                    code: group.code, // May be undefined for private groups
                     creatorId: group.creatorId,
+                    isPrivate: group.isPrivate,
                     members: group.members,
                     messages: group.messages || [],
                     createdAt: group.createdAt,
@@ -335,6 +336,7 @@ export const studyGroupsAPI = {
         creatorId: string;
         creatorEmail: string;
         creatorName: string;
+        isPrivate?: boolean;
     }): Promise<any | null> {
         try {
             const response = await apiService.post('/api/study-groups', data);
@@ -348,6 +350,7 @@ export const studyGroupsAPI = {
                     description: group.description,
                     code: group.code,
                     creatorId: group.creatorId,
+                    isPrivate: group.isPrivate,
                     members: group.members,
                     createdAt: group.createdAt,
                 };

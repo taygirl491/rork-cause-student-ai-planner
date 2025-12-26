@@ -809,6 +809,7 @@ export const [AppProvider, useApp] = createContextHook(() => {
 				creatorId: user.uid,
 				creatorEmail: user.email,
 				creatorName: user.name || user.email.split('@')[0],
+				isPrivate: group.isPrivate,
 			});
 
 			if (newGroup) {
