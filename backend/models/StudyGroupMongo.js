@@ -46,6 +46,10 @@ const studyGroupSchema = new mongoose.Schema({
             default: Date.now,
         },
     }],
+    isPrivate: {
+        type: Boolean,
+        default: false,
+    },
     createdAt: {
         type: Date,
         default: Date.now,

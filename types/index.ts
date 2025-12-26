@@ -76,7 +76,9 @@ export interface StudyGroup {
   className: string;
   school: string;
   description: string;
-  code: string;
+  code?: string; // Optional - hidden for private groups where user is not creator
+  creatorId: string;
+  isPrivate?: boolean;
   members: { email: string; name?: string; joinedAt: string }[];
   messages: StudyGroupMessage[];
   createdAt: string;

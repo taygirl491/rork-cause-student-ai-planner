@@ -16,6 +16,7 @@ import {
 	Share,
 	Linking,
 	RefreshControl,
+	Switch,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -31,6 +32,7 @@ import {
 	Plus,
 	Edit2,
 	Trash2,
+	Lock,
 } from "lucide-react-native";
 import * as DocumentPicker from "expo-document-picker";
 import colors from "@/constants/colors";
@@ -74,6 +76,7 @@ export default function StudyGroupsScreen() {
 	const [groupClass, setGroupClass] = useState("");
 	const [groupSchool, setGroupSchool] = useState("");
 	const [groupDescription, setGroupDescription] = useState("");
+	const [isPrivate, setIsPrivate] = useState(false);
 
 	const [joinCode, setJoinCode] = useState("");
 
@@ -100,6 +103,7 @@ export default function StudyGroupsScreen() {
 			className: groupClass,
 			school: groupSchool,
 			description: groupDescription,
+			isPrivate: isPrivate,
 		});
 
 		if (newGroup) {
@@ -148,6 +152,7 @@ export default function StudyGroupsScreen() {
 		setGroupClass("");
 		setGroupSchool("");
 		setGroupDescription("");
+		setIsPrivate(false);
 	};
 
 	const handleJoinGroup = async () => {
@@ -300,13 +305,21 @@ export default function StudyGroupsScreen() {
 											{group.members.length} members
 										</Text>
 									</View>
-									<View style={styles.codeContainer}>
-										<Text style={styles.codeLabel}>Code: </Text>
-										<Text style={styles.codeText}>{group.code}</Text>
-										<TouchableOpacity onPress={() => copyGroupCode(group.code)}>
-											<Copy size={16} color={colors.primary} />
-										</TouchableOpacity>
-									</View>
+									{/* Only show code if it exists (public group or user is creator) */}
+									{group.code ? (
+										<View style={styles.codeContainer}>
+											<Text style={styles.codeLabel}>Code: </Text>
+											<Text style={styles.codeText}>{group.code}</Text>
+											<TouchableOpacity onPress={() => copyGroupCode(group.code!)}>
+												<Copy size={16} color={colors.primary} />
+											</TouchableOpacity>
+										</View>
+									) : group.isPrivate ? (
+										<View style={styles.privateIndicator}>
+											<Lock size={14} color={colors.textSecondary} />
+											<Text style={styles.privateText}>Private Group</Text>
+										</View>
+									) : null}
 								</View>
 							</TouchableOpacity>
 						))}
@@ -382,7 +395,20 @@ export default function StudyGroupsScreen() {
 										multiline
 										numberOfLines={4}
 									/>
-
+									<View style={styles.switchRow}>
+										<View style={{ flex: 1 }}>
+											<Text style={styles.switchLabel}>🔒 Private Group</Text>
+											<Text style={styles.switchSubtext}>
+												Only you can see the invite code
+											</Text>
+										</View>
+										<Switch
+											value={isPrivate}
+											onValueChange={setIsPrivate}
+											trackColor={{ false: colors.border, true: colors.primary }}
+											thumbColor={isPrivate ? colors.surface : colors.textLight}
+										/>
+									</View>
 									<TouchableOpacity
 										style={[
 											styles.createButton,
@@ -913,5 +939,39 @@ const styles = StyleSheet.create({
 		fontWeight: "600" as const,
 		color: colors.text,
 		marginLeft: 16,
+	},
+	switchRow: {
+		flexDirection: 'row',
+		justifyContent: 'space-between',
+		alignItems: 'center',
+		marginTop: 16,
+		padding: 16,
+		backgroundColor: colors.background,
+		borderRadius: 12,
+	},
+	switchLabel: {
+		fontSize: 16,
+		fontWeight: '600' as const,
+		color: colors.text,
+	},
+	switchSubtext: {
+		fontSize: 13,
+		color: colors.textSecondary,
+		marginTop: 4,
+	},
+	privateIndicator: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		backgroundColor: colors.background,
+		paddingHorizontal: 12,
+		paddingVertical: 6,
+		borderRadius: 8,
+		alignSelf: 'flex-start',
+		gap: 6,
+	},
+	privateText: {
+		fontSize: 12,
+		color: colors.textSecondary,
+		fontWeight: '600' as const,
 	},
 });

@@ -33,8 +33,15 @@ router.get('/:userId', async (req, res) => {
                 const messages = await StudyGroupMessage.find({ groupId: group._id })
                     .sort({ createdAt: 1 });
 
+                const groupObj = group.toObject();
+
+                // Hide invite code for private groups where user is not the creator
+                if (groupObj.isPrivate && groupObj.creatorId !== userId) {
+                    delete groupObj.code;
+                }
+
                 return {
-                    ...group.toObject(),
+                    ...groupObj,
                     messages: messages.map(msg => ({
                         id: msg._id,
                         senderEmail: msg.senderEmail,
@@ -67,7 +74,7 @@ router.get('/:userId', async (req, res) => {
  */
 router.post('/', async (req, res) => {
     try {
-        const { name, className, school, description, creatorId, creatorEmail, creatorName } = req.body;
+        const { name, className, school, description, creatorId, creatorEmail, creatorName, isPrivate } = req.body;
 
         if (!name || !className || !school || !creatorId || !creatorEmail) {
             return res.status(400).json({
@@ -86,6 +93,7 @@ router.post('/', async (req, res) => {
             description: description || '',
             code,
             creatorId,
+            isPrivate: isPrivate || false,
             members: [{
                 email: creatorEmail,
                 name: creatorName || '',
