@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
-const emailService = require('../emailServiceResend'); // Use Resend API instead of SMTP
+const emailService = require('../emailServiceBrevo'); // Use Brevo API (no domain verification needed)
 
 /**
  * POST /api/admin/broadcast-email
