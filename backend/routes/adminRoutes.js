@@ -1,7 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
-const emailService = require('../emailService'); // Back to SMTP
+// const emailService = require('../emailService'); // Back to SMTP
+const emailService = require('../emailServiceGmail'); // Use Gmail API
 
 /**
  * POST /api/admin/broadcast-email
