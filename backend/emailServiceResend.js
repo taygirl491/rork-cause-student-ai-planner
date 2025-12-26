@@ -2,9 +2,9 @@ const { Resend } = require('resend');
 
 // Validate required environment variable
 if (!process.env.RESEND_API_KEY) {
-    console.error('❌ Missing required environment variable: RESEND_API_KEY');
-    console.error('⚠️  Email service will not function properly!');
-    console.error('Get your API key from: https://resend.com/api-keys');
+  console.error('❌ Missing required environment variable: RESEND_API_KEY');
+  console.error('⚠️  Email service will not function properly!');
+  console.error('Get your API key from: https://resend.com/api-keys');
 }
 
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -13,25 +13,25 @@ const resend = new Resend(process.env.RESEND_API_KEY);
  * Send an announcement email to a list of recipients
  */
 async function sendAnnouncement(recipientEmails, subject, bodyContent) {
-    try {
-        // Resend recommends batching for large sends
-        const BATCH_SIZE = 90;
-        const batches = [];
+  try {
+    // Resend recommends batching for large sends
+    const BATCH_SIZE = 90;
+    const batches = [];
 
-        for (let i = 0; i < recipientEmails.length; i += BATCH_SIZE) {
-            batches.push(recipientEmails.slice(i, i + BATCH_SIZE));
-        }
+    for (let i = 0; i < recipientEmails.length; i += BATCH_SIZE) {
+      batches.push(recipientEmails.slice(i, i + BATCH_SIZE));
+    }
 
-        console.log(`Sending announcement to ${recipientEmails.length} users in ${batches.length} batches.`);
+    console.log(`Sending announcement to ${recipientEmails.length} users in ${batches.length} batches.`);
 
-        let sentCount = 0;
+    let sentCount = 0;
 
-        for (const batch of batches) {
-            const { data, error } = await resend.emails.send({
-                from: `${process.env.FROM_NAME || 'CauseAI'} <${process.env.FROM_EMAIL || 'onboarding@resend.dev'}>`,
-                to: batch,
-                subject: subject,
-                html: `
+    for (const batch of batches) {
+      const { data, error } = await resend.emails.send({
+        from: `${process.env.FROM_NAME || 'CauseAI'} <onboarding@resend.dev>`, // Use Resend's verified domain
+        to: batch,
+        subject: subject,
+        html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
             <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 10px 10px 0 0;">
               <h1 style="color: white; margin: 0; font-size: 24px;">📢 Announcement</h1>
@@ -55,34 +55,34 @@ async function sendAnnouncement(recipientEmails, subject, bodyContent) {
             </div>
           </div>
         `,
-            });
+      });
 
-            if (error) {
-                console.error('Resend API error:', error);
-                return { success: false, error: error.message };
-            }
-
-            sentCount += batch.length;
-            console.log(`✓ Sent batch of ${batch.length} emails via Resend`);
-        }
-
-        return { success: true, count: sentCount };
-    } catch (error) {
-        console.error('Error sending announcement via Resend:', error);
+      if (error) {
+        console.error('Resend API error:', error);
         return { success: false, error: error.message };
+      }
+
+      sentCount += batch.length;
+      console.log(`✓ Sent batch of ${batch.length} emails via Resend`);
     }
+
+    return { success: true, count: sentCount };
+  } catch (error) {
+    console.error('Error sending announcement via Resend:', error);
+    return { success: false, error: error.message };
+  }
 }
 
 /**
  * Send welcome email to new users
  */
 async function sendWelcomeEmail(email, name) {
-    try {
-        const { data, error } = await resend.emails.send({
-            from: `${process.env.FROM_NAME || 'CauseAI'} <${process.env.FROM_EMAIL || 'onboarding@resend.dev'}>`,
-            to: email,
-            subject: 'Welcome to CauseAI Student Planner! 🎉',
-            html: `
+  try {
+    const { data, error } = await resend.emails.send({
+      from: `${process.env.FROM_NAME || 'CauseAI'} <onboarding@resend.dev>`, // Use Resend's verified domain,
+      to: email,
+      subject: 'Welcome to CauseAI Student Planner! 🎉',
+      html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
           <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px; border-radius: 10px 10px 0 0; text-align: center;">
             <h1 style="color: white; margin: 0; font-size: 32px;">Welcome to CauseAI! 🎓</h1>
@@ -104,22 +104,22 @@ async function sendWelcomeEmail(email, name) {
           </div>
         </div>
       `,
-        });
+    });
 
-        if (error) {
-            console.error('Resend API error:', error);
-            return { success: false, error: error.message };
-        }
-
-        console.log(`✓ Sent welcome email to ${email} via Resend`);
-        return { success: true };
-    } catch (error) {
-        console.error('Error sending welcome email via Resend:', error);
-        return { success: false, error: error.message };
+    if (error) {
+      console.error('Resend API error:', error);
+      return { success: false, error: error.message };
     }
+
+    console.log(`✓ Sent welcome email to ${email} via Resend`);
+    return { success: true };
+  } catch (error) {
+    console.error('Error sending welcome email via Resend:', error);
+    return { success: false, error: error.message };
+  }
 }
 
 module.exports = {
-    sendAnnouncement,
-    sendWelcomeEmail,
+  sendAnnouncement,
+  sendWelcomeEmail,
 };
