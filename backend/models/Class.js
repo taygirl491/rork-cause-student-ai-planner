@@ -52,6 +52,6 @@ const classSchema = new mongoose.Schema({
 });
 
 // Indexes
-classSchema.index({ userId: 1 });
+// classSchema.index({ userId: 1 });
 
 module.exports = mongoose.model('Class', classSchema);

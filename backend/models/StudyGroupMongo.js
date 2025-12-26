@@ -55,7 +55,7 @@ const studyGroupSchema = new mongoose.Schema({
 });
 
 // Indexes
-studyGroupSchema.index({ creatorId: 1 });
+// studyGroupSchema.index({ creatorId: 1 });
 studyGroupSchema.index({ 'members.email': 1 });
 
 module.exports = mongoose.model('StudyGroupMongo', studyGroupSchema);
