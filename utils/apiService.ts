@@ -1,6 +1,9 @@
 import { readAsStringAsync } from "expo-file-system/legacy";
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || "https://rork-cause-student-ai-planner.onrender.com";
+import { Platform } from 'react-native';
+
+const DEV_API_URL = Platform.OS === 'android' ? 'http://10.0.2.2:3000' : 'http://localhost:3000';
+const API_BASE_URL = "https://rork-cause-student-ai-planner.onrender.com";  // Always use live server
 const API_KEY = process.env.EXPO_PUBLIC_API_KEY || "";
 
 // Timeout helper with better error handling

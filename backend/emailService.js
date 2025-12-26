@@ -1,13 +1,29 @@
 const nodemailer = require("nodemailer");
 
+// Validate required environment variables
+const requiredEnvVars = ['SMTP_HOST', 'SMTP_USER', 'SMTP_PASS', 'FROM_EMAIL', 'FROM_NAME'];
+const missing = requiredEnvVars.filter(v => !process.env[v]);
+if (missing.length > 0) {
+  console.error(`❌ Missing required environment variables: ${missing.join(', ')}`);
+  console.error('⚠️  Email service will not function properly!');
+}
+
+// Warn about spaces in SMTP_PASS (common Gmail App Password issue)
+if (process.env.SMTP_PASS && process.env.SMTP_PASS.includes(' ')) {
+  console.warn('⚠️  WARNING: SMTP_PASS contains spaces!');
+  console.warn('   Gmail App Passwords should be 16 characters without spaces.');
+  console.warn('   Current password has spaces and may cause connection issues.');
+  console.warn('   Please remove spaces from SMTP_PASS in your .env file.');
+}
+
 // Create reusable transporter with low-overhead connection pooling
 const transporter = nodemailer.createTransport({
   pool: true, // Enable connection pooling
   maxConnections: 5, // Limit concurrent connections to avoid rate limiting
   maxMessages: 100, // Limit messages per connection
   host: process.env.SMTP_HOST,
-  port: parseInt(process.env.SMTP_PORT || "587"),
-  secure: process.env.SMTP_SECURE === "true",
+  port: parseInt(process.env.SMTP_PORT || '2525'), // Default to 2525 if not set, avoiding 587/465 blocks
+  secure: process.env.SMTP_SECURE === 'true', // Should be false for 587/2525
   auth: {
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,
