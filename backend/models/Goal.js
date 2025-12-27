@@ -19,15 +19,18 @@ const goalSchema = new mongoose.Schema({
         type: String,
         default: '',
     },
+    dueTime: {
+        type: String,
+        default: '',
+    },
     completed: {
         type: Boolean,
         default: false,
     },
-    habits: [{
-        id: String,
-        title: String,
-        completed: Boolean,
-    }],
+    notificationId: {
+        type: String,
+        default: '',
+    },
     createdAt: {
         type: Date,
         default: Date.now,

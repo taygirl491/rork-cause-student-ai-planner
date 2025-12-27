@@ -94,11 +94,13 @@ router.post('/', async (req, res) => {
             code,
             creatorId,
             isPrivate: isPrivate || false,
+            admins: [creatorId], // Creator is first admin
             members: [{
                 email: creatorEmail,
                 name: creatorName || '',
                 joinedAt: new Date(),
             }],
+            pendingMembers: [], // Initialize empty pending members array
         });
 
         // Emit WebSocket event for group creation
@@ -126,16 +128,16 @@ router.post('/', async (req, res) => {
 
 /**
  * POST /api/study-groups/join
- * Join a study group by code
+ * Request to join a study group (creates pending request)
  */
 router.post('/join', async (req, res) => {
     try {
-        const { code, email, name } = req.body;
+        const { code, email, name, userId } = req.body;
 
-        if (!code || !email) {
+        if (!code || !email || !userId) {
             return res.status(400).json({
                 success: false,
-                error: 'Code and email are required',
+                error: 'Code, email, and userId are required',
             });
         }
 
@@ -149,22 +151,17 @@ router.post('/join', async (req, res) => {
         }
 
         // Check if user is the creator
-        if (group.creatorId && group.members.some(m => m.email === email && group.creatorId === group.creatorId)) {
-            // More reliable: check if email matches the first member (creator)
-            const creatorEmail = group.members[0]?.email;
-            if (creatorEmail === email) {
-                return res.status(400).json({
-                    success: false,
-                    error: 'You are the creator of this group',
-                });
-            }
+        if (group.creatorId === userId) {
+            return res.status(400).json({
+                success: false,
+                error: 'You are the creator of this group',
+            });
         }
 
         // Check if already a member
         const isMember = group.members.some(m => m.email === email);
 
         if (isMember) {
-            // User is already a member, return success with the group
             return res.json({
                 success: true,
                 group,
@@ -172,31 +169,43 @@ router.post('/join', async (req, res) => {
             });
         }
 
-        // Add new member
-        group.members.push({
+        // Check if already has a pending request
+        const hasPendingRequest = group.pendingMembers.some(p => p.email === email);
+
+        if (hasPendingRequest) {
+            return res.json({
+                success: true,
+                message: 'Your request to join is pending approval',
+                status: 'pending',
+            });
+        }
+
+        // Add to pending members
+        group.pendingMembers.push({
             email,
             name: name || '',
-            joinedAt: new Date(),
+            userId,
+            requestedAt: new Date(),
         });
         await group.save();
 
-        // Emit WebSocket event to group room
+        // Emit WebSocket event to admins
         const io = req.app.get('io');
-        io.to(`group-${group._id}`).emit('member-joined', {
+        io.to(`group-${group._id}`).emit('pending-request', {
             groupId: group._id.toString(),
-            members: group.members,
-            newMember: { email, name }
+            pendingMember: { email, name, userId },
         });
 
         res.json({
             success: true,
-            group,
+            message: 'Join request sent. Waiting for admin approval.',
+            status: 'pending',
         });
     } catch (error) {
-        console.error('Error joining study group:', error);
+        console.error('Error requesting to join study group:', error);
         res.status(500).json({
             success: false,
-            error: 'Failed to join study group',
+            error: 'Failed to request join',
             details: error.message,
         });
     }
@@ -314,6 +323,428 @@ router.post('/:groupId/messages', async (req, res) => {
         res.status(500).json({
             success: false,
             error: 'Failed to send message',
+            details: error.message,
+        });
+    }
+});
+
+/**
+ * POST /api/study-groups/:groupId/approve-member
+ * Approve a pending member (admin only)
+ */
+router.post('/:groupId/approve-member', async (req, res) => {
+    try {
+        const { groupId } = req.params;
+        const { email, adminUserId } = req.body;
+
+        if (!email || !adminUserId) {
+            return res.status(400).json({
+                success: false,
+                error: 'Email and adminUserId are required',
+            });
+        }
+
+        const group = await StudyGroup.findById(groupId);
+
+        if (!group) {
+            return res.status(404).json({
+                success: false,
+                error: 'Group not found',
+            });
+        }
+
+        // Check if requester is an admin
+        if (!group.admins.includes(adminUserId)) {
+            return res.status(403).json({
+                success: false,
+                error: 'Only admins can approve members',
+            });
+        }
+
+        // Find pending member
+        const pendingMemberIndex = group.pendingMembers.findIndex(p => p.email === email);
+
+        if (pendingMemberIndex === -1) {
+            return res.status(404).json({
+                success: false,
+                error: 'Pending member not found',
+            });
+        }
+
+        const pendingMember = group.pendingMembers[pendingMemberIndex];
+
+        // Add to members
+        group.members.push({
+            email: pendingMember.email,
+            name: pendingMember.name,
+            joinedAt: new Date(),
+        });
+
+        // Remove from pending
+        group.pendingMembers.splice(pendingMemberIndex, 1);
+        await group.save();
+
+        // Emit WebSocket events
+        const io = req.app.get('io');
+        io.to(`group-${groupId}`).emit('member-approved', {
+            groupId,
+            member: { email: pendingMember.email, name: pendingMember.name },
+        });
+
+        res.json({
+            success: true,
+            message: 'Member approved successfully',
+            group,
+        });
+    } catch (error) {
+        console.error('Error approving member:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to approve member',
+            details: error.message,
+        });
+    }
+});
+
+/**
+ * POST /api/study-groups/:groupId/reject-member
+ * Reject a pending member (admin only)
+ */
+router.post('/:groupId/reject-member', async (req, res) => {
+    try {
+        const { groupId } = req.params;
+        const { email, adminUserId } = req.body;
+
+        if (!email || !adminUserId) {
+            return res.status(400).json({
+                success: false,
+                error: 'Email and adminUserId are required',
+            });
+        }
+
+        const group = await StudyGroup.findById(groupId);
+
+        if (!group) {
+            return res.status(404).json({
+                success: false,
+                error: 'Group not found',
+            });
+        }
+
+        // Check if requester is an admin
+        if (!group.admins.includes(adminUserId)) {
+            return res.status(403).json({
+                success: false,
+                error: 'Only admins can reject members',
+            });
+        }
+
+        // Find and remove pending member
+        const pendingMemberIndex = group.pendingMembers.findIndex(p => p.email === email);
+
+        if (pendingMemberIndex === -1) {
+            return res.status(404).json({
+                success: false,
+                error: 'Pending member not found',
+            });
+        }
+
+        group.pendingMembers.splice(pendingMemberIndex, 1);
+        await group.save();
+
+        res.json({
+            success: true,
+            message: 'Member request rejected',
+        });
+    } catch (error) {
+        console.error('Error rejecting member:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to reject member',
+            details: error.message,
+        });
+    }
+});
+
+/**
+ * POST /api/study-groups/:groupId/kick-member
+ * Kick a member from the group (admin only, can't kick creator)
+ */
+router.post('/:groupId/kick-member', async (req, res) => {
+    try {
+        const { groupId } = req.params;
+        const { email, adminUserId } = req.body;
+
+        if (!email || !adminUserId) {
+            return res.status(400).json({
+                success: false,
+                error: 'Email and adminUserId are required',
+            });
+        }
+
+        const group = await StudyGroup.findById(groupId);
+
+        if (!group) {
+            return res.status(404).json({
+                success: false,
+                error: 'Group not found',
+            });
+        }
+
+        // Check if requester is an admin
+        if (!group.admins.includes(adminUserId)) {
+            return res.status(403).json({
+                success: false,
+                error: 'Only admins can kick members',
+            });
+        }
+
+        // Find member to kick
+        const memberIndex = group.members.findIndex(m => m.email === email);
+
+        if (memberIndex === -1) {
+            return res.status(404).json({
+                success: false,
+                error: 'Member not found',
+            });
+        }
+
+        // Check if trying to kick the creator
+        const creatorEmail = group.members.find(m => m.email)?.email;
+        const creatorMember = group.members[0]; // First member is creator
+        if (creatorMember && creatorMember.email === email) {
+            return res.status(403).json({
+                success: false,
+                error: 'Cannot kick the group creator',
+            });
+        }
+
+        // Remove member
+        const kickedMember = group.members[memberIndex];
+        group.members.splice(memberIndex, 1);
+
+        // Also remove from admins if they were an admin
+        const adminIndex = group.admins.findIndex(a => a === kickedMember.userId);
+        if (adminIndex !== -1) {
+            group.admins.splice(adminIndex, 1);
+        }
+
+        await group.save();
+
+        // Emit WebSocket event
+        const io = req.app.get('io');
+        io.to(`group-${groupId}`).emit('member-kicked', {
+            groupId,
+            email,
+        });
+
+        res.json({
+            success: true,
+            message: 'Member kicked successfully',
+        });
+    } catch (error) {
+        console.error('Error kicking member:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to kick member',
+            details: error.message,
+        });
+    }
+});
+
+/**
+ * POST /api/study-groups/:groupId/promote-admin
+ * Promote a member to admin (creator only, max 4 admins)
+ */
+router.post('/:groupId/promote-admin', async (req, res) => {
+    try {
+        const { groupId } = req.params;
+        const { userId, creatorId } = req.body;
+
+        if (!userId || !creatorId) {
+            return res.status(400).json({
+                success: false,
+                error: 'userId and creatorId are required',
+            });
+        }
+
+        const group = await StudyGroup.findById(groupId);
+
+        if (!group) {
+            return res.status(404).json({
+                success: false,
+                error: 'Group not found',
+            });
+        }
+
+        // Check if requester is the creator
+        if (group.creatorId !== creatorId) {
+            return res.status(403).json({
+                success: false,
+                error: 'Only the creator can promote admins',
+            });
+        }
+
+        // Check if already an admin
+        if (group.admins.includes(userId)) {
+            return res.status(400).json({
+                success: false,
+                error: 'User is already an admin',
+            });
+        }
+
+        // Check max admins limit (4)
+        if (group.admins.length >= 4) {
+            return res.status(400).json({
+                success: false,
+                error: 'Maximum of 4 admins allowed',
+            });
+        }
+
+        // Add to admins
+        group.admins.push(userId);
+        await group.save();
+
+        // Emit WebSocket event
+        const io = req.app.get('io');
+        io.to(`group-${groupId}`).emit('admin-promoted', {
+            groupId,
+            userId,
+        });
+
+        res.json({
+            success: true,
+            message: 'Member promoted to admin',
+            group,
+        });
+    } catch (error) {
+        console.error('Error promoting admin:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to promote admin',
+            details: error.message,
+        });
+    }
+});
+
+/**
+ * POST /api/study-groups/:groupId/demote-admin
+ * Demote an admin to regular member (creator only, can't demote creator)
+ */
+router.post('/:groupId/demote-admin', async (req, res) => {
+    try {
+        const { groupId } = req.params;
+        const { userId, creatorId } = req.body;
+
+        if (!userId || !creatorId) {
+            return res.status(400).json({
+                success: false,
+                error: 'userId and creatorId are required',
+            });
+        }
+
+        const group = await StudyGroup.findById(groupId);
+
+        if (!group) {
+            return res.status(404).json({
+                success: false,
+                error: 'Group not found',
+            });
+        }
+
+        // Check if requester is the creator
+        if (group.creatorId !== creatorId) {
+            return res.status(403).json({
+                success: false,
+                error: 'Only the creator can demote admins',
+            });
+        }
+
+        // Can't demote the creator
+        if (userId === group.creatorId) {
+            return res.status(403).json({
+                success: false,
+                error: 'Cannot demote the creator',
+            });
+        }
+
+        // Check if user is an admin
+        const adminIndex = group.admins.findIndex(a => a === userId);
+        if (adminIndex === -1) {
+            return res.status(400).json({
+                success: false,
+                error: 'User is not an admin',
+            });
+        }
+
+        // Remove from admins
+        group.admins.splice(adminIndex, 1);
+        await group.save();
+
+        // Emit WebSocket event
+        const io = req.app.get('io');
+        io.to(`group-${groupId}`).emit('admin-demoted', {
+            groupId,
+            userId,
+        });
+
+        res.json({
+            success: true,
+            message: 'Admin demoted to member',
+            group,
+        });
+    } catch (error) {
+        console.error('Error demoting admin:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to demote admin',
+            details: error.message,
+        });
+    }
+});
+
+/**
+ * GET /api/study-groups/:groupId/pending-members
+ * Get pending member requests (admin only)
+ */
+router.get('/:groupId/pending-members', async (req, res) => {
+    try {
+        const { groupId } = req.params;
+        const { adminUserId } = req.query;
+
+        if (!adminUserId) {
+            return res.status(400).json({
+                success: false,
+                error: 'adminUserId is required',
+            });
+        }
+
+        const group = await StudyGroup.findById(groupId);
+
+        if (!group) {
+            return res.status(404).json({
+                success: false,
+                error: 'Group not found',
+            });
+        }
+
+        // Check if requester is an admin
+        if (!group.admins.includes(adminUserId)) {
+            return res.status(403).json({
+                success: false,
+                error: 'Only admins can view pending members',
+            });
+        }
+
+        res.json({
+            success: true,
+            pendingMembers: group.pendingMembers,
+        });
+    } catch (error) {
+        console.error('Error getting pending members:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to get pending members',
             details: error.message,
         });
     }

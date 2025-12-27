@@ -39,8 +39,9 @@ export interface Goal {
   title: string;
   description?: string;
   dueDate?: string;
+  dueTime?: string;
   completed: boolean;
-  habits: Habit[];
+  notificationId?: string;
   createdAt: string;
 }
 
@@ -70,16 +71,25 @@ export interface StudyGroupMessage {
   createdAt: string;
 }
 
+export interface PendingMember {
+  email: string;
+  name?: string;
+  userId: string;
+  requestedAt: string;
+}
+
 export interface StudyGroup {
   id: string;
   name: string;
   className: string;
   school: string;
   description: string;
-  code?: string; // Optional - hidden for private groups where user is not creator
+  code?: string; // Optional - hidden for private groups where user is not creator/admin
   creatorId: string;
   isPrivate?: boolean;
+  admins: string[]; // Array of user IDs with admin privileges (max 4)
   members: { email: string; name?: string; joinedAt: string }[];
+  pendingMembers: PendingMember[]; // Users awaiting approval
   messages: StudyGroupMessage[];
   createdAt: string;
 }

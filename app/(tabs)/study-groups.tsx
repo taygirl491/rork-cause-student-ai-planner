@@ -161,23 +161,38 @@ export default function StudyGroupsScreen() {
 		// Use user's name from auth context, or fallback to "Student" or email prefix
 		const userName = user.name || user.email.split('@')[0] || "Student";
 
-		const group = await joinStudyGroup(joinCode.toUpperCase(), user.email, userName);
+		const result = await joinStudyGroup(joinCode.toUpperCase(), user.email, userName);
 
-		if (!group) {
+		if (!result) {
 			Alert.alert("Error", "Invalid group code. Please check and try again.");
 			return;
 		}
-		schedulePushNotification({
-			title: "Group Join Notification",
-			body: `You have joined the group: ${group.name}`,
-			data: { group },
-		});
 
+		// Check if it's a pending status
+		if (result.status === 'pending') {
+			Alert.alert(
+				"Request Sent",
+				"Your request to join has been sent to the group admins for approval."
+			);
+			await refreshStudyGroups();
+			setJoinCode("");
+			setShowJoinGroupModal(false);
+			return;
+		}
 
-		Alert.alert("Success", `You have joined the group: ${group.name}`);
-		await refreshStudyGroups();
-		setJoinCode("");
-		setShowJoinGroupModal(false);
+		// Otherwise it's a successful join (result.status === 'joined')
+		if ('name' in result) {
+			schedulePushNotification({
+				title: "Group Joined!",
+				body: `You have joined the group: ${result.name}`,
+				data: { group: result },
+			});
+
+			Alert.alert("Success", `You have joined the group: ${result.name}`);
+			await refreshStudyGroups();
+			setJoinCode("");
+			setShowJoinGroupModal(false);
+		}
 	};
 
 	const handleLongPress = (group: StudyGroup) => {
@@ -296,7 +311,15 @@ export default function StudyGroupsScreen() {
 									<Users size={28} color={colors.primary} />
 								</View>
 								<View style={styles.groupContent}>
-									<Text style={styles.groupName}>{group.name}</Text>
+									<View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+										<Text style={styles.groupName}>{group.name}</Text>
+										{/* Show admin badge if user is an admin */}
+										{group.admins?.includes(user?.uid || '') && (
+											<View style={styles.adminBadge}>
+												<Text style={styles.adminBadgeText}>ADMIN</Text>
+											</View>
+										)}
+									</View>
 									<Text style={styles.groupClass}>{group.className}</Text>
 									<Text style={styles.groupSchool}>{group.school}</Text>
 									<View style={styles.groupMetaRow}>
@@ -304,6 +327,17 @@ export default function StudyGroupsScreen() {
 										<Text style={styles.groupMetaText}>
 											{group.members.length} members
 										</Text>
+										{/* Show pending member count for admins */}
+										{group.admins?.includes(user?.uid || '') && group.pendingMembers && group.pendingMembers.length > 0 && (
+											<>
+												<Text style={styles.groupMetaText}> • </Text>
+												<View style={styles.pendingBadge}>
+													<Text style={styles.pendingBadgeText}>
+														{group.pendingMembers.length} pending
+													</Text>
+												</View>
+											</>
+										)}
 									</View>
 									{/* Only show code if it exists (public group or user is creator) */}
 									{group.code ? (
@@ -972,6 +1006,29 @@ const styles = StyleSheet.create({
 	privateText: {
 		fontSize: 12,
 		color: colors.textSecondary,
+		fontWeight: '600' as const,
+	},
+	adminBadge: {
+		backgroundColor: colors.primary,
+		paddingHorizontal: 8,
+		paddingVertical: 3,
+		borderRadius: 6,
+	},
+	adminBadgeText: {
+		fontSize: 10,
+		color: colors.surface,
+		fontWeight: '700' as const,
+		letterSpacing: 0.5,
+	},
+	pendingBadge: {
+		backgroundColor: colors.warning || '#FF9500',
+		paddingHorizontal: 8,
+		paddingVertical: 3,
+		borderRadius: 6,
+	},
+	pendingBadgeText: {
+		fontSize: 11,
+		color: colors.surface,
 		fontWeight: '600' as const,
 	},
 });
