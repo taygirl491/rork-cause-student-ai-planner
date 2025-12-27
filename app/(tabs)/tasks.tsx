@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import {
   View,
   Text,
@@ -33,6 +33,7 @@ import { useStreak } from '@/contexts/StreakContext';
 export default function TasksScreen() {
   const { sortedTasks, addTask, updateTask, deleteTask, classes, refreshTasks } = useApp();
   const { updateStreak } = useStreak();
+  const router = useRouter();
   const [showModal, setShowModal] = useState(false);
   const [showActionSheet, setShowActionSheet] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
@@ -277,9 +278,7 @@ export default function TasksScreen() {
   };
 
   const handleTaskPress = (task: Task) => {
-    // Don't open modal for completed tasks
-    if (task.completed) return;
-
+    // Allow opening modal for all tasks (including completed ones)
     setSelectedTaskForDetail(task);
     setShowDetailModal(true);
   };
@@ -481,7 +480,7 @@ export default function TasksScreen() {
                   </TouchableOpacity>
                 </View>
 
-                <ScrollView showsVerticalScrollIndicator={false}>
+                <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.modalScrollContent}>
                   <Text style={styles.label}>Description *</Text>
                   <TextInput
                     style={styles.input}
@@ -515,6 +514,19 @@ export default function TasksScreen() {
                   </View>
 
                   <Text style={styles.label}>Class</Text>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setShowModal(false);
+                      router.push('/(tabs)/classes');
+                    }}
+                    style={styles.helperNote}
+                  >
+                    <Text style={styles.helperNoteText}>
+                      Don't see your class? Click{' '}
+                      <Text style={styles.helperNoteLink}>HERE</Text>
+                      {' '}to create a class.
+                    </Text>
+                  </TouchableOpacity>
                   <View style={styles.optionGrid}>
                     <TouchableOpacity
                       style={[
@@ -736,7 +748,7 @@ export default function TasksScreen() {
                 </TouchableOpacity>
               </View>
 
-              <ScrollView showsVerticalScrollIndicator={false}>
+              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.modalScrollContent}>
                 {/* Task Description */}
                 <View style={styles.detailSection}>
                   <Text style={styles.detailLabel}>Description</Text>
@@ -1193,6 +1205,23 @@ const styles = StyleSheet.create({
   },
   keyboardAvoidingView: {
     flex: 1,
+  },
+  helperNote: {
+    marginBottom: 8,
+    paddingVertical: 6,
+  },
+  helperNoteText: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    lineHeight: 18,
+  },
+  helperNoteLink: {
+    color: colors.primary,
+    fontWeight: '600' as const,
+    textDecorationLine: 'underline',
+  },
+  modalScrollContent: {
+    paddingBottom: 20,
   },
   detailSection: {
     marginBottom: 20,

@@ -21,7 +21,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Plus, X, Target, CheckCircle, Circle, Trash2, Edit2 } from 'lucide-react-native';
 import colors from '@/constants/colors';
 import { useApp } from '@/contexts/AppContext';
-import { Goal, Habit } from '@/types';
+import { Goal } from '@/types';
+import { cancelNotification, scheduleGoalNotification } from '@/utils/notificationService';
 
 export default function GoalsScreen() {
   const { goals, addGoal, updateGoal, deleteGoal, refreshGoals } = useApp();
@@ -30,9 +31,9 @@ export default function GoalsScreen() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [dueDate, setDueDate] = useState(new Date());
+  const [dueTime, setDueTime] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [habits, setHabits] = useState<Partial<Habit>[]>([]);
-  const [habitTitle, setHabitTitle] = useState('');
+  const [showTimePicker, setShowTimePicker] = useState(false);
 
   // Edit/Delete state
   const [showActionSheet, setShowActionSheet] = useState(false);
@@ -60,14 +61,9 @@ export default function GoalsScreen() {
     }
   }, [showModal, scaleAnim]);
 
-  const handleAddGoal = () => {
+  const handleAddGoal = async () => {
     if (!title.trim()) {
       Alert.alert('Required Field', 'Please enter a title for your goal.');
-      return;
-    }
-
-    if (habits.length === 0) {
-      Alert.alert('Required Field', 'Please add at least one daily habit.');
       return;
     }
 
@@ -76,33 +72,46 @@ export default function GoalsScreen() {
       return;
     }
 
+    const formattedDate = dueDate.toISOString().split('T')[0];
+    const formattedTime = dueTime.toTimeString().split(' ')[0].substring(0, 5);
+
     if (isEditing && selectedGoal) {
       const updatedGoal: Partial<Goal> = {
         title,
         description,
-        dueDate: dueDate.toISOString(),
-        habits: habits.map((h, i) => ({
-          id: h.id || `${Date.now()}-${i}`,
-          title: h.title || '',
-          completed: h.completed || false,
-        })) as Habit[],
+        dueDate: formattedDate,
+        dueTime: formattedTime,
       };
       updateGoal(selectedGoal.id, updatedGoal);
+
+      // Cancel old notification and schedule new one
+      if (selectedGoal.notificationId) {
+        await cancelNotification(selectedGoal.notificationId);
+      }
+      const notificationId = await scheduleGoalNotification({
+        ...selectedGoal,
+        ...updatedGoal,
+      } as Goal);
+      if (notificationId) {
+        updateGoal(selectedGoal.id, { notificationId });
+      }
     } else {
       const newGoal: Goal = {
         id: Date.now().toString(),
         title,
         description,
-        dueDate: dueDate.toISOString(),
+        dueDate: formattedDate,
+        dueTime: formattedTime,
         completed: false,
-        habits: habits.map((h, i) => ({
-          id: `${Date.now()}-${i}`,
-          title: h.title || '',
-          completed: false,
-        })) as Habit[],
         createdAt: new Date().toISOString(),
       };
       addGoal(newGoal);
+
+      // Schedule notification
+      const notificationId = await scheduleGoalNotification(newGoal);
+      if (notificationId) {
+        updateGoal(newGoal.id, { notificationId });
+      }
     }
 
     refreshGoals();
@@ -116,18 +125,7 @@ export default function GoalsScreen() {
     setTitle('');
     setDescription('');
     setDueDate(new Date());
-    setHabits([]);
-    setHabitTitle('');
-  };
-
-  const addHabit = () => {
-    if (!habitTitle) return;
-    setHabits([...habits, { title: habitTitle, completed: false }]);
-    setHabitTitle('');
-  };
-
-  const removeHabit = (index: number) => {
-    setHabits(habits.filter((_, i) => i !== index));
+    setDueTime(new Date());
   };
 
   const handleLongPress = (goal: Goal) => {
@@ -141,18 +139,21 @@ export default function GoalsScreen() {
     setTitle(selectedGoal.title);
     setDescription(selectedGoal.description || '');
     setDueDate(selectedGoal.dueDate ? new Date(selectedGoal.dueDate) : new Date());
-    setHabits(selectedGoal.habits || []);
+    setDueTime(selectedGoal.dueTime ? new Date(`2000-01-01 ${selectedGoal.dueTime}`) : new Date());
 
     setIsEditing(true);
     setShowActionSheet(false);
     setShowModal(true);
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!selectedGoal) return;
 
-    // Simple confirmation could be added here if desired, 
-    // strictly following the task request to "add delete function"
+    // Cancel notification if exists
+    if (selectedGoal.notificationId) {
+      await cancelNotification(selectedGoal.notificationId);
+    }
+
     deleteGoal(selectedGoal.id);
     refreshGoals();
     setShowActionSheet(false);
@@ -161,19 +162,6 @@ export default function GoalsScreen() {
 
   const toggleGoalComplete = (goal: Goal) => {
     updateGoal(goal.id, { completed: !goal.completed });
-  };
-
-  const toggleHabitComplete = (goal: Goal, habitId: string) => {
-    const updatedHabits = goal.habits.map(h =>
-      h.id === habitId ? { ...h, completed: !h.completed } : h
-    );
-    updateGoal(goal.id, { habits: updatedHabits });
-  };
-
-  const getGoalProgress = (goal: Goal) => {
-    if (goal.habits.length === 0) return 0;
-    const completed = goal.habits.filter(h => h.completed).length;
-    return Math.round((completed / goal.habits.length) * 100);
   };
 
   // Pull-to-refresh handler
@@ -238,39 +226,12 @@ export default function GoalsScreen() {
                       {goal.dueDate && (
                         <Text style={styles.goalDueDate}>
                           Due: {new Date(goal.dueDate).toLocaleDateString()}
+                          {goal.dueTime && ` at ${goal.dueTime}`}
                         </Text>
                       )}
                     </View>
                   </View>
                 </TouchableOpacity>
-
-                {goal.habits.length > 0 && (
-                  <View style={styles.habitsSection}>
-                    <View style={styles.progressHeader}>
-                      <Text style={styles.habitsTitle}>Daily Habits</Text>
-                      <Text style={styles.progressText}>{getGoalProgress(goal)}%</Text>
-                    </View>
-                    <View style={styles.progressBarContainer}>
-                      <View style={[styles.progressBar, { width: `${getGoalProgress(goal)}%` }]} />
-                    </View>
-                    {goal.habits.map((habit) => (
-                      <TouchableOpacity
-                        key={habit.id}
-                        style={styles.habitItem}
-                        onPress={() => toggleHabitComplete(goal, habit.id)}
-                      >
-                        {habit.completed ? (
-                          <CheckCircle size={20} color={colors.success} />
-                        ) : (
-                          <Circle size={20} color={colors.textLight} />
-                        )}
-                        <Text style={[styles.habitTitle, habit.completed && styles.habitTitleCompleted]}>
-                          {habit.title}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                )}
               </View>
             ))}
           </View>
@@ -328,7 +289,7 @@ export default function GoalsScreen() {
                     numberOfLines={3}
                   />
 
-                  <Text style={styles.label}>Due Date</Text>
+                  <Text style={styles.label}>Due Date *</Text>
                   <TouchableOpacity
                     style={styles.input}
                     onPress={() => setShowDatePicker(true)}
@@ -348,32 +309,25 @@ export default function GoalsScreen() {
                     onCancel={() => setShowDatePicker(false)}
                   />
 
-                  <Text style={styles.label}>Daily Habits</Text>
-                  <View style={styles.habitInputRow}>
-                    <TextInput
-                      style={[styles.input, styles.habitInput]}
-                      placeholder="Add a daily habit"
-                      placeholderTextColor={colors.textLight}
-                      value={habitTitle}
-                      onChangeText={setHabitTitle}
-                    />
-                    <TouchableOpacity style={styles.addHabitButton} onPress={addHabit}>
-                      <Plus size={20} color={colors.surface} />
-                    </TouchableOpacity>
-                  </View>
-
-                  {habits.length > 0 && (
-                    <View style={styles.habitsList}>
-                      {habits.map((habit, index) => (
-                        <View key={habit.id || `habit-${index}-${habit.title}`} style={styles.habitChip}>
-                          <Text style={styles.habitChipText}>{habit.title}</Text>
-                          <TouchableOpacity onPress={() => removeHabit(index)}>
-                            <Trash2 size={16} color={colors.error} />
-                          </TouchableOpacity>
-                        </View>
-                      ))}
-                    </View>
-                  )}
+                  <Text style={styles.label}>Due Time</Text>
+                  <TouchableOpacity
+                    style={styles.input}
+                    onPress={() => setShowTimePicker(true)}
+                  >
+                    <Text style={{ color: colors.text }}>
+                      {dueTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                    </Text>
+                  </TouchableOpacity>
+                  <DateTimePickerModal
+                    isVisible={showTimePicker}
+                    mode="time"
+                    date={dueTime}
+                    onConfirm={(time) => {
+                      setShowTimePicker(false);
+                      setDueTime(time);
+                    }}
+                    onCancel={() => setShowTimePicker(false)}
+                  />
 
                   <TouchableOpacity
                     style={styles.createButton}

@@ -19,8 +19,20 @@ const studyGroupSchema = new mongoose.Schema({
         required: true,
         index: true,
     },
+    admins: [{
+        type: String, // Array of Firebase UIDs (max 4)
+    }],
     members: [{
-        type: String, // Array of Firebase UIDs
+        type: String, // Array of Firebase UIDs (approved members)
+    }],
+    pendingMembers: [{
+        email: String,
+        name: String,
+        userId: String, // Firebase UID
+        requestedAt: {
+            type: Date,
+            default: Date.now,
+        },
     }],
     inviteCode: {
         type: String,

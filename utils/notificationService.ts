@@ -1,6 +1,6 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
-import { Task, ReminderTime } from '@/types';
+import { Task, ReminderTime, Goal } from '@/types';
 
 // Configure notification handler
 Notifications.setNotificationHandler({
@@ -311,3 +311,71 @@ export async function cancelAllNotifications(): Promise<void> {
     console.error('Error cancelling all notifications:', error);
   }
 }
+
+/**
+ * Schedule a notification for a goal's due date and time
+ * @param goal - The goal to schedule a notification for
+ * @returns Promise<string | null> - The notification ID or null if not scheduled
+ */
+export async function scheduleGoalNotification(goal: Goal): Promise<string | null> {
+  try {
+    // Don't schedule for completed goals
+    if (goal.completed) {
+      console.log('Goal is completed, not scheduling notification');
+      return null;
+    }
+
+    if (!goal.dueDate) {
+      console.log('No due date for goal, not scheduling notification');
+      return null;
+    }
+
+    const dueDate = new Date(goal.dueDate);
+    
+    // If goal has a specific time, use it
+    if (goal.dueTime) {
+      const [hours, minutes] = goal.dueTime.split(':');
+      dueDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+    } else {
+      // Default to 9 AM if no time specified
+      dueDate.setHours(9, 0, 0, 0);
+    }
+
+    // Don't schedule if in the past
+    if (dueDate <= new Date()) {
+      console.log('Goal due date is in the past, not scheduling notification');
+      return null;
+    }
+
+    // Calculate seconds until due date
+    const secondsUntilDue = Math.floor((dueDate.getTime() - Date.now()) / 1000);
+    
+    const notificationId = await Notifications.scheduleNotificationAsync({
+      content: {
+        title: `Goal Due: ${goal.title}`,
+        body: goal.description || 'Your goal is due!',
+        data: { 
+          goalId: goal.id, 
+          type: 'goal_due',
+        },
+        sound: 'default',
+        badge: 1,
+        color: '#6366F1',
+        // @ts-ignore
+        channelId: 'task-reminders-v2',
+      } as Notifications.NotificationContentInput,
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+        seconds: secondsUntilDue > 0 ? secondsUntilDue : 1,
+        repeats: false,
+      },
+    });
+
+    console.log(`Scheduled goal notification ${notificationId} for goal ${goal.id} at ${dueDate.toLocaleString()}`);
+    return notificationId;
+  } catch (error) {
+    console.error('Error scheduling goal notification:', error);
+    return null;
+  }
+}
+

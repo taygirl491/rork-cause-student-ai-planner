@@ -241,8 +241,9 @@ export const goalsAPI = {
                     title: goal.title,
                     description: goal.description,
                     dueDate: goal.dueDate,
+                    dueTime: goal.dueTime,
                     completed: goal.completed,
-                    habits: goal.habits || [],
+                    notificationId: goal.notificationId,
                     createdAt: goal.createdAt,
                 }));
             }
@@ -263,8 +264,9 @@ export const goalsAPI = {
                     title: goal.title,
                     description: goal.description,
                     dueDate: goal.dueDate,
+                    dueTime: goal.dueTime,
                     completed: goal.completed,
-                    habits: goal.habits || [],
+                    notificationId: goal.notificationId,
                     createdAt: goal.createdAt,
                 };
             }
@@ -363,18 +365,28 @@ export const studyGroupsAPI = {
     },
 
     /**
-     * Join a study group by code
+     * Join a study group by code (creates pending request)
      */
-    async joinStudyGroup(code: string, email: string, name: string): Promise<any | null> {
+    async joinStudyGroup(code: string, email: string, name: string, userId: string): Promise<any | null> {
         try {
             const response = await apiService.post('/api/study-groups/join', {
                 code,
                 email,
                 name,
+                userId,
             });
             if (response.success) {
+                // Check if it's a pending status
+                if (response.status === 'pending') {
+                    return {
+                        status: 'pending',
+                        message: response.message,
+                    };
+                }
+                // Otherwise return the group (already a member)
                 const group = response.group;
                 return {
+                    status: 'joined',
                     id: group._id,
                     name: group.name,
                     className: group.className,
@@ -390,6 +402,102 @@ export const studyGroupsAPI = {
         } catch (error) {
             console.error('Error joining study group:', error);
             return null;
+        }
+    },
+
+    /**
+     * Approve a pending member (admin only)
+     */
+    async approveMember(groupId: string, email: string, adminUserId: string): Promise<boolean> {
+        try {
+            const response = await apiService.post(`/api/study-groups/${groupId}/approve-member`, {
+                email,
+                adminUserId,
+            });
+            return response.success;
+        } catch (error) {
+            console.error('Error approving member:', error);
+            return false;
+        }
+    },
+
+    /**
+     * Reject a pending member (admin only)
+     */
+    async rejectMember(groupId: string, email: string, adminUserId: string): Promise<boolean> {
+        try {
+            const response = await apiService.post(`/api/study-groups/${groupId}/reject-member`, {
+                email,
+                adminUserId,
+            });
+            return response.success;
+        } catch (error) {
+            console.error('Error rejecting member:', error);
+            return false;
+        }
+    },
+
+    /**
+     * Kick a member from the group (admin only)
+     */
+    async kickMember(groupId: string, email: string, adminUserId: string): Promise<boolean> {
+        try {
+            const response = await apiService.post(`/api/study-groups/${groupId}/kick-member`, {
+                email,
+                adminUserId,
+            });
+            return response.success;
+        } catch (error) {
+            console.error('Error kicking member:', error);
+            return false;
+        }
+    },
+
+    /**
+     * Promote a member to admin (creator only)
+     */
+    async promoteToAdmin(groupId: string, userId: string, creatorId: string): Promise<boolean> {
+        try {
+            const response = await apiService.post(`/api/study-groups/${groupId}/promote-admin`, {
+                userId,
+                creatorId,
+            });
+            return response.success;
+        } catch (error) {
+            console.error('Error promoting to admin:', error);
+            return false;
+        }
+    },
+
+    /**
+     * Demote an admin to member (creator only)
+     */
+    async demoteAdmin(groupId: string, userId: string, creatorId: string): Promise<boolean> {
+        try {
+            const response = await apiService.post(`/api/study-groups/${groupId}/demote-admin`, {
+                userId,
+                creatorId,
+            });
+            return response.success;
+        } catch (error) {
+            console.error('Error demoting admin:', error);
+            return false;
+        }
+    },
+
+    /**
+     * Get pending members for a group (admin only)
+     */
+    async getPendingMembers(groupId: string, adminUserId: string): Promise<any[]> {
+        try {
+            const response = await apiService.get(`/api/study-groups/${groupId}/pending-members?adminUserId=${adminUserId}`);
+            if (response.success) {
+                return response.pendingMembers || [];
+            }
+            return [];
+        } catch (error) {
+            console.error('Error getting pending members:', error);
+            return [];
         }
     },
 

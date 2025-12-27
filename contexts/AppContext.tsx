@@ -462,8 +462,9 @@ export const [AppProvider, useApp] = createContextHook(() => {
 				title: goal.title,
 				description: goal.description || "",
 				dueDate: goal.dueDate || "",
+				dueTime: goal.dueTime,
 				completed: goal.completed,
-				habits: goal.habits,
+				notificationId: goal.notificationId,
 				createdAt: goal.createdAt,
 			});
 
@@ -831,9 +832,19 @@ export const [AppProvider, useApp] = createContextHook(() => {
 		if (!user?.uid) return null;
 
 		try {
-			const group = await studyGroupsAPI.joinStudyGroup(code, email, name);
+			const result = await studyGroupsAPI.joinStudyGroup(code, email, name, user.uid);
 
-			if (group) {
+			if (result) {
+				// Check if it's a pending status
+				if (result.status === 'pending') {
+					return {
+						status: 'pending',
+						message: result.message,
+					};
+				}
+
+				// Otherwise it's a joined status
+				const group = result;
 				// Update local state
 				setStudyGroups((prev) => {
 					const exists = prev.some(g => g.id === group.id);
@@ -844,9 +855,10 @@ export const [AppProvider, useApp] = createContextHook(() => {
 				});
 
 				return {
+					status: 'joined',
 					...group,
 					messages: group.messages || [],
-				} as StudyGroup;
+				} as StudyGroup & { status: string };
 			}
 			return null;
 		} catch (error) {
