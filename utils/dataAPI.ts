@@ -315,7 +315,9 @@ export const studyGroupsAPI = {
                     code: group.code, // May be undefined for private groups
                     creatorId: group.creatorId,
                     isPrivate: group.isPrivate,
+                    admins: group.admins || [],
                     members: group.members,
+                    pendingMembers: group.pendingMembers || [],
                     messages: group.messages || [],
                     createdAt: group.createdAt,
                 }));
@@ -353,7 +355,9 @@ export const studyGroupsAPI = {
                     code: group.code,
                     creatorId: group.creatorId,
                     isPrivate: group.isPrivate,
+                    admins: group.admins || [],
                     members: group.members,
+                    pendingMembers: group.pendingMembers || [],
                     createdAt: group.createdAt,
                 };
             }

@@ -33,6 +33,7 @@ import {
 	Edit2,
 	Trash2,
 	Lock,
+	Shield,
 } from "lucide-react-native";
 import * as DocumentPicker from "expo-document-picker";
 import colors from "@/constants/colors";
@@ -354,6 +355,22 @@ export default function StudyGroupsScreen() {
 											<Text style={styles.privateText}>Private Group</Text>
 										</View>
 									) : null}
+									{/* Admin Panel Button */}
+									{group.admins?.includes(user?.uid || '') && (
+										<TouchableOpacity
+											style={styles.adminPanelButton}
+											onPress={(e) => {
+												e.stopPropagation();
+												router.push({
+													pathname: '/group-admin' as any,
+													params: { groupId: group.id }
+												});
+											}}
+										>
+											<Shield size={16} color={colors.primary} />
+											<Text style={styles.adminPanelButtonText}>Admin Panel</Text>
+										</TouchableOpacity>
+									)}
 								</View>
 							</TouchableOpacity>
 						))}
@@ -1029,6 +1046,24 @@ const styles = StyleSheet.create({
 	pendingBadgeText: {
 		fontSize: 11,
 		color: colors.surface,
+		fontWeight: '600' as const,
+	},
+	adminPanelButton: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		backgroundColor: colors.surface,
+		borderWidth: 1.5,
+		borderColor: colors.primary,
+		paddingHorizontal: 12,
+		paddingVertical: 8,
+		borderRadius: 8,
+		marginTop: 8,
+		gap: 6,
+		alignSelf: 'flex-start',
+	},
+	adminPanelButtonText: {
+		fontSize: 13,
+		color: colors.primary,
 		fontWeight: '600' as const,
 	},
 });
