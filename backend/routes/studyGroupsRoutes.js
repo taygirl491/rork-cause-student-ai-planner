@@ -103,6 +103,9 @@ router.post('/', async (req, res) => {
             pendingMembers: [], // Initialize empty pending members array
         });
 
+        console.log('[DEBUG] Group created with admins:', group.admins);
+        console.log('[DEBUG] Full group object:', JSON.stringify(group.toObject(), null, 2));
+
         // Emit WebSocket event for group creation
         const io = req.app.get('io');
         io.emit('group-created', {
