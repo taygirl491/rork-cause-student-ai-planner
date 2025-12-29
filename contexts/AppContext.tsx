@@ -595,7 +595,10 @@ export const [AppProvider, useApp] = createContextHook(() => {
 					description: data.group.description,
 					code: data.group.code,
 					creatorId: data.group.creatorId,
+					isPrivate: data.group.isPrivate,
+					admins: data.group.admins || [],
 					members: data.group.members,
+					pendingMembers: data.group.pendingMembers || [],
 					messages: data.group.messages || [],
 					createdAt: data.group.createdAt,
 				};
@@ -1062,3 +1065,4 @@ export const [AppProvider, useApp] = createContextHook(() => {
 		videoConfig,
 	};
 });
+
