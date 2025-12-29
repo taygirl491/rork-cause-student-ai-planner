@@ -1,32 +1,57 @@
 const mongoose = require('mongoose');
 
 const studyGroupSchema = new mongoose.Schema({
-    _id: {
-        type: String,
-        required: true,
-    },
     name: {
         type: String,
         required: true,
         trim: true,
     },
+    className: {
+        type: String,
+        required: true,
+    },
+    school: {
+        type: String,
+        required: true,
+    },
     description: {
         type: String,
         default: '',
     },
-    createdBy: {
+    code: {
+        type: String,
+        required: true,
+        unique: true,
+        index: true,
+    },
+    creatorId: {
         type: String, // Firebase UID
         required: true,
         index: true,
+    },
+    isPrivate: {
+        type: Boolean,
+        default: false,
     },
     admins: [{
         type: String, // Array of Firebase UIDs (max 4)
     }],
     members: [{
-        type: String, // Array of Firebase UIDs (approved members)
+        email: {
+            type: String,
+            required: true,
+        },
+        name: String,
+        joinedAt: {
+            type: Date,
+            default: Date.now,
+        },
     }],
     pendingMembers: [{
-        email: String,
+        email: {
+            type: String,
+            required: true,
+        },
         name: String,
         userId: String, // Firebase UID
         requestedAt: {
@@ -34,27 +59,17 @@ const studyGroupSchema = new mongoose.Schema({
             default: Date.now,
         },
     }],
-    inviteCode: {
-        type: String,
-        required: true,
-        unique: true,
-        index: true,
-    },
-    isPrivate: {
-        type: Boolean,
-        default: false, // Public by default
-    },
     createdAt: {
         type: Date,
         default: Date.now,
     },
 }, {
     timestamps: false,
-    _id: false,
 });
 
-
 // Indexes
-studyGroupSchema.index({ members: 1 });
+studyGroupSchema.index({ creatorId: 1 });
+studyGroupSchema.index({ 'members.email': 1 });
+studyGroupSchema.index({ code: 1 });
 
 module.exports = mongoose.model('StudyGroup', studyGroupSchema);
