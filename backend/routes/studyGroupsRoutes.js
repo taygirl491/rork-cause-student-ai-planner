@@ -86,6 +86,10 @@ router.post('/', async (req, res) => {
         // Generate unique code
         const code = Math.random().toString(36).substring(2, 10).toUpperCase();
 
+        console.log('[DEBUG] About to create group with creatorId:', creatorId);
+        console.log('[DEBUG] Schema has admins field:', 'admins' in StudyGroup.schema.paths);
+        console.log('[DEBUG] Schema paths:', Object.keys(StudyGroup.schema.paths));
+
         const group = await StudyGroup.create({
             name,
             className,
