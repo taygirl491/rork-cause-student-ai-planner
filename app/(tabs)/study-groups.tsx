@@ -79,6 +79,25 @@ export default function StudyGroupsScreen() {
 	const [groupDescription, setGroupDescription] = useState("");
 	const [isPrivate, setIsPrivate] = useState(false);
 
+	// DEBUG: Log study groups data
+	React.useEffect(() => {
+		console.log('=== STUDY GROUPS DEBUG ===');
+		console.log('Total groups:', studyGroups.length);
+		console.log('User UID:', user?.uid);
+		studyGroups.forEach((group, index) => {
+			console.log(`Group ${index + 1}:`, {
+				name: group.name,
+				id: group.id,
+				creatorId: group.creatorId,
+				admins: group.admins,
+				hasAdmins: !!group.admins,
+				adminsIsArray: Array.isArray(group.admins),
+				adminsLength: group.admins?.length,
+				isUserAdmin: group.admins?.includes(user?.uid || ''),
+			});
+		});
+	}, [studyGroups, user?.uid]);
+
 	const [joinCode, setJoinCode] = useState("");
 
 	const scaleAnim = React.useRef(new Animated.Value(0)).current;
