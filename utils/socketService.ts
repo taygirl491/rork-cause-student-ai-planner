@@ -26,8 +26,10 @@ class SocketService {
             query: { userId },
             transports: ['websocket', 'polling'],
             reconnection: true,
-            reconnectionDelay: 1000,
-            reconnectionAttempts: 5,
+            reconnectionDelay: 2000,
+            reconnectionDelayMax: 10000,
+            reconnectionAttempts: 10,
+            timeout: 60000, // Increased from default 20s to handle cold starts
         });
 
         this.socket.on('connect', () => {

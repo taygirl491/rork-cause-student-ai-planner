@@ -102,6 +102,7 @@ router.post('/', async (req, res) => {
             members: [{
                 email: creatorEmail,
                 name: creatorName || '',
+                userId: creatorId,
                 joinedAt: new Date(),
             }],
             pendingMembers: [], // Initialize empty pending members array
@@ -384,6 +385,7 @@ router.post('/:groupId/approve-member', async (req, res) => {
         group.members.push({
             email: pendingMember.email,
             name: pendingMember.name,
+            userId: pendingMember.userId,
             joinedAt: new Date(),
         });
 
