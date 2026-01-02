@@ -10,7 +10,7 @@ const API_KEY = process.env.EXPO_PUBLIC_API_KEY || "";
 const fetchWithTimeout = async (
 	url: string,
 	options: RequestInit,
-	timeout = 30000
+	timeout = 60000 // Increased to 60s for cold starts
 ) => {
 	const controller = new AbortController();
 	const timeoutId = setTimeout(() => {
@@ -34,6 +34,38 @@ const fetchWithTimeout = async (
 	}
 };
 
+// Retry wrapper with exponential backoff
+const fetchWithRetry = async (
+	url: string,
+	options: RequestInit,
+	timeout = 60000,
+	maxRetries = 2
+) => {
+	let lastError;
+	
+	for (let attempt = 0; attempt <= maxRetries; attempt++) {
+		try {
+			if (attempt > 0) {
+				const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000);
+				console.log(`[API] Retry attempt ${attempt} after ${delay}ms`);
+				await new Promise(resolve => setTimeout(resolve, delay));
+			}
+			
+			return await fetchWithTimeout(url, options, timeout);
+		} catch (error: any) {
+			lastError = error;
+			console.error(`[API] Attempt ${attempt + 1} failed:`, error.message);
+			
+			// Don't retry on certain errors
+			if (error.message?.includes('404') || error.message?.includes('401')) {
+				throw error;
+			}
+		}
+	}
+	
+	throw lastError;
+};
+
 /**
  * API service for backend communication
  */
@@ -44,7 +76,7 @@ class ApiService {
 	async notifyGroupJoin(groupId: string, newMemberEmails: string[]) {
 		try {
 			console.log(`[API] Calling ${API_BASE_URL}/api/notify/group-join`);
-			const response = await fetchWithTimeout(
+			const response = await fetchWithRetry(
 				`${API_BASE_URL}/api/notify/group-join`,
 				{
 					method: "POST",
@@ -57,7 +89,7 @@ class ApiService {
 						newMemberEmails,
 					}),
 				},
-				30000
+				60000
 			);
 
 			console.log("[API] Join response status:", response.status);
@@ -195,7 +227,7 @@ class ApiService {
 	async post(endpoint: string, data: any) {
 		try {
 			console.log(`[API] POST ${API_BASE_URL}${endpoint}`);
-			const response = await fetchWithTimeout(
+			const response = await fetchWithRetry(
 				`${API_BASE_URL}${endpoint}`,
 				{
 					method: "POST",
@@ -205,7 +237,7 @@ class ApiService {
 					},
 					body: JSON.stringify(data),
 				},
-				30000
+				60000
 			);
 
 			if (!response.ok) {
@@ -263,7 +295,7 @@ class ApiService {
 	async get(endpoint: string) {
 		try {
 			console.log(`[API] GET ${API_BASE_URL}${endpoint}`);
-			const response = await fetchWithTimeout(
+			const response = await fetchWithRetry(
 				`${API_BASE_URL}${endpoint}`,
 				{
 					method: "GET",
@@ -272,7 +304,7 @@ class ApiService {
 						"x-api-key": API_KEY,
 					},
 				},
-				30000
+				60000
 			);
 
 			if (!response.ok) {

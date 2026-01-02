@@ -14,6 +14,7 @@ import {
     Share,
     Modal,
     ScrollView,
+    Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
@@ -44,6 +45,9 @@ export default function GroupDetailScreen() {
         { name: string; uri: string; type: string }[]
     >([]);
     const [showMembersModal, setShowMembersModal] = useState(false);
+    const [showImageViewer, setShowImageViewer] = useState(false);
+    const [selectedImage, setSelectedImage] = useState<string | null>(null);
+    const [isSending, setIsSending] = useState(false);
     const scrollViewRef = useRef<ScrollView>(null);
 
     // Find the group from the real-time studyGroups data
@@ -62,17 +66,25 @@ export default function GroupDetailScreen() {
     }, [group?.messages]);
 
     const handleSendMessage = async () => {
-        if (!group || !messageText.trim() || !user?.email) return;
+        if (!group || !messageText.trim() || !user?.email || isSending) return;
 
-        await sendGroupMessage(
-            group.id,
-            user.email,
-            messageText.trim(),
-            attachments.length > 0 ? attachments : undefined
-        );
-        setMessageText("");
-        setAttachments([]);
-        Keyboard.dismiss();
+        try {
+            setIsSending(true);
+            await sendGroupMessage(
+                group.id,
+                user.email,
+                messageText.trim(),
+                attachments.length > 0 ? attachments : undefined
+            );
+            setMessageText("");
+            setAttachments([]);
+            Keyboard.dismiss();
+        } catch (error) {
+            console.error("Error sending message:", error);
+            Alert.alert("Error", "Failed to send message. Please try again.");
+        } finally {
+            setIsSending(false);
+        }
     };
 
     const pickDocument = async () => {
@@ -100,8 +112,27 @@ export default function GroupDetailScreen() {
     const removeAttachment = (index: number) => {
         setAttachments((prev) => prev.filter((_, i) => i !== index));
     };
-    const openAttachment = async (uri: string) => {
+
+    const isImageFile = (uri: string, type?: string) => {
+        // Check by MIME type first
+        if (type && type.startsWith('image/')) {
+            return true;
+        }
+        // Check by file extension as fallback
+        const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'];
+        return imageExtensions.some(ext => uri.toLowerCase().endsWith(ext));
+    };
+
+    const openAttachment = async (uri: string, type?: string) => {
         try {
+            // If it's an image, show in-app viewer
+            if (isImageFile(uri, type)) {
+                setSelectedImage(uri);
+                setShowImageViewer(true);
+                return;
+            }
+
+            // For non-images, open externally
             const supported = await Linking.canOpenURL(uri);
             if (supported) {
                 await Linking.openURL(uri);
@@ -169,12 +200,15 @@ export default function GroupDetailScreen() {
                     <Users size={18} color={colors.textSecondary} />
                     <Text style={styles.memberCountText}>{group.members.length}</Text>
                 </TouchableOpacity>
-                <TouchableOpacity
-                    onPress={() => shareGroupCode(group.code)}
-                    style={styles.shareButton}
-                >
-                    <Share2 size={20} color={colors.primary} />
-                </TouchableOpacity>
+                {/* Only show share button if group is public OR user is an admin */}
+                {(!group.isPrivate || group.admins?.includes(user?.uid || '')) && group.code && (
+                    <TouchableOpacity
+                        onPress={() => shareGroupCode(group.code!)}
+                        style={styles.shareButton}
+                    >
+                        <Share2 size={20} color={colors.primary} />
+                    </TouchableOpacity>
+                )}
             </View>
 
             <KeyboardAvoidingView
@@ -209,7 +243,7 @@ export default function GroupDetailScreen() {
                                                         <TouchableOpacity
                                                             key={`${msg.id}-${attachment.name}-${idx}`}
                                                             style={styles.attachmentChip}
-                                                            onPress={() => openAttachment(attachment.uri)}
+                                                            onPress={() => openAttachment(attachment.uri, attachment.type)}
                                                         >
                                                             <FileText size={14} color={colors.primary} />
                                                             <Text
@@ -275,10 +309,10 @@ export default function GroupDetailScreen() {
                             <TouchableOpacity
                                 style={[
                                     styles.sendButton,
-                                    !messageText.trim() && styles.sendButtonDisabled,
+                                    (!messageText.trim() || isSending) && styles.sendButtonDisabled,
                                 ]}
                                 onPress={handleSendMessage}
-                                disabled={!messageText.trim()}
+                                disabled={!messageText.trim() || isSending}
                             >
                                 <Send size={20} color={colors.surface} />
                             </TouchableOpacity>
@@ -286,6 +320,30 @@ export default function GroupDetailScreen() {
                     </View>
                 </View>
             </KeyboardAvoidingView>
+
+            {/* Image Viewer Modal */}
+            <Modal
+                visible={showImageViewer}
+                transparent
+                animationType="fade"
+                onRequestClose={() => setShowImageViewer(false)}
+            >
+                <View style={styles.imageViewerOverlay}>
+                    <TouchableOpacity
+                        style={styles.imageViewerClose}
+                        onPress={() => setShowImageViewer(false)}
+                    >
+                        <X size={30} color={colors.surface} />
+                    </TouchableOpacity>
+                    {selectedImage && (
+                        <Image
+                            source={{ uri: selectedImage }}
+                            style={styles.imageViewerImage}
+                            resizeMode="contain"
+                        />
+                    )}
+                </View>
+            </Modal>
 
             {/* Members Modal */}
             <Modal
@@ -319,7 +377,15 @@ export default function GroupDetailScreen() {
                                             <User size={20} color={colors.surface} />
                                         </View>
                                         <View style={styles.memberInfo}>
-                                            <Text style={styles.memberName}>{member.name || member.email.split('@')[0]}</Text>
+                                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                                <Text style={styles.memberName}>{member.name || member.email.split('@')[0]}</Text>
+                                                {/* Show admin badge if member is an admin */}
+                                                {group.admins?.includes(member.userId) && (
+                                                    <View style={styles.adminBadgeSmall}>
+                                                        <Text style={styles.adminBadgeSmallText}>ADMIN</Text>
+                                                    </View>
+                                                )}
+                                            </View>
                                             <Text style={styles.memberEmail}>{member.email}</Text>
                                         </View>
                                     </View>
@@ -622,5 +688,36 @@ const styles = StyleSheet.create({
         fontWeight: '600' as const,
         color: colors.text,
         marginBottom: 2,
+    },
+    adminBadgeSmall: {
+        backgroundColor: colors.primary,
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+        borderRadius: 4,
+    },
+    adminBadgeSmallText: {
+        fontSize: 10,
+        fontWeight: '700' as const,
+        color: colors.surface,
+        letterSpacing: 0.5,
+    },
+    imageViewerOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.95)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    imageViewerClose: {
+        position: 'absolute',
+        top: 50,
+        right: 20,
+        zIndex: 10,
+        padding: 10,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        borderRadius: 20,
+    },
+    imageViewerImage: {
+        width: '100%',
+        height: '100%',
     },
 });

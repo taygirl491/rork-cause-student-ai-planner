@@ -41,6 +41,9 @@ const studyGroupSchema = new mongoose.Schema({
             type: String,
             default: '',
         },
+        userId: {
+            type: String, // Firebase UID
+        },
         joinedAt: {
             type: Date,
             default: Date.now,

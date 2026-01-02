@@ -82,7 +82,12 @@ export const [AppProvider, useApp] = createContextHook(() => {
 		}
 	};
 
-	// Auto-fetch removed for Tasks - see task.md
+	// Auto-load tasks when user logs in
+	useEffect(() => {
+		if (user?.uid) {
+			refreshTasks();
+		}
+	}, [user?.uid]);
 
 
 	// Manual refresh function for classes
@@ -102,7 +107,12 @@ export const [AppProvider, useApp] = createContextHook(() => {
 		}
 	};
 
-	// Auto-fetch removed for Classes
+	// Auto-load classes when user logs in
+	useEffect(() => {
+		if (user?.uid) {
+			refreshClasses();
+		}
+	}, [user?.uid]);
 
 
 
@@ -123,7 +133,12 @@ export const [AppProvider, useApp] = createContextHook(() => {
 		}
 	};
 
-	// Auto-fetch removed for Goals
+	// Auto-load goals when user logs in
+	useEffect(() => {
+		if (user?.uid) {
+			refreshGoals();
+		}
+	}, [user?.uid]);
 
 
 	// Manual refresh function for notes
@@ -137,7 +152,12 @@ export const [AppProvider, useApp] = createContextHook(() => {
 		}
 	};
 
-	// Auto-fetch removed for Notes
+	// Auto-load notes when user logs in
+	useEffect(() => {
+		if (user?.uid) {
+			refreshNotes();
+		}
+	}, [user?.uid]);
 
 
 	// Video Configuration Listener

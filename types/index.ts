@@ -88,7 +88,7 @@ export interface StudyGroup {
   creatorId: string;
   isPrivate?: boolean;
   admins: string[]; // Array of user IDs with admin privileges (max 4)
-  members: { email: string; name?: string; joinedAt: string }[];
+  members: { email: string; name?: string; userId: string; joinedAt: string }[];
   pendingMembers: PendingMember[]; // Users awaiting approval
   messages: StudyGroupMessage[];
   createdAt: string;
