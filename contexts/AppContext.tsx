@@ -607,6 +607,15 @@ export const [AppProvider, useApp] = createContextHook(() => {
 		const handleGroupCreated = (data: any) => {
 			console.log('Group created event:', data);
 			if (data.group) {
+				// Only add group if current user is a member or creator
+				const isCreator = data.group.creatorId === user.uid;
+				const isMember = data.group.members?.some((m: any) => m.email === user.email);
+
+				if (!isCreator && !isMember) {
+					console.log('User is not a member of this group, not adding to list');
+					return;
+				}
+
 				const newGroup = {
 					id: data.group.id || data.group._id,
 					name: data.group.name,
@@ -776,13 +785,18 @@ export const [AppProvider, useApp] = createContextHook(() => {
 		socketService.on('group-deleted', handleGroupDeleted);
 
 		// Join all group rooms after groups are loaded
-		const joinGroupRooms = async () => {
-			const groups = await studyGroupsAPI.getStudyGroups(user.uid, user.email);
-			groups.forEach(group => {
+		const joinGroupRooms = () => {
+			// Use the groups from state (already loaded by refreshStudyGroups)
+			studyGroups.forEach(group => {
+				console.log(`Joining group room: ${group.id}`);
 				socketService.joinGroup(group.id);
 			});
 		};
-		joinGroupRooms();
+
+		// Wait a bit for groups to load, then join rooms
+		setTimeout(() => {
+			joinGroupRooms();
+		}, 1000);
 
 		return () => {
 			// Clean up all event listeners

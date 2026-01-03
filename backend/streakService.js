@@ -24,10 +24,20 @@ function getToday() {
  */
 async function updateStreak(userId) {
     try {
-        const user = await User.findById(userId);
+        let user = await User.findById(userId);
 
+        // If user doesn't exist, create them
         if (!user) {
-            throw new Error("User not found");
+            user = await User.create({
+                _id: userId,
+                streak: {
+                    current: 0,
+                    longest: 0,
+                    lastCompletionDate: null,
+                    totalTasksCompleted: 0,
+                    streakFreezes: 0,
+                }
+            });
         }
 
         const today = getToday();
@@ -97,10 +107,20 @@ async function updateStreak(userId) {
 
 async function getStreakData(userId) {
     try {
-        const user = await User.findById(userId);
+        let user = await User.findById(userId);
 
+        // If user doesn't exist, create them with default streak data
         if (!user) {
-            throw new Error("User not found");
+            user = await User.create({
+                _id: userId,
+                streak: {
+                    current: 0,
+                    longest: 0,
+                    lastCompletionDate: null,
+                    totalTasksCompleted: 0,
+                    streakFreezes: 0,
+                }
+            });
         }
 
         let streakData = user.streak || {

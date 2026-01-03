@@ -1,370 +1,175 @@
-const nodemailer = require("nodemailer");
-
-// Validate required environment variables
-const requiredEnvVars = ['SMTP_HOST', 'SMTP_USER', 'SMTP_PASS', 'FROM_EMAIL', 'FROM_NAME'];
-const missing = requiredEnvVars.filter(v => !process.env[v]);
-if (missing.length > 0) {
-  console.error(`❌ Missing required environment variables: ${missing.join(', ')}`);
-  console.error('⚠️  Email service will not function properly!');
-}
-
-// Warn about spaces in SMTP_PASS (common Gmail App Password issue)
-if (process.env.SMTP_PASS && process.env.SMTP_PASS.includes(' ')) {
-  console.warn('⚠️  WARNING: SMTP_PASS contains spaces!');
-  console.warn('   Gmail App Passwords should be 16 characters without spaces.');
-  console.warn('   Current password has spaces and may cause connection issues.');
-  console.warn('   Please remove spaces from SMTP_PASS in your .env file.');
-}
-
-// Create reusable transporter with low-overhead connection pooling
-const transporter = nodemailer.createTransport({
-  pool: true, // Enable connection pooling
-  maxConnections: 5, // Limit concurrent connections to avoid rate limiting
-  maxMessages: 100, // Limit messages per connection
-  host: process.env.SMTP_HOST,
-  port: parseInt(process.env.SMTP_PORT || '2525'), // Default to 2525 if not set, avoiding 587/465 blocks
-  secure: process.env.SMTP_SECURE === 'true', // Should be false for 587/2525
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-  // Add timeouts to fail fast and allow retries rather than hanging
-  connectionTimeout: 10000, // 10 seconds
-  greetingTimeout: 5000,    // 5 seconds
-  socketTimeout: 30000,     // 30 seconds
-  family: 4, // Force IPv4, solves frequent ETIMEDOUT issues with SendGrid on Node 18+
-});
-
-// Verify connection configuration
-transporter.verify(function (error, success) {
-  if (error) {
-    console.error("SMTP connection error:", error);
-  } else {
-    console.log("SMTP server is ready to send emails (Pooling Enabled)");
-  }
-});
+const nodemailer = require('nodemailer');
 
 /**
- * Helper to send email with retry logic
+ * Create a transporter using Gmail
  */
-async function sendMailWithRetry(mailOptions, retries = 3) {
-  for (let attempt = 1; attempt <= retries; attempt++) {
-    try {
-      return await transporter.sendMail(mailOptions);
-    } catch (error) {
-      console.warn(`[Email] Attempt ${attempt} failed: ${error.message}`);
-
-      if (attempt === retries) {
-        throw error;
-      }
-
-      // Wait 1 second before retrying
-      await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+const createTransporter = () => {
+  return nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: process.env.GMAIL_USER,
+      pass: process.env.GMAIL_APP_PASSWORD
     }
-  }
-}
+  });
+};
 
 /**
- * Send email notification when a user joins a study group
+ * Send a welcome email to a new user
+ * @param {string} to - Recipient email address
+ * @param {string} name - Recipient name
  */
-async function sendJoinNotification(groupData, newMembers, existingMembers) {
+async function sendWelcomeEmail(to, name) {
   try {
-    const newMemberEmails = newMembers.map((m) => m.email).join(", ");
+    const transporter = createTransporter();
 
-    const emailPromises = existingMembers.map((member) => {
-      const mailOptions = {
-        from: `"${process.env.FROM_NAME}" <${process.env.FROM_EMAIL}>`,
-        to: member.email,
-        subject: `New member joined ${groupData.name}`,
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 10px 10px 0 0;">
-              <h1 style="color: white; margin: 0; font-size: 24px;">New Member Alert! 🎉</h1>
-            </div>
-            
-            <div style="background-color: #ffffff; padding: 30px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 10px 10px;">
-              <p style="font-size: 16px; color: #374151; line-height: 1.6;">
-                Great news! Someone new has joined your study group <strong>${groupData.name
-          }</strong>.
-              </p>
-              
-              <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #667eea;">
-                <p style="margin: 0 0 10px 0; color: #1f2937;"><strong>👤 New member(s):</strong> ${newMemberEmails}</p>
-                <p style="margin: 0 0 10px 0; color: #1f2937;"><strong>📚 Group:</strong> ${groupData.name
-          }</p>
-                <p style="margin: 0 0 10px 0; color: #1f2937;"><strong>📖 Class:</strong> ${groupData.className || "N/A"
-          }</p>
-                <p style="margin: 0; color: #1f2937;"><strong>🏫 School:</strong> ${groupData.school || "N/A"
-          }</p>
-              </div>
-              
-              <p style="font-size: 16px; color: #374151; margin-top: 20px;">
-                Open your <strong>CauseAI</strong> app to welcome them and start collaborating!
-              </p>
-              
-              <div style="text-align: center; margin: 30px 0;">
-                <a href="${process.env.APP_URL
-          }" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold;">
-                  Open CauseAI
-                </a>
-              </div>
-            </div>
-            
-            <div style="text-align: center; margin-top: 20px; padding: 20px;">
-              <p style="font-size: 12px; color: #6b7280; margin: 0;">
-                You're receiving this because you're a member of this study group.
-              </p>
-              <p style="font-size: 12px; color: #6b7280; margin: 5px 0 0 0;">
-                CauseAI - Empowering Students to Learn Together
-              </p>
-            </div>
-          </div>
-        `,
-        text: `New member joined ${groupData.name}: ${newMemberEmails}. Group: ${groupData.name
-          }, Class: ${groupData.className || "N/A"}, School: ${groupData.school || "N/A"
-          }. Open your CauseAI app to see details.`,
-      };
-
-      return sendMailWithRetry(mailOptions);
-    });
-
-    await Promise.all(emailPromises);
-    console.log(
-      `✓ Sent ${emailPromises.length} join notifications for group ${groupData.name}`
-    );
-    return { success: true, emailsSent: emailPromises.length };
-  } catch (error) {
-    console.error("Error sending join notification:", error);
-    // Don't throw error to avoid crashing the whole request if email fails, just log it
-    // throw error; 
-    return { success: false, error: error.message };
-  }
-}
-
-
-/**
- * Send welcome email to new users on signup
- */
-async function sendWelcomeEmail(email, name) {
-  try {
     const mailOptions = {
-      from: `"${process.env.FROM_NAME}" <${process.env.FROM_EMAIL}>`,
-      to: email,
-      subject: "Welcome to CauseAI Student Planner! 🎉",
+      from: `"CauseAI Student Planner" <${process.env.GMAIL_USER}>`,
+      to: to,
+      subject: 'Welcome to CauseAI Student Planner! 🎓',
       html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px; border-radius: 10px 10px 0 0; text-align: center;">
-            <h1 style="color: white; margin: 0; font-size: 32px;">Welcome to CauseAI! 🎓</h1>
-          </div>
-          
-          <div style="background-color: #ffffff; padding: 40px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 10px 10px;">
-            <p style="font-size: 18px; color: #374151; margin-bottom: 20px;">
-              Hi <strong>${name}</strong>,
-            </p>
-            
-            <p style="font-size: 16px; color: #374151; line-height: 1.6;">
-              Welcome to <strong>CauseAI Student Planner</strong>! We're thrilled to have you join our community of students who are taking control of their academic journey.
-            </p>
-            
-            <div style="background-color: #f9fafb; padding: 25px; border-radius: 8px; margin: 30px 0;">
-              <h2 style="color: #1f2937; font-size: 20px; margin-top: 0;">🚀 Get Started with These Features:</h2>
-              
-              <div style="margin: 15px 0;">
-                <p style="margin: 8px 0; color: #374151;">
-                  <strong style="color: #667eea;">📝 Smart Task Management</strong><br/>
-                  <span style="font-size: 14px; color: #6b7280;">Organize assignments, exams, and projects with intelligent reminders</span>
-                </p>
-              </div>
-              
-              <div style="margin: 15px 0;">
-                <p style="margin: 8px 0; color: #374151;">
-                  <strong style="color: #667eea;">📚 Study Groups</strong><br/>
-                  <span style="font-size: 14px; color: #6b7280;">Collaborate with classmates and share resources</span>
-                </p>
-              </div>
-              
-              <div style="margin: 15px 0;">
-                <p style="margin: 8px 0; color: #374151;">
-                  <strong style="color: #667eea;">🎯 Goal Tracking</strong><br/>
-                  <span style="font-size: 14px; color: #6b7280;">Set and achieve your academic goals with habit tracking</span>
-                </p>
-              </div>
-              
-              <div style="margin: 15px 0;">
-                <p style="margin: 8px 0; color: #374151;">
-                  <strong style="color: #667eea;">🤖 AI Study Buddy</strong><br/>
-                  <span style="font-size: 14px; color: #6b7280;">Get instant help with homework and study questions</span>
-                </p>
-              </div>
-              
-              <div style="margin: 15px 0;">
-                <p style="margin: 8px 0; color: #374151;">
-                  <strong style="color: #667eea;">📅 Class Scheduling</strong><br/>
-                  <span style="font-size: 14px; color: #6b7280;">Keep track of your classes and sync with your calendar</span>
-                </p>
-              </div>
-            </div>
-            
-            <p style="font-size: 16px; color: #374151; line-height: 1.6; margin-top: 30px;">
-              We're here to help you succeed. If you have any questions or need assistance, don't hesitate to reach out!
-            </p>
-            
-            <p style="font-size: 16px; color: #374151; margin-top: 30px;">
-              Happy studying! 📖<br/>
-              <strong>The CauseAI Team</strong>
-            </p>
-          </div>
-          
-          <div style="text-align: center; margin-top: 20px; padding: 20px;">
-            <p style="font-size: 12px; color: #6b7280; margin: 0;">
-              CauseAI - Empowering Students to Learn Together
-            </p>
-          </div>
-        </div>
-      `,
-      text: `Welcome to CauseAI Student Planner!\n\nHi ${name},\n\nWelcome to CauseAI Student Planner! We're thrilled to have you join our community.\n\nGet started with these features:\n- Smart Task Management: Organize assignments, exams, and projects\n- Study Groups: Collaborate with classmates\n- Goal Tracking: Set and achieve your academic goals\n- AI Study Buddy: Get instant help with homework\n- Class Scheduling: Keep track of your classes\n\nHappy studying!\nThe CauseAI Team`,
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                    <h1 style="color: #6366F1;">Welcome to CauseAI, ${name}! 🎉</h1>
+                    <p>We're excited to have you on board!</p>
+                    <p>CauseAI Student Planner helps you:</p>
+                    <ul>
+                        <li>📝 Manage your tasks and assignments</li>
+                        <li>📚 Organize your classes</li>
+                        <li>🎯 Track your goals</li>
+                        <li>📓 Keep notes organized</li>
+                        <li>👥 Collaborate in study groups</li>
+                    </ul>
+                    <p>Get started by creating your first task or joining a study group!</p>
+                    <p style="margin-top: 30px;">
+                        Best regards,<br>
+                        <strong>The CauseAI Team</strong>
+                    </p>
+                </div>
+            `
     };
 
-    await sendMailWithRetry(mailOptions);
-
-    console.log(`✓ Sent welcome email to ${email}`);
-    return { success: true };
+    const info = await transporter.sendMail(mailOptions);
+    console.log('Welcome email sent:', info.messageId);
+    return { success: true, messageId: info.messageId };
   } catch (error) {
-    console.error("Error sending welcome email:", error);
-    // Don't throw, return failure
-    return { success: false, error: error.message };
+    console.error('Error sending welcome email:', error);
+    throw error;
   }
 }
 
 /**
- * Send welcome email when user creates a group
+ * Send a password reset email
+ * @param {string} to - Recipient email address
+ * @param {string} resetLink - Password reset link
  */
-async function sendGroupCreatedNotification(creatorEmail, groupData) {
+async function sendPasswordResetEmail(to, resetLink) {
   try {
+    const transporter = createTransporter();
+
     const mailOptions = {
-      from: `"${process.env.FROM_NAME}" <${process.env.FROM_EMAIL}>`,
-      to: creatorEmail,
-      subject: `Study group "${groupData.name}" created successfully!`,
+      from: `"CauseAI Student Planner" <${process.env.GMAIL_USER}>`,
+      to: to,
+      subject: 'Reset Your Password - CauseAI',
       html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 10px 10px 0 0;">
-            <h1 style="color: white; margin: 0; font-size: 24px;">🎉 Group Created Successfully!</h1>
-          </div>
-          
-          <div style="background-color: #ffffff; padding: 30px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 10px 10px;">
-            <p style="font-size: 16px; color: #374151; line-height: 1.6;">
-              Congratulations! Your study group <strong>${groupData.name
-        }</strong> is now ready.
-            </p>
-            
-            <div style="background-color: #ecfdf5; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #10b981;">
-              <p style="margin: 0 0 10px 0; color: #1f2937;"><strong>📚 Group Name:</strong> ${groupData.name
-        }</p>
-              <p style="margin: 0 0 10px 0; color: #1f2937;"><strong>📖 Class:</strong> ${groupData.className || "N/A"
-        }</p>
-              <p style="margin: 0 0 15px 0; color: #1f2937;"><strong>🏫 School:</strong> ${groupData.school || "N/A"
-        }</p>
-              <div style="background-color: #ffffff; padding: 15px; border-radius: 6px;">
-                <p style="margin: 0 0 5px 0; color: #6b7280; font-size: 12px;">Share this code with your classmates:</p>
-                <p style="margin: 0; font-size: 32px; font-weight: bold; color: #10b981; letter-spacing: 2px; font-family: monospace;">${groupData.code
-        }</p>
-              </div>
-            </div>
-            
-            <p style="font-size: 16px; color: #374151; margin-top: 20px;">
-              Share the group code with your classmates so they can join and start collaborating!
-            </p>
-          </div>
-          
-          <div style="text-align: center; margin-top: 20px; padding: 20px;">
-            <p style="font-size: 12px; color: #6b7280; margin: 0;">
-              CauseAI - Empowering Students to Learn Together
-            </p>
-          </div>
-        </div>
-      `,
-      text: `Your study group "${groupData.name}" has been created! Group code: ${groupData.code}. Share this code with your classmates.`,
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                    <h1 style="color: #6366F1;">Reset Your Password</h1>
+                    <p>You requested to reset your password for your CauseAI account.</p>
+                    <p>Click the button below to reset your password:</p>
+                    <div style="text-align: center; margin: 30px 0;">
+                        <a href="${resetLink}" 
+                           style="background-color: #6366F1; color: white; padding: 12px 30px; 
+                                  text-decoration: none; border-radius: 5px; display: inline-block;">
+                            Reset Password
+                        </a>
+                    </div>
+                    <p style="color: #666; font-size: 14px;">
+                        If you didn't request this, you can safely ignore this email.
+                    </p>
+                    <p style="color: #666; font-size: 14px;">
+                        This link will expire in 1 hour.
+                    </p>
+                </div>
+            `
     };
 
-    await sendMailWithRetry(mailOptions);
-
-    console.log(`✓ Sent group creation confirmation to ${creatorEmail}`);
-    return { success: true };
+    const info = await transporter.sendMail(mailOptions);
+    console.log('Password reset email sent:', info.messageId);
+    return { success: true, messageId: info.messageId };
   } catch (error) {
-    console.error("Error sending group creation notification:", error);
-    // Don't throw, return failure
-    return { success: false, error: error.message };
+    console.error('Error sending password reset email:', error);
+    throw error;
   }
 }
 
+/**
+ * Send a broadcast email to multiple recipients
+ * @param {string[]} recipients - Array of recipient email addresses
+ * @param {string} subject - Email subject
+ * @param {string} message - Email message (HTML)
+ */
+async function sendBroadcastEmail(recipients, subject, message) {
+  try {
+    const transporter = createTransporter();
+
+    const mailOptions = {
+      from: `"CauseAI Student Planner" <${process.env.GMAIL_USER}>`,
+      bcc: recipients, // Use BCC to hide recipients from each other
+      subject: subject,
+      html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                    ${message}
+                    <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;">
+                    <p style="color: #666; font-size: 12px; text-align: center;">
+                        This email was sent from CauseAI Student Planner
+                    </p>
+                </div>
+            `
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    console.log('Broadcast email sent:', info.messageId);
+    return { success: true, messageId: info.messageId };
+  } catch (error) {
+    console.error('Error sending broadcast email:', error);
+    throw error;
+  }
+}
 
 /**
- * Send an announcement email to a list of recipients (using BCC for privacy)
+ * Send a test email
+ * @param {string} to - Recipient email address
  */
-async function sendAnnouncement(recipientEmails, subject, bodyContent) {
+async function sendTestEmail(to) {
   try {
-    // SendGrid SMTP limits: 100 recipients per email recommended for better deliverability
-    // We will batch them in groups of 90 to be safe
-    const BATCH_SIZE = 90;
-    const batches = [];
+    const transporter = createTransporter();
 
-    for (let i = 0; i < recipientEmails.length; i += BATCH_SIZE) {
-      batches.push(recipientEmails.slice(i, i + BATCH_SIZE));
-    }
+    const mailOptions = {
+      from: `"CauseAI Student Planner" <${process.env.GMAIL_USER}>`,
+      to: to,
+      subject: 'Test Email from CauseAI',
+      html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                    <h1 style="color: #6366F1;">Email Service Test ✅</h1>
+                    <p>This is a test email from CauseAI Student Planner.</p>
+                    <p>If you're seeing this, your email service is working correctly!</p>
+                    <p style="margin-top: 30px;">
+                        <strong>Sent at:</strong> ${new Date().toLocaleString()}
+                    </p>
+                </div>
+            `
+    };
 
-    console.log(`Sending announcement to ${recipientEmails.length} users in ${batches.length} batches.`);
-
-    let sentCount = 0;
-
-    for (const batch of batches) {
-      const mailOptions = {
-        from: `"${process.env.FROM_NAME}" <${process.env.FROM_EMAIL}>`,
-        to: process.env.FROM_EMAIL, // Send to self
-        bcc: batch, // Hidden recipients
-        subject: subject,
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 10px 10px 0 0;">
-              <h1 style="color: white; margin: 0; font-size: 24px;">📢 Announcement</h1>
-            </div>
-            
-            <div style="background-color: #ffffff; padding: 30px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 10px 10px;">
-              <h2 style="color: #1f2937; margin-top: 0;">${subject}</h2>
-              
-              <div style="font-size: 16px; color: #374151; line-height: 1.6; margin: 20px 0; white-space: pre-wrap;">${bodyContent}</div>
-              
-              <p style="font-size: 16px; color: #374151; margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px;">
-                Happy studying! 📖<br/>
-                <strong>The CauseAI Team</strong>
-              </p>
-            </div>
-            
-            <div style="text-align: center; margin-top: 20px; padding: 20px;">
-              <p style="font-size: 12px; color: #6b7280; margin: 0;">
-                You are receiving this announcement as a registered user of CauseAI.
-              </p>
-            </div>
-          </div>
-        `,
-        text: `${subject}\n\n${bodyContent}\n\nHappy studying!\nThe CauseAI Team`,
-      };
-
-      await sendMailWithRetry(mailOptions);
-      sentCount += batch.length;
-      console.log(`✓ Sent batch of ${batch.length} emails`);
-    }
-
-    return { success: true, count: sentCount };
+    const info = await transporter.sendMail(mailOptions);
+    console.log('Test email sent:', info.messageId);
+    return { success: true, messageId: info.messageId };
   } catch (error) {
-    console.error("Error sending announcement:", error);
-    return { success: false, error: error.message };
+    console.error('Error sending test email:', error);
+    throw error;
   }
 }
 
 module.exports = {
-  sendJoinNotification,
   sendWelcomeEmail,
-  sendGroupCreatedNotification,
-  sendAnnouncement,
-  transporter,
+  sendPasswordResetEmail,
+  sendBroadcastEmail,
+  sendTestEmail
 };
