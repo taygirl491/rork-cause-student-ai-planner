@@ -26,17 +26,30 @@ router.post('/create-payment-intent', async (req, res) => {
             });
         }
 
-        // Get or create Stripe customer
-        const user = await User.findById(userId);
+        // Get or create user in MongoDB
+        let user = await User.findById(userId);
+
         if (!user) {
-            return res.status(404).json({ error: 'User not found' });
+            console.log(`[Stripe] User ${userId} not found in MongoDB, creating...`);
+            // Create user with minimal data
+            user = await User.create({
+                _id: userId,
+                email: '',
+                streak: {
+                    current: 0,
+                    longest: 0,
+                    lastCompletionDate: null,
+                    totalTasksCompleted: 0,
+                    streakFreezes: 0,
+                },
+            });
         }
 
         let customerId = user.stripeCustomerId;
 
         if (!customerId) {
             const customer = await createOrGetCustomer(
-                user.email || '',
+                user.email || `${userId}@temp.com`,
                 userId,
                 user.name || null
             );
@@ -84,17 +97,30 @@ router.post('/create-subscription', async (req, res) => {
             });
         }
 
-        // Get or create Stripe customer
-        const user = await User.findById(userId);
+        // Get or create user in MongoDB
+        let user = await User.findById(userId);
+
         if (!user) {
-            return res.status(404).json({ error: 'User not found' });
+            console.log(`[Stripe] User ${userId} not found in MongoDB, creating...`);
+            // Create user with minimal data - email will be added when we create Stripe customer
+            user = await User.create({
+                _id: userId,
+                email: '', // Will be updated if we have it
+                streak: {
+                    current: 0,
+                    longest: 0,
+                    lastCompletionDate: null,
+                    totalTasksCompleted: 0,
+                    streakFreezes: 0,
+                },
+            });
         }
 
         let customerId = user.stripeCustomerId;
 
         if (!customerId) {
             const customer = await createOrGetCustomer(
-                user.email || '',
+                user.email || `${userId}@temp.com`, // Use temp email if not available
                 userId,
                 user.name || null
             );
