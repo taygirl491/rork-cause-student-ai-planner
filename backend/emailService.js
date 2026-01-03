@@ -1,7 +1,7 @@
 const nodemailer = require('nodemailer');
 
 /**
- * Create a transporter using Gmail
+ * Create a transporter using Gmail with optimized settings
  */
 const createTransporter = () => {
   return nodemailer.createTransport({
@@ -9,9 +9,22 @@ const createTransporter = () => {
     auth: {
       user: process.env.GMAIL_USER,
       pass: process.env.GMAIL_APP_PASSWORD
-    }
+    },
+    // Add timeouts and connection settings
+    pool: true, // Use connection pooling
+    maxConnections: 5,
+    maxMessages: 100,
+    connectionTimeout: 10000, // 10 seconds
+    greetingTimeout: 5000,
+    socketTimeout: 30000,
+    // Force IPv4 to avoid connection issues
+    family: 4,
+    // Enable debug logging
+    debug: process.env.NODE_ENV !== 'production',
+    logger: process.env.NODE_ENV !== 'production'
   });
 };
+
 
 /**
  * Send a welcome email to a new user
