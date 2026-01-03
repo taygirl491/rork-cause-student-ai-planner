@@ -41,12 +41,15 @@ import { TERMS_AND_CONDITIONS, PRIVACY_POLICY } from '@/constants/LegalText';
 import { useStripe } from '@stripe/stripe-react-native';
 
 const SUBSCRIPTION_PLANS = {
-  monthly: 'prod_Tebp7Br16NRut1',
-  yearly: 'prod_TebnBoSwztCMC8',
-  unlimited: 'prod_Tel4YORsn796VE',
+  standardMonthly: 'price_1ShIc8P0t2AuYFqK2waTumLy',
+  standardYearly: 'price_1Sl6k0P0t2AuYFqKrlQXkYUq',
+  premiumMonthly: 'price_1Sl6opP0t2AuYFqKRMdGp5kO',
+  premiumYearly: 'price_1Sl6piP0t2AuYFqKnKhrNQRg',
+  unlimitedMonthly: 'price_1Sl6rWP0t2AuYFqKshMpasoI',
+  unlimitedYearly: 'price_1Sl6sFP0t2AuYFqK2JYnhp6N',
 };
 
-type SubscriptionTier = 'free' | 'monthly' | 'yearly' | 'unlimited';
+type SubscriptionTier = 'free' | 'standard' | 'premium' | 'unlimited';
 
 export default function AccountScreen() {
   const [currentSubscription, setCurrentSubscription] = useState<SubscriptionTier>('free');
@@ -158,8 +161,15 @@ export default function AccountScreen() {
 
         if (activeSub) {
           setActiveSubscription(activeSub);
-          // Determine tier based on price (you'll need to match your actual price IDs)
-          setCurrentSubscription('monthly'); // Default to monthly for now
+          // Determine tier based on price ID
+          const priceId = activeSub.priceId;
+          if (priceId === SUBSCRIPTION_PLANS.standardMonthly || priceId === SUBSCRIPTION_PLANS.standardYearly) {
+            setCurrentSubscription('standard');
+          } else if (priceId === SUBSCRIPTION_PLANS.premiumMonthly || priceId === SUBSCRIPTION_PLANS.premiumYearly) {
+            setCurrentSubscription('premium');
+          } else if (priceId === SUBSCRIPTION_PLANS.unlimitedMonthly || priceId === SUBSCRIPTION_PLANS.unlimitedYearly) {
+            setCurrentSubscription('unlimited');
+          }
         }
       }
     } catch (error) {
@@ -208,41 +218,29 @@ export default function AccountScreen() {
     );
   };
 
-  const handleUpgrade = async (tier: SubscriptionTier) => {
-    if (tier === 'free' || !user?.uid) return;
+  const handleUpgrade = async (tier: 'standard' | 'premium' | 'unlimited', interval: 'monthly' | 'yearly') => {
+    if (!user?.uid) return;
 
     try {
       setLoadingSubscription(true);
       let clientSecret, customerId, response;
 
-      if (tier === 'unlimited') {
-        // Handle One-Time Payment
-        // 9999 cents = $99.99
-        response = await apiService.createPaymentIntent(user.uid, 9999);
+      // Build the plan key from tier and interval
+      const planKey = `${tier}${interval.charAt(0).toUpperCase() + interval.slice(1)}` as keyof typeof SUBSCRIPTION_PLANS;
+      const priceId = SUBSCRIPTION_PLANS[planKey];
 
-        if (!response.success) {
-          throw new Error(response.error || 'Failed to initialize payment');
-        }
-
-        clientSecret = response.clientSecret;
-        customerId = response.customerId;
-
-      } else {
-        // Handle Subscription
-        const priceId = SUBSCRIPTION_PLANS[tier];
-        if (!priceId) {
-          throw new Error('Invalid subscription plan selected');
-        }
-
-        response = await apiService.createSubscription(user.uid, priceId);
-
-        if (!response.success) {
-          throw new Error(response.error || 'Failed to initialize subscription');
-        }
-
-        clientSecret = response.clientSecret;
-        customerId = response.customerId; // Assuming createSubscription returns this now, or we get it from auth
+      if (!priceId) {
+        throw new Error('Invalid subscription plan selected');
       }
+
+      response = await apiService.createSubscription(user.uid, priceId);
+
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to initialize subscription');
+      }
+
+      clientSecret = response.clientSecret;
+      customerId = response.customerId;
 
       setLoadingSubscription(false);
 
@@ -253,7 +251,7 @@ export default function AccountScreen() {
       const { error } = await initPaymentSheet({
         paymentIntentClientSecret: clientSecret,
         merchantDisplayName: 'Cause Student AI Planner',
-        customerId: customerId, // Optional but good for saving payment methods
+        customerId: customerId,
         returnURL: 'cause-student-ai-planner://stripe-redirect',
       });
 
@@ -267,17 +265,10 @@ export default function AccountScreen() {
       if (paymentError) {
         Alert.alert('Error', paymentError.message);
       } else {
-        Alert.alert('Success', tier === 'unlimited' ? 'Lifetime access unlocked!' : 'Thank you for subscribing!');
-
-        if (tier === 'unlimited') {
-          // Provide immediate local feedback for unlimited since there's no subscription object to fetch immediately
-          setCurrentSubscription('unlimited');
-          setShowPaymentModal(false);
-          // You might want to call an API to mark user as permanent premium here if webhook doesn't handle it fast enough
-        } else {
-          fetchSubscription();
-          setShowPaymentModal(false);
-        }
+        Alert.alert('Success', 'Thank you for subscribing!');
+        setCurrentSubscription(tier);
+        fetchSubscription();
+        setShowPaymentModal(false);
       }
     } catch (error: any) {
       setLoadingSubscription(false);
@@ -435,12 +426,12 @@ export default function AccountScreen() {
 
   const getSubscriptionLabel = () => {
     switch (currentSubscription) {
-      case 'monthly':
-        return 'Premium Monthly - $4.99/mo';
-      case 'yearly':
-        return 'Premium Yearly - $19.99/yr';
+      case 'standard':
+        return 'Standard Plan';
+      case 'premium':
+        return 'Premium Plan';
       case 'unlimited':
-        return 'Unlimited Access - Lifetime';
+        return 'Unlimited Plan';
       default:
         return 'Free Plan';
     }
@@ -627,94 +618,131 @@ export default function AccountScreen() {
               </TouchableOpacity>
             </View>
 
-            <View style={styles.pricingCards}>
-              <TouchableOpacity
-                style={[
-                  styles.pricingCard,
-                  currentSubscription === 'monthly' && styles.pricingCardActive,
-                ]}
-                onPress={() => handleUpgrade('monthly')}
-              >
-                <View style={styles.pricingHeader}>
-                  <Text style={styles.pricingTitle}>Monthly</Text>
-                  {currentSubscription === 'monthly' && (
-                    <CheckCircle2 size={20} color={colors.secondary} fill={colors.secondary} />
-                  )}
-                </View>
-                <Text style={styles.pricingPrice}>$4.99</Text>
-                <Text style={styles.pricingPeriod}>per month</Text>
-                <View style={styles.pricingDivider} />
-                <View style={styles.pricingFeature}>
-                  <Heart size={16} color={colors.secondary} fill={colors.secondary} />
-                  <Text style={styles.pricingFeatureText}>$1 to education causes</Text>
-                </View>
-                <Text style={styles.pricingDescription}>
-                  All premium features with monthly flexibility
-                </Text>
-              </TouchableOpacity>
+            <ScrollView
+              style={styles.pricingCardsScroll}
+              showsVerticalScrollIndicator={false}
+            >
+              <View style={styles.pricingCards}>
+                {/* Standard Monthly */}
+                <TouchableOpacity
+                  style={[styles.pricingCard]}
+                  onPress={() => handleUpgrade('standard', 'monthly')}
+                >
+                  <View style={styles.pricingHeader}>
+                    <Text style={styles.pricingTitle}>Standard</Text>
+                    <Text style={styles.pricingBadge}>MONTHLY</Text>
+                  </View>
+                  <Text style={styles.pricingPrice}>$5</Text>
+                  <Text style={styles.pricingPeriod}>per month</Text>
+                  <View style={styles.pricingDivider} />
+                  <Text style={styles.pricingFeatureText}>• Tasks, Calendar, Classes</Text>
+                  <Text style={styles.pricingFeatureText}>• Study Groups & Causes</Text>
+                  <Text style={styles.pricingFeatureText}>• 150 AI inquiries/month</Text>
+                </TouchableOpacity>
 
-              <TouchableOpacity
-                style={[
-                  styles.pricingCard,
-                  styles.pricingCardRecommended,
-                  currentSubscription === 'yearly' && styles.pricingCardActive,
-                ]}
-                onPress={() => handleUpgrade('yearly')}
-              >
-                <View style={styles.recommendedBadge}>
-                  <Text style={styles.recommendedBadgeText}>BEST VALUE</Text>
-                </View>
-                <View style={styles.pricingHeader}>
-                  <Text style={styles.pricingTitle}>Yearly</Text>
-                  {currentSubscription === 'yearly' && (
-                    <CheckCircle2 size={20} color={colors.secondary} fill={colors.secondary} />
-                  )}
-                </View>
-                <Text style={styles.pricingPrice}>$19.99</Text>
-                <Text style={styles.pricingPeriod}>per year</Text>
-                <View style={styles.pricingDivider} />
-                <View style={styles.pricingFeature}>
-                  <Heart size={16} color={colors.secondary} fill={colors.secondary} />
-                  <Text style={styles.pricingFeatureText}>$4 to education causes</Text>
-                </View>
-                <Text style={styles.pricingDescription}>
-                  Save $40 per year and maximize your impact!
-                </Text>
-              </TouchableOpacity>
+                {/* Standard Yearly */}
+                <TouchableOpacity
+                  style={[styles.pricingCard, styles.pricingCardRecommended]}
+                  onPress={() => handleUpgrade('standard', 'yearly')}
+                >
+                  <View style={styles.recommendedBadge}>
+                    <Text style={styles.recommendedBadgeText}>SAVE $25/YEAR</Text>
+                  </View>
+                  <View style={styles.pricingHeader}>
+                    <Text style={styles.pricingTitle}>Standard</Text>
+                    <Text style={styles.pricingBadge}>YEARLY</Text>
+                  </View>
+                  <Text style={styles.pricingPrice}>$35</Text>
+                  <Text style={styles.pricingPeriod}>per year</Text>
+                  <View style={styles.pricingDivider} />
+                  <Text style={styles.pricingFeatureText}>• Tasks, Calendar, Classes</Text>
+                  <Text style={styles.pricingFeatureText}>• Study Groups & Causes</Text>
+                  <Text style={styles.pricingFeatureText}>• 150 AI inquiries/month</Text>
+                </TouchableOpacity>
 
-              <TouchableOpacity
-                style={[
-                  styles.pricingCard,
-                  currentSubscription === 'unlimited' && styles.pricingCardActive,
-                ]}
-                onPress={() => handleUpgrade('unlimited')}
-              >
-                <View style={styles.pricingHeader}>
-                  <Text style={styles.pricingTitle}>Unlimited</Text>
-                  {currentSubscription === 'unlimited' && (
-                    <CheckCircle2 size={20} color={colors.secondary} fill={colors.secondary} />
-                  )}
-                </View>
-                <Text style={styles.pricingPrice}>$99.99</Text>
-                <Text style={styles.pricingPeriod}>one time</Text>
-                <View style={styles.pricingDivider} />
-                <View style={styles.pricingFeature}>
-                  <Heart size={16} color={colors.secondary} fill={colors.secondary} />
-                  <Text style={styles.pricingFeatureText}>$20 to education causes</Text>
-                </View>
-                <Text style={styles.pricingDescription}>
-                  Lifetime access to all features forever!
-                </Text>
-              </TouchableOpacity>
-            </View>
+                {/* Premium Monthly */}
+                <TouchableOpacity
+                  style={[styles.pricingCard]}
+                  onPress={() => handleUpgrade('premium', 'monthly')}
+                >
+                  <View style={styles.pricingHeader}>
+                    <Text style={styles.pricingTitle}>Premium</Text>
+                    <Text style={styles.pricingBadge}>MONTHLY</Text>
+                  </View>
+                  <Text style={styles.pricingPrice}>$10</Text>
+                  <Text style={styles.pricingPeriod}>per month</Text>
+                  <View style={styles.pricingDivider} />
+                  <Text style={styles.pricingFeatureText}>• Everything in Standard</Text>
+                  <Text style={styles.pricingFeatureText}>• Sync Syllabus with Calendar</Text>
+                  <Text style={styles.pricingFeatureText}>• 400 AI inquiries/month</Text>
+                </TouchableOpacity>
 
-            <View style={styles.causeInfo}>
-              <Heart size={20} color={colors.secondary} fill={colors.secondary} />
-              <Text style={styles.causeInfoText}>
-                Your subscription supports school supplies, scholarships, Teach for America, and
-                more!
-              </Text>
-            </View>
+                {/* Premium Yearly */}
+                <TouchableOpacity
+                  style={[styles.pricingCard, styles.pricingCardRecommended]}
+                  onPress={() => handleUpgrade('premium', 'yearly')}
+                >
+                  <View style={styles.recommendedBadge}>
+                    <Text style={styles.recommendedBadgeText}>SAVE $50/YEAR</Text>
+                  </View>
+                  <View style={styles.pricingHeader}>
+                    <Text style={styles.pricingTitle}>Premium</Text>
+                    <Text style={styles.pricingBadge}>YEARLY</Text>
+                  </View>
+                  <Text style={styles.pricingPrice}>$70</Text>
+                  <Text style={styles.pricingPeriod}>per year</Text>
+                  <View style={styles.pricingDivider} />
+                  <Text style={styles.pricingFeatureText}>• Everything in Standard</Text>
+                  <Text style={styles.pricingFeatureText}>• Sync Syllabus with Calendar</Text>
+                  <Text style={styles.pricingFeatureText}>• 400 AI inquiries/month</Text>
+                </TouchableOpacity>
+
+                {/* Unlimited Monthly */}
+                <TouchableOpacity
+                  style={[styles.pricingCard]}
+                  onPress={() => handleUpgrade('unlimited', 'monthly')}
+                >
+                  <View style={styles.pricingHeader}>
+                    <Text style={styles.pricingTitle}>Unlimited</Text>
+                    <Text style={styles.pricingBadge}>MONTHLY</Text>
+                  </View>
+                  <Text style={styles.pricingPrice}>$20</Text>
+                  <Text style={styles.pricingPeriod}>per month</Text>
+                  <View style={styles.pricingDivider} />
+                  <Text style={styles.pricingFeatureText}>• Everything in Premium</Text>
+                  <Text style={styles.pricingFeatureText}>• Unlimited AI inquiries</Text>
+                  <Text style={styles.pricingFeatureText}>• Priority support</Text>
+                </TouchableOpacity>
+
+                {/* Unlimited Yearly */}
+                <TouchableOpacity
+                  style={[styles.pricingCard, styles.pricingCardRecommended]}
+                  onPress={() => handleUpgrade('unlimited', 'yearly')}
+                >
+                  <View style={styles.recommendedBadge}>
+                    <Text style={styles.recommendedBadgeText}>BEST VALUE - SAVE $100/YEAR</Text>
+                  </View>
+                  <View style={styles.pricingHeader}>
+                    <Text style={styles.pricingTitle}>Unlimited</Text>
+                    <Text style={styles.pricingBadge}>YEARLY</Text>
+                  </View>
+                  <Text style={styles.pricingPrice}>$140</Text>
+                  <Text style={styles.pricingPeriod}>per year</Text>
+                  <View style={styles.pricingDivider} />
+                  <Text style={styles.pricingFeatureText}>• Everything in Premium</Text>
+                  <Text style={styles.pricingFeatureText}>• Unlimited AI inquiries</Text>
+                  <Text style={styles.pricingFeatureText}>• Priority support</Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.causeInfo}>
+                <Heart size={20} color={colors.secondary} fill={colors.secondary} />
+                <Text style={styles.causeInfoText}>
+                  Your subscription supports school supplies, scholarships, Teach for America, and
+                  more!
+                </Text>
+              </View>
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -1136,6 +1164,9 @@ const styles = StyleSheet.create({
     fontSize: 28,
     color: colors.textSecondary,
   },
+  pricingCardsScroll: {
+    maxHeight: '70%',
+  },
   pricingCards: {
     gap: 16,
     marginBottom: 24,
@@ -1179,6 +1210,15 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '700' as const,
     color: colors.text,
+  },
+  pricingBadge: {
+    fontSize: 11,
+    fontWeight: '700' as const,
+    color: colors.textSecondary,
+    backgroundColor: colors.border,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
   },
   pricingPrice: {
     fontSize: 40,

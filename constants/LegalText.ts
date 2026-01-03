@@ -36,12 +36,12 @@ You may delete your account at any time through the app settings. Upon deletion,
 5. Subscription and Payment Terms
 5.1 Subscription Model
 Cause Student AI Planner operates on a subscription basis. We offer two subscription options:
-• Monthly Subscription: $4.99 per month
-• Annual Subscription: $19.99 per year (equivalent to $1.67 per month, saving you over 60%)
+• Monthly Subscription: $5 per month
+• Annual Subscription: $20 per year (equivalent to $1.67 per month, saving you over 60%)
 Both subscription plans include:
 • Full access to AI-powered features
 • Cloud synchronization across all devices
-• Contribution to your selected educational nonprofit (monthly subscribers contribute $1/month; annual subscribers contribute $5/year)
+• Contribution to your selected educational nonprofit (monthly subscribers contribute $1/month; annual subscribers contribute $12/year)
 
 5.2 Billing
 Subscriptions are billed on a recurring basis according to your selected plan:
@@ -66,8 +66,8 @@ Payments are processed through third-party payment processors (Apple App Store, 
 
 6. Nonprofit Contributions
 As part of your subscription, a portion of your fee is contributed to an educational nonprofit organization of your choice:
-• Monthly subscribers: $1 per month is contributed (included in your $4.99 subscription fee)
-• Annual subscribers: $5 per year is contributed (included in your $19.99 subscription fee)
+• Monthly subscribers: $1 per month is contributed (included in your $5 subscription fee)
+• Annual subscribers: $12 per year is contributed (included in your $20 subscription fee)
 By subscribing, you acknowledge and agree that:
 • The nonprofit contribution is included in your subscription fee (not in addition to it)
 • You may select or change your preferred nonprofit at any time

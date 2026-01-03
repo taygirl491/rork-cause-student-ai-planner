@@ -69,11 +69,11 @@ export default function CausesScreen() {
         <View style={styles.impactCard}>
           <Text style={styles.impactTitle}>Your Impact</Text>
           <Text style={styles.impactText}>
-            Every month, <Text style={styles.impactHighlight}>$1 of your $4.99 subscription</Text> goes directly to support education, environment, and mental health initiatives.
+            Every month, <Text style={styles.impactHighlight}>$1 of your $5 subscription</Text> goes directly to support education, environment, and mental health initiatives.
           </Text>
           <View style={styles.statsRow}>
             <View style={styles.statBox}>
-              <Text style={styles.statValue}>$4</Text>
+              <Text style={styles.statValue}>$12</Text>
               <Text style={styles.statLabel}>Per Year</Text>
             </View>
             <View style={styles.statBox}>
@@ -87,7 +87,7 @@ export default function CausesScreen() {
           <Text style={styles.pricingTitle}>Subscription Options</Text>
           <View style={styles.pricingOption}>
             <View style={styles.pricingLeft}>
-              <Text style={styles.pricingPrice}>$4.99</Text>
+              <Text style={styles.pricingPrice}>$5</Text>
               <Text style={styles.pricingPeriod}>per month</Text>
             </View>
             <View style={styles.pricingRight}>
@@ -97,11 +97,11 @@ export default function CausesScreen() {
           <View style={styles.divider} />
           <View style={styles.pricingOption}>
             <View style={styles.pricingLeft}>
-              <Text style={styles.pricingPrice}>$19.99</Text>
+              <Text style={styles.pricingPrice}>$20</Text>
               <Text style={styles.pricingPeriod}>per year</Text>
             </View>
             <View style={styles.pricingRight}>
-              <Text style={styles.pricingDonation}>$4/year to charity</Text>
+              <Text style={styles.pricingDonation}>$12/year to charity</Text>
               <Text style={styles.savingsBadge}>Save $40/year</Text>
             </View>
           </View>

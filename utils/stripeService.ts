@@ -162,35 +162,78 @@ export async function getSubscription(subscriptionId: string): Promise<any> {
     }
 }
 
-// Pricing tiers (you can customize these)
+// Pricing tiers
 export const PRICING_TIERS = {
-    PREMIUM_MONTHLY: {
-        name: 'Premium Monthly',
-        price: 499, // $4.99 in cents
-        priceId: 'prod_Tebp7Br16NRut1',
+    STANDARD_MONTHLY: {
+        name: 'Standard Monthly',
+        price: 500, // $5 in cents
+        priceId: 'price_1ShIc8P0t2AuYFqK2waTumLy',
         interval: 'month',
         features: [
-            'Unlimited AI conversations',
-            'Advanced quiz generation',
-            'Document & image uploads',
-            'Cross-mode memory',
-            'Priority support',
-            'Ad-free experience',
+            'Tasks, Calendar, Classes',
+            'Study Groups & Causes',
+            'Notes & Goals',
+            '150 AI inquiries/month',
+        ],
+    },
+    STANDARD_YEARLY: {
+        name: 'Standard Yearly',
+        price: 3500, // $35 in cents
+        priceId: 'price_1Sl6k0P0t2AuYFqKrlQXkYUq',
+        interval: 'year',
+        features: [
+            'Tasks, Calendar, Classes',
+            'Study Groups & Causes',
+            'Notes & Goals',
+            '150 AI inquiries/month',
+            'Save $25/year',
+        ],
+    },
+    PREMIUM_MONTHLY: {
+        name: 'Premium Monthly',
+        price: 1000, // $10 in cents
+        priceId: 'price_1Sl6opP0t2AuYFqKRMdGp5kO',
+        interval: 'month',
+        features: [
+            'Everything in Standard',
+            'Sync Syllabus with Calendar',
+            '400 AI inquiries/month',
         ],
     },
     PREMIUM_YEARLY: {
         name: 'Premium Yearly',
-        price: 1999, // $19.99 in cents
-        priceId: 'prod_TebnBoSwztCMC8',
+        price: 7000, // $70 in cents
+        priceId: 'price_1Sl6piP0t2AuYFqKnKhrNQRg',
         interval: 'year',
         features: [
-            'Unlimited AI conversations',
-            'Advanced quiz generation',
-            'Document & image uploads',
-            'Cross-mode memory',
+            'Everything in Standard',
+            'Sync Syllabus with Calendar',
+            '400 AI inquiries/month',
+            'Save $50/year',
+        ],
+    },
+    UNLIMITED_MONTHLY: {
+        name: 'Unlimited Monthly',
+        price: 2000, // $20 in cents
+        priceId: 'price_1Sl6rWP0t2AuYFqKshMpasoI',
+        interval: 'month',
+        features: [
+            'Everything in Premium',
+            'Unlimited AI inquiries',
             'Priority support',
-            'Ad-free experience',
-            'Save ~33%',
+        ],
+    },
+    UNLIMITED_YEARLY: {
+        name: 'Unlimited Yearly',
+        price: 14000, // $140 in cents
+        priceId: 'price_1Sl6sFP0t2AuYFqK2JYnhp6N',
+        interval: 'year',
+        features: [
+            'Everything in Premium',
+            'Unlimited AI inquiries',
+            'Priority support',
+            'Save $100/year',
         ],
     },
 };
+
