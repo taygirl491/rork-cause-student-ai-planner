@@ -17,6 +17,7 @@ import {
     Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { WebView } from 'react-native-webview';
 import {
     ArrowLeft,
     Copy,
@@ -29,6 +30,7 @@ import {
     X,
 } from "lucide-react-native";
 import * as DocumentPicker from "expo-document-picker";
+import * as FileSystem from 'expo-file-system';
 import colors from "@/constants/colors";
 import { useApp } from "@/contexts/AppContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -123,16 +125,16 @@ export default function GroupDetailScreen() {
         return imageExtensions.some(ext => uri.toLowerCase().endsWith(ext));
     };
 
-    const openAttachment = async (uri: string, type?: string) => {
+    const openAttachment = async (uri: string, type?: string, name?: string) => {
         try {
-            // If it's an image, show in-app viewer
+            // If it's an image, show in-app image viewer
             if (isImageFile(uri, type)) {
                 setSelectedImage(uri);
                 setShowImageViewer(true);
                 return;
             }
 
-            // For non-images, open externally
+            // For all other files (PDFs, documents, etc.), open with device's default app
             const supported = await Linking.canOpenURL(uri);
             if (supported) {
                 await Linking.openURL(uri);
@@ -243,7 +245,7 @@ export default function GroupDetailScreen() {
                                                         <TouchableOpacity
                                                             key={`${msg.id}-${attachment.name}-${idx}`}
                                                             style={styles.attachmentChip}
-                                                            onPress={() => openAttachment(attachment.uri, attachment.type)}
+                                                            onPress={() => openAttachment(attachment.uri, attachment.type, attachment.name)}
                                                         >
                                                             <FileText size={14} color={colors.primary} />
                                                             <Text
@@ -463,68 +465,6 @@ const styles = StyleSheet.create({
         color: colors.text,
         marginBottom: 12,
     },
-    infoCard: {
-        backgroundColor: colors.surface,
-        borderRadius: 12,
-        padding: 16,
-    },
-    infoRow: {
-        marginBottom: 12,
-    },
-    infoLabel: {
-        fontSize: 12,
-        fontWeight: "600" as const,
-        color: colors.textSecondary,
-        marginBottom: 4,
-    },
-    infoValue: {
-        fontSize: 15,
-        color: colors.text,
-        lineHeight: 22,
-    },
-    codeContainer: {
-        marginTop: 8,
-        paddingTop: 12,
-        borderTopWidth: 1,
-        borderTopColor: colors.border,
-    },
-    codeRow: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
-    },
-    codeText: {
-        fontSize: 20,
-        fontWeight: "700" as const,
-        color: colors.primary,
-        letterSpacing: 2,
-    },
-    codeActions: {
-        flexDirection: "row",
-        gap: 8,
-    },
-    iconButton: {
-        padding: 8,
-        backgroundColor: colors.background,
-        borderRadius: 8,
-    },
-    membersContainer: {
-        gap: 8,
-    },
-    memberItem: {
-        flexDirection: "row",
-        alignItems: "center",
-        paddingVertical: 12,
-        paddingHorizontal: 16,
-        backgroundColor: colors.surface,
-        borderRadius: 8,
-        gap: 12,
-    },
-    memberEmail: {
-        fontSize: 14,
-        color: colors.text,
-        flex: 1,
-    },
     messagesContainer: {
         gap: 12,
     },
@@ -671,6 +611,15 @@ const styles = StyleSheet.create({
     membersListContent: {
         padding: 16,
     },
+    memberItem: {
+        flexDirection: "row",
+        alignItems: "center",
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+        backgroundColor: colors.surface,
+        borderRadius: 8,
+        gap: 12,
+    },
     memberAvatar: {
         width: 40,
         height: 40,
@@ -688,6 +637,11 @@ const styles = StyleSheet.create({
         fontWeight: '600' as const,
         color: colors.text,
         marginBottom: 2,
+    },
+    memberEmail: {
+        fontSize: 14,
+        color: colors.text,
+        flex: 1,
     },
     adminBadgeSmall: {
         backgroundColor: colors.primary,
