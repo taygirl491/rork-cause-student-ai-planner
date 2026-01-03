@@ -1,8 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
-// const emailService = require('../emailService'); // Back to SMTP
-const emailService = require('../emailServiceGmail'); // Use Gmail API
+const emailService = require('../emailService'); // Use Nodemailer with Gmail
 
 /**
  * POST /api/admin/broadcast-email
@@ -31,15 +30,15 @@ router.post('/broadcast-email', async (req, res) => {
         console.log(`Starting broadcast to ${recipients.length} users...`);
         console.log('Recipients:', recipients.slice(0, 3), recipients.length > 3 ? `... and ${recipients.length - 3} more` : '');
 
-        // Send the announcement in the background (fire and forget)
-        // We do NOT await this, so the frontend gets an immediate response
-        emailService.sendAnnouncement(recipients, subject, body)
+        // Get Socket.io instance
+        const io = req.app.get('io');
+
+        // Send the announcement in the background with WebSocket progress
+        emailService.sendAnnouncement(recipients, subject, body, io)
             .then(result => {
-                if (result.success) {
-                    console.log(`✓ Broadcast complete: Sent to ${result.count} users`);
-                } else {
-                    console.error('✗ Broadcast failed:', result.error);
-                    console.error('Full error details:', JSON.stringify(result, null, 2));
+                console.log(`✓ Broadcast complete: Sent to ${result.successCount}/${result.total} users`);
+                if (result.failedEmails && result.failedEmails.length > 0) {
+                    console.log(`✗ Failed emails: ${result.failedEmails.join(', ')}`);
                 }
             })
             .catch(err => {
@@ -50,7 +49,7 @@ router.post('/broadcast-email', async (req, res) => {
         // Respond immediately
         res.json({
             success: true,
-            message: `Broadcast initiated for ${recipients.length} users. You will receive the email shortly.`,
+            message: `Broadcast initiated for ${recipients.length} users. Watch for real-time progress updates.`,
             recipientCount: recipients.length
         });
 
