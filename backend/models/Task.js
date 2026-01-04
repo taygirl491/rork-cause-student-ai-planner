@@ -17,7 +17,7 @@ const taskSchema = new mongoose.Schema({
     },
     type: {
         type: String,
-        enum: ['task', 'event', 'exam', 'paper', 'appointment', 'homework'],
+        enum: ['task', 'event', 'exam', 'paper', 'appointment', 'homework', 'work', 'internship'],
         default: 'task',
     },
     className: {
