@@ -245,6 +245,7 @@ export const goalsAPI = {
                     completed: goal.completed,
                     notificationId: goal.notificationId,
                     createdAt: goal.createdAt,
+                    habits: goal.habits || [],
                 }));
             }
             return [];
@@ -268,6 +269,7 @@ export const goalsAPI = {
                     completed: goal.completed,
                     notificationId: goal.notificationId,
                     createdAt: goal.createdAt,
+                    habits: goal.habits || [],
                 };
             }
             return null;

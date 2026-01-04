@@ -43,6 +43,7 @@ export interface Goal {
   completed: boolean;
   notificationId?: string;
   createdAt: string;
+  habits?: { title: string; completed: boolean }[];
 }
 
 export interface Habit {

@@ -35,6 +35,16 @@ const goalSchema = new mongoose.Schema({
         type: Date,
         default: Date.now,
     },
+    habits: [{
+        title: {
+            type: String,
+            required: true,
+        },
+        completed: {
+            type: Boolean,
+            default: false,
+        }
+    }],
 }, {
     timestamps: false,
 });
