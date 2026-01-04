@@ -201,19 +201,33 @@ async function createSubscription(customerId, priceIdOrProductId, metadata = {})
         }
 
         if (!clientSecret) {
-            // Don't crash, return what we have, but log error. Frontend might fail but backend stays up.
-            console.error(`[Stripe] Failed to resolve client_secret for subscription ${subscription.id}`);
-            console.log('[Stripe] Subscription Structure Debug:', JSON.stringify(subscription, null, 2));
-            if (invoice) {
-                console.log('[Stripe] Invoice Structure Debug:', JSON.stringify(invoice, null, 2));
+            console.error(`[Stripe] Failed to resolve client_secret for subscription ${subscription.id}. Falling back to SetupIntent.`);
+
+            // Fallback: Create a SetupIntent for the customer
+            // This allows the user to save a payment method, which Stripe will then use to pay the invoice
+            try {
+                const setupIntent = await stripe.setupIntents.create({
+                    customer: customerId,
+                    metadata: {
+                        subscription_id: subscription.id,
+                        user_id: metadata.userId
+                    },
+                    payment_method_types: ['card'],
+                    usage: 'off_session', // Optimized for future subscription payments
+                });
+
+                clientSecret = setupIntent.client_secret;
+                console.log(`[Stripe] Created fallback SetupIntent: ${setupIntent.id}`);
+            } catch (setupError) {
+                console.error('[Stripe] Failed to create fallback SetupIntent:', setupError);
+                throw new Error('Failed to initialize payment method setup');
             }
-            // throw new Error(`Failed to generate payment intent. Invoice: ${invoice?.id}`);
         }
 
         return {
             subscriptionId: subscription.id,
             clientSecret: clientSecret,
-            customerId: customerId, // Ensure we return this too
+            customerId: customerId,
         };
     } catch (error) {
         console.error('Error creating subscription:', error);
