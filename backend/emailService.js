@@ -28,11 +28,31 @@ function checkEmailConfig() {
  */
 const createTransporter = () => {
   return nodemailer.createTransport({
-    service: 'gmail',
+    host: 'smtp.gmail.com',
+    port: 587,
+    secure: false, // Use STARTTLS
     auth: {
       user: process.env.GMAIL_USER,
       pass: process.env.GMAIL_APP_PASSWORD
     },
+    // Connection settings to prevent timeouts
+    pool: true, // Use connection pooling
+    maxConnections: 5,
+    maxMessages: 100,
+    rateDelta: 1000,
+    rateLimit: 5,
+    // Timeout settings
+    connectionTimeout: 60000, // 60 seconds
+    greetingTimeout: 30000, // 30 seconds
+    socketTimeout: 60000, // 60 seconds
+    // TLS options
+    tls: {
+      rejectUnauthorized: true,
+      minVersion: 'TLSv1.2'
+    },
+    // Debug logging
+    logger: process.env.NODE_ENV === 'development',
+    debug: process.env.NODE_ENV === 'development'
   });
 };
 
