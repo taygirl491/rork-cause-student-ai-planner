@@ -7,10 +7,11 @@ const userSchema = new mongoose.Schema({
     },
     email: {
         type: String,
-        required: true,
+        required: false, // Changed to false to allow streak service to create users
         unique: true,
         lowercase: true,
         trim: true,
+        sparse: true, // Allow multiple null values for unique index
     },
     name: {
         type: String,

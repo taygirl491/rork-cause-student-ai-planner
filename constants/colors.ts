@@ -23,6 +23,8 @@ const colors = {
     paper: '#F2994A',
     appointment: '#56CCF2',
     homework: '#6FCF97',
+    work: '#9B59B6',
+    internship: '#1ABC9C',
   },
   
   priorityColors: {
