@@ -22,12 +22,10 @@ const studyGroupSchema = new mongoose.Schema({
         type: String,
         required: true,
         unique: true,
-        index: true,
     },
     creatorId: {
         type: String, // Firebase UID
         required: true,
-        index: true,
     },
     isPrivate: {
         type: Boolean,
@@ -42,6 +40,7 @@ const studyGroupSchema = new mongoose.Schema({
             required: true,
         },
         name: String,
+        userId: String, // Firebase UID
         joinedAt: {
             type: Date,
             default: Date.now,
