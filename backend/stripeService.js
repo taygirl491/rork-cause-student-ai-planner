@@ -112,7 +112,7 @@ async function createSubscription(customerId, priceIdOrProductId, metadata = {})
             items: [{ price: priceId }],
             payment_behavior: 'default_incomplete',
             payment_settings: { save_default_payment_method: 'on_subscription' },
-            expand: ['latest_invoice.payment_intent'],
+            expand: ['latest_invoice.payment_intent', 'pending_setup_intent'],
             metadata,
         });
 
@@ -182,10 +182,32 @@ async function createSubscription(customerId, priceIdOrProductId, metadata = {})
             console.log('[Stripe] Subscription Dump:', JSON.stringify(subscription, null, 2));
         }
 
+        // Fallback: Check for pending_setup_intent (used for trials or 0-amount subscriptions)
+        if (!clientSecret && subscription.pending_setup_intent) {
+            console.log('[Stripe] No payment intent found, checking pending_setup_intent...');
+            const setupIntent = subscription.pending_setup_intent;
+            if (typeof setupIntent === 'object') {
+                clientSecret = setupIntent.client_secret;
+                console.log(`[Stripe] Found pending_setup_intent: ${setupIntent.id}`);
+            } else {
+                try {
+                    const si = await stripe.setupIntents.retrieve(setupIntent);
+                    clientSecret = si.client_secret;
+                    console.log(`[Stripe] Retrieved pending_setup_intent: ${si.id}`);
+                } catch (err) {
+                    console.error(`[Stripe] Error retrieving setup intent ${setupIntent}:`, err);
+                }
+            }
+        }
+
         if (!clientSecret) {
             // Don't crash, return what we have, but log error. Frontend might fail but backend stays up.
             console.error(`[Stripe] Failed to resolve client_secret for subscription ${subscription.id}`);
-            // throw new Error(`Failed to generated payment intent. Invoice: ${invoice?.id}`);
+            console.log('[Stripe] Subscription Structure Debug:', JSON.stringify(subscription, null, 2));
+            if (invoice) {
+                console.log('[Stripe] Invoice Structure Debug:', JSON.stringify(invoice, null, 2));
+            }
+            // throw new Error(`Failed to generate payment intent. Invoice: ${invoice?.id}`);
         }
 
         return {
