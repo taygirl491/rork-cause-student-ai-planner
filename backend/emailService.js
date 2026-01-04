@@ -1,6 +1,29 @@
 const nodemailer = require('nodemailer');
 
 /**
+ * Check if email service is properly configured
+ */
+function checkEmailConfig() {
+  const config = {
+    hasGmailUser: !!process.env.GMAIL_USER,
+    hasGmailPassword: !!process.env.GMAIL_APP_PASSWORD,
+    gmailUser: process.env.GMAIL_USER ? process.env.GMAIL_USER.substring(0, 3) + '***' : 'NOT SET'
+  };
+
+  console.log('📧 Email Service Configuration:');
+  console.log('  GMAIL_USER:', config.hasGmailUser ? '✓ Set (' + config.gmailUser + ')' : '✗ NOT SET');
+  console.log('  GMAIL_APP_PASSWORD:', config.hasGmailPassword ? '✓ Set' : '✗ NOT SET');
+
+  if (!config.hasGmailUser || !config.hasGmailPassword) {
+    console.warn('⚠️  WARNING: Email service is not properly configured!');
+    console.warn('   Please set GMAIL_USER and GMAIL_APP_PASSWORD environment variables.');
+    return false;
+  }
+
+  return true;
+}
+
+/**
  * Create a transporter using Gmail service
  */
 const createTransporter = () => {
@@ -13,6 +36,25 @@ const createTransporter = () => {
   });
 };
 
+/**
+ * Verify email service connection
+ */
+async function verifyEmailService() {
+  try {
+    if (!checkEmailConfig()) {
+      return { success: false, error: 'Email service not configured' };
+    }
+
+    const transporter = createTransporter();
+    await transporter.verify();
+    console.log('✓ Email service connection verified');
+    return { success: true };
+  } catch (error) {
+    console.error('✗ Email service verification failed:', error.message);
+    return { success: false, error: error.message };
+  }
+}
+
 
 
 /**
@@ -22,6 +64,13 @@ const createTransporter = () => {
  */
 async function sendWelcomeEmail(to, name) {
   try {
+    console.log(`📧 Attempting to send welcome email to: ${to}`);
+
+    // Check configuration
+    if (!checkEmailConfig()) {
+      throw new Error('Email service not configured. Please set GMAIL_USER and GMAIL_APP_PASSWORD environment variables.');
+    }
+
     const transporter = createTransporter();
 
     const mailOptions = {
@@ -49,11 +98,19 @@ async function sendWelcomeEmail(to, name) {
             `
     };
 
+    console.log('📤 Sending email...');
     const info = await transporter.sendMail(mailOptions);
-    console.log('Welcome email sent:', info.messageId);
+    console.log('✓ Welcome email sent successfully!');
+    console.log('  Message ID:', info.messageId);
+    console.log('  Recipient:', to);
     return { success: true, messageId: info.messageId };
   } catch (error) {
-    console.error('Error sending welcome email:', error);
+    console.error('✗ Error sending welcome email:');
+    console.error('  Error type:', error.name);
+    console.error('  Error message:', error.message);
+    console.error('  Recipient:', to);
+    if (error.code) console.error('  Error code:', error.code);
+    if (error.command) console.error('  SMTP command:', error.command);
     throw error;
   }
 }
@@ -251,5 +308,7 @@ module.exports = {
   sendPasswordResetEmail,
   sendBroadcastEmail,
   sendAnnouncement,
-  sendTestEmail
+  sendTestEmail,
+  checkEmailConfig,
+  verifyEmailService
 };

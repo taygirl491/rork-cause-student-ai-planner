@@ -1,215 +1,233 @@
-# Firebase Study Groups - Deployment Guide
+# Email Service and Database Fixes - Deployment Guide
 
-## Pre-Deployment Checklist
+## Summary of Changes
 
-### 1. Firestore Security Rules
+### 1. Database Migration Script ✅
+**File**: `backend/migrations/fix-email-index.js`
 
-Deploy the security rules to Firebase:
+Fixes the MongoDB duplicate key error by:
+- Dropping the old non-sparse `email_1` index
+- Creating a new sparse unique index that allows multiple `null` values
+- Testing the fix by creating multiple users without emails
+- Verifying the index is correctly configured
 
+### 2. Email Service Diagnostics ✅
+**File**: `backend/emailService.js`
+
+Added comprehensive diagnostics:
+- `checkEmailConfig()` - Validates environment variables on startup
+- `verifyEmailService()` - Tests Gmail connection
+- Enhanced error logging with detailed SMTP error information
+- Configuration status logging
+
+### 3. Server Endpoint Improvements ✅
+**File**: `backend/server.js`
+
+Updated `/api/auth/welcome-email` endpoint to:
+- Properly await email sending (no more fire-and-forget)
+- Return detailed error responses
+- Include helpful debugging hints
+- Log all email attempts
+
+---
+
+## Deployment Steps
+
+### Step 1: Run Database Migration (CRITICAL)
+
+The migration MUST be run before deploying the new code to fix the duplicate key error.
+
+#### Option A: Run Locally (Recommended)
 ```bash
-firebase deploy --only firestore:rules
+cd backend
+node migrations/fix-email-index.js
 ```
 
-**File**: `firestore.rules`
+#### Option B: Run on Render
+1. SSH into your Render instance or use Render Shell
+2. Navigate to backend directory
+3. Run: `node migrations/fix-email-index.js`
 
-### 2. Firestore Indexes (Optional but Recommended)
+**Expected Output**:
+```
+🔧 Starting email index migration...
+📡 Connecting to MongoDB...
+✓ Connected to MongoDB
 
-For better performance with array queries, create the following composite index:
+📋 Checking existing indexes...
+🗑️  Dropping old email_1 index...
+✓ Dropped old email_1 index
 
-**Via Firebase Console**:
+🔨 Creating new sparse unique index on email...
+✓ Created new sparse unique index
 
-1. Go to Firebase Console → Firestore Database → Indexes
-2. Create a composite index:
-   - Collection: `studyGroups`
-   - Fields:
-     - `members` (Array)
-     - `createdAt` (Descending)
+🔍 Verifying new index...
+✓ Index verification successful!
 
-**Or via command line** (if you have a firestore.indexes.json file):
+🧪 Testing: Creating users with null email...
+✓ Created first user with null email
+✓ Created second user with null email
+✓ Cleaned up test users
 
-```bash
-firebase deploy --only firestore:indexes
+✅ Migration completed successfully!
 ```
 
-### 3. Test the Implementation
+### Step 2: Verify Email Credentials on Render
 
-#### Test 1: Create a Study Group
+1. Go to your Render dashboard
+2. Navigate to your backend service
+3. Go to "Environment" tab
+4. Verify these variables are set:
+   - `GMAIL_USER`: Your Gmail address (e.g., `your-email@gmail.com`)
+   - `GMAIL_APP_PASSWORD`: Your Gmail app-specific password
 
-1. Log in to the app
-2. Navigate to Study Groups tab
-3. Click "Create Group"
-4. Fill in: Name, Class, School, Description
-5. Verify you receive a group code
-6. Check Firestore console to see the document
+**Important**: `GMAIL_APP_PASSWORD` must be an **App Password**, not your regular Gmail password.
 
-#### Test 2: Join a Study Group
+#### How to Create Gmail App Password:
+1. Go to https://myaccount.google.com/security
+2. Enable 2-Step Verification if not already enabled
+3. Go to "App passwords"
+4. Generate a new app password for "Mail"
+5. Copy the 16-character password
+6. Set it as `GMAIL_APP_PASSWORD` in Render
 
-1. On a second device/account, log in
-2. Navigate to Study Groups
-3. Click "Join Group"
-4. Enter the group code and your email
-5. Verify you can see the group
-6. Check that the member was added in Firestore
+### Step 3: Deploy Updated Code
 
-#### Test 3: Send Messages
+```bash
+# Commit changes
+git add .
+git commit -m "Fix: Email service diagnostics and database index migration"
+git push origin main
+```
 
-1. In the joined group, send a message
-2. Verify it appears in real-time on both devices
-3. Check the messages subcollection in Firestore
+Render will automatically deploy the new code.
 
-#### Test 4: Real-time Sync
+### Step 4: Verify Deployment
 
-1. With both devices viewing the same group
-2. Send a message from Device A
-3. Verify it appears instantly on Device B
-4. Repeat from Device B
+#### Check Email Configuration
+Watch the Render logs when the server starts. You should see:
+```
+📧 Email Service Configuration:
+  GMAIL_USER: ✓ Set (you***)
+  GMAIL_APP_PASSWORD: ✓ Set
+```
 
-#### Test 5: Delete a Group
+If you see `✗ NOT SET`, the environment variables are missing.
 
-1. As the group creator, long-press the group
-2. Confirm deletion
-3. Verify the group disappears from both devices
-4. Verify the document is removed from Firestore
+#### Test Welcome Email
+1. Create a new user account in your app
+2. Check Render logs for:
+```
+📧 Welcome email request for: user@example.com
+📧 Attempting to send welcome email to: user@example.com
+📤 Sending email...
+✓ Welcome email sent successfully!
+  Message ID: <some-id>
+  Recipient: user@example.com
+```
 
-### 4. Cloud Functions (Future Enhancement)
+3. Check the user's email inbox for the welcome email
 
-Consider implementing this Cloud Function to clean up orphaned messages:
+#### Test Streak Service
+1. Complete a task to trigger streak update
+2. Check logs - should NOT see duplicate key errors
+3. Verify user was created/updated in MongoDB
 
-**File**: `functions/index.js`
+---
 
+## Troubleshooting
+
+### Issue: Migration fails with "email_1 index not found"
+**Solution**: This is fine! It means the index was already dropped or never existed. The migration will create the new sparse index.
+
+### Issue: "Email service not configured" error
+**Cause**: Missing `GMAIL_USER` or `GMAIL_APP_PASSWORD` environment variables
+
+**Solution**:
+1. Check Render environment variables
+2. Make sure both are set
+3. Restart the service after adding them
+
+### Issue: "Invalid login" or "Authentication failed"
+**Cause**: Using regular Gmail password instead of App Password
+
+**Solution**:
+1. Generate a new Gmail App Password (see Step 2 above)
+2. Update `GMAIL_APP_PASSWORD` in Render
+3. Restart the service
+
+### Issue: Emails not being received
+**Possible Causes**:
+1. Check spam folder
+2. Verify Gmail account is not locked/suspended
+3. Check Render logs for SMTP errors
+4. Verify the recipient email is correct
+
+**Debugging**:
+```bash
+# Check detailed error logs in Render
+# Look for lines starting with ✗
+```
+
+### Issue: Still getting duplicate key errors
+**Cause**: Migration wasn't run or failed
+
+**Solution**:
+1. Re-run the migration script
+2. Check MongoDB directly to verify index configuration:
 ```javascript
-const functions = require("firebase-functions");
-const admin = require("firebase-admin");
-admin.initializeApp();
-
-exports.cleanupGroupMessages = functions.firestore
-	.document("studyGroups/{groupId}")
-	.onDelete(async (snap, context) => {
-		const groupId = context.params.groupId;
-		const messagesRef = admin
-			.firestore()
-			.collection("studyGroups")
-			.doc(groupId)
-			.collection("messages");
-
-		const snapshot = await messagesRef.get();
-		const batch = admin.firestore().batch();
-
-		snapshot.docs.forEach((doc) => {
-			batch.delete(doc.ref);
-		});
-
-		await batch.commit();
-		console.log(`Deleted ${snapshot.size} messages for group ${groupId}`);
-	});
+db.users.getIndexes()
+// Should show email_1 with sparse: true
 ```
 
-Deploy with:
+---
 
-```bash
-firebase deploy --only functions
-```
+## Verification Checklist
 
-## Post-Deployment Verification
+- [ ] Migration script ran successfully
+- [ ] Email environment variables are set on Render
+- [ ] Code deployed to Render
+- [ ] Server logs show email configuration is valid
+- [ ] Welcome email is sent when creating new account
+- [ ] Welcome email is received in inbox
+- [ ] Streak service works without duplicate key errors
+- [ ] Multiple users can be created without emails
 
-### Check Firestore Console
-
-1. Open Firebase Console
-2. Navigate to Firestore Database
-3. Verify collections structure:
-   ```
-   studyGroups/
-   ├── [groupId]/
-   │   ├── name
-   │   ├── className
-   │   ├── school
-   │   ├── description
-   │   ├── code
-   │   ├── creatorId
-   │   ├── members[]
-   │   ├── createdAt
-   │   └── messages/
-   │       └── [messageId]/
-   │           ├── senderEmail
-   │           ├── message
-   │           ├── attachments[]
-   │           └── createdAt
-   ```
-
-### Monitor Usage
-
-- **Firestore**: Watch document reads/writes in Usage tab
-- **Authentication**: Verify user sessions
-- **Errors**: Check Functions logs if using Cloud Functions
+---
 
 ## Rollback Plan
 
-If issues arise:
+If something goes wrong:
 
-1. **Revert code changes**:
+1. **Database**: The migration is safe and can be re-run. The sparse index is backwards compatible.
 
-   ```bash
-   git revert <commit-hash>
-   ```
+2. **Code**: Revert to previous commit:
+```bash
+git revert HEAD
+git push origin main
+```
 
-2. **No data loss**: Since we migrated from AsyncStorage (local), no cloud data needs recovery
+3. **Email Service**: If emails stop working, check:
+   - Environment variables are still set
+   - Gmail account is not locked
+   - App password is still valid
 
-3. **Security rules**: Keep rules restrictive until issues are resolved
+---
 
-## Known Limitations
+## Next Steps After Deployment
 
-1. **Message Cleanup**: Orphaned messages remain when groups are deleted (requires Cloud Function)
-2. **Client-side Filtering**: Members array filtering happens client-side (can be optimized with indexes)
-3. **No Offline Support Yet**: Consider enabling Firestore persistence for offline support:
-   ```typescript
-   import { enableIndexedDbPersistence } from "firebase/firestore";
-   enableIndexedDbPersistence(db).catch((err) => {
-   	if (err.code === "failed-precondition") {
-   		console.log("Multiple tabs open");
-   	} else if (err.code === "unimplemented") {
-   		console.log("Browser does not support");
-   	}
-   });
-   ```
+1. Monitor Render logs for the first few hours
+2. Test user signup flow end-to-end
+3. Verify no duplicate key errors in logs
+4. Check that welcome emails are being delivered
+5. If all looks good, mark deployment as successful ✅
 
-## Performance Tips
-
-1. **Limit Query Results**: Add `.limit(50)` to queries if groups list grows large
-2. **Pagination**: Implement pagination for messages in large groups
-3. **Composite Indexes**: Create indexes for frequently queried field combinations
-4. **Batch Operations**: Use batch writes when updating multiple documents
-
-## Monitoring
-
-### Key Metrics to Track
-
-- Number of study groups created per day
-- Average number of messages per group
-- Number of active users in groups
-- Firestore read/write operations
-- Average response time for group operations
-
-### Firebase Console
-
-- Monitor costs in Billing section
-- Check Performance Monitoring for app performance
-- Review Crashlytics for any crashes related to study groups
+---
 
 ## Support
 
-For issues or questions:
-
-1. Check Firebase Console logs
-2. Review `STUDY_GROUPS_MIGRATION.md` for implementation details
-3. Check TypeScript errors in VS Code
-4. Review Firestore security rules for access issues
-
-## Success Criteria
-
-✅ Users can create study groups
-✅ Users can join groups with codes
-✅ Messages sync in real-time
-✅ Groups are properly secured
-✅ No unauthorized access
-✅ Real-time updates work across devices
-✅ Clean error handling and user feedback
+If you encounter issues not covered here:
+1. Check Render logs for detailed error messages
+2. Verify MongoDB connection is working
+3. Test Gmail credentials manually
+4. Check that migration completed successfully
