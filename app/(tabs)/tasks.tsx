@@ -93,7 +93,7 @@ export default function TasksScreen() {
     }
   }, [showDetailModal, detailScaleAnim]);
 
-  const taskTypes: TaskType[] = ['task', 'event', 'exam', 'paper', 'appointment', 'homework', 'work','internship'];
+  const taskTypes: TaskType[] = ['task', 'event', 'exam', 'paper', 'appointment', 'homework', 'work', 'internship'];
   const priorities: Priority[] = ['low', 'medium', 'high'];
   const reminders: ReminderTime[] = ['1h', '2h', '1d', '2d', 'custom'];
 
@@ -217,20 +217,20 @@ export default function TasksScreen() {
     setShowActionSheet(true);
   };
 
-  const handleEdit = () => {
-    if (!selectedTask) return;
+  const handleEdit = (taskToEdit: Task | null = selectedTask) => {
+    if (!taskToEdit) return;
 
-    setDescription(selectedTask.description);
-    setTaskType(selectedTask.type);
-    setSelectedClass(selectedTask.className || '');
-    setDueDate(new Date(selectedTask.dueDate));
-    setDueTime(new Date(`2000-01-01 ${selectedTask.dueTime}`));
-    setPriority(selectedTask.priority);
-    setReminder(selectedTask.reminder || '1d');
-    if (selectedTask.customReminderDate) {
-      setCustomReminderDate(new Date(selectedTask.customReminderDate));
+    setDescription(taskToEdit.description);
+    setTaskType(taskToEdit.type);
+    setSelectedClass(taskToEdit.className || '');
+    setDueDate(new Date(taskToEdit.dueDate));
+    setDueTime(new Date(`2000-01-01 ${taskToEdit.dueTime}`));
+    setPriority(taskToEdit.priority);
+    setReminder(taskToEdit.reminder || '1d');
+    if (taskToEdit.customReminderDate) {
+      setCustomReminderDate(new Date(taskToEdit.customReminderDate));
     }
-    setAlarmEnabled(selectedTask.alarmEnabled);
+    setAlarmEnabled(taskToEdit.alarmEnabled);
     setIsEditing(true);
     setShowActionSheet(false);
     setShowModal(true);
@@ -285,9 +285,9 @@ export default function TasksScreen() {
 
   const handleEditFromDetail = () => {
     if (!selectedTaskForDetail) return;
-    setSelectedTask(selectedTaskForDetail); // Set selectedTask first
+    setSelectedTask(selectedTaskForDetail); // Set selectedTask for context
     setShowDetailModal(false);
-    handleEdit();
+    handleEdit(selectedTaskForDetail);
   };
 
   const handleDeleteFromDetail = () => {
@@ -872,7 +872,7 @@ export default function TasksScreen() {
           onPress={() => setShowActionSheet(false)}
         >
           <View style={styles.actionSheetContent}>
-            <TouchableOpacity style={styles.actionButton} onPress={handleEdit}>
+            <TouchableOpacity style={styles.actionButton} onPress={() => handleEdit()}>
               <Edit2 size={20} color={colors.primary} />
               <Text style={styles.actionButtonText}>Edit Task</Text>
             </TouchableOpacity>

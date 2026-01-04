@@ -39,6 +39,8 @@ export default function GoalsScreen() {
   const [showActionSheet, setShowActionSheet] = useState(false);
   const [selectedGoal, setSelectedGoal] = useState<Goal | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [habits, setHabits] = useState<{ title: string; completed: boolean }[]>([]);
+  const [newHabit, setNewHabit] = useState('');
 
   const scaleAnim = React.useRef(new Animated.Value(0)).current;
 
@@ -81,6 +83,7 @@ export default function GoalsScreen() {
         description,
         dueDate: formattedDate,
         dueTime: formattedTime,
+        habits,
       };
       updateGoal(selectedGoal.id, updatedGoal);
 
@@ -104,6 +107,7 @@ export default function GoalsScreen() {
         dueTime: formattedTime,
         completed: false,
         createdAt: new Date().toISOString(),
+        habits,
       };
       addGoal(newGoal);
 
@@ -126,6 +130,8 @@ export default function GoalsScreen() {
     setDescription('');
     setDueDate(new Date());
     setDueTime(new Date());
+    setHabits([]);
+    setNewHabit('');
   };
 
   const handleLongPress = (goal: Goal) => {
@@ -140,6 +146,7 @@ export default function GoalsScreen() {
     setDescription(selectedGoal.description || '');
     setDueDate(selectedGoal.dueDate ? new Date(selectedGoal.dueDate) : new Date());
     setDueTime(selectedGoal.dueTime ? new Date(`2000-01-01 ${selectedGoal.dueTime}`) : new Date());
+    setHabits(selectedGoal.habits || []);
 
     setIsEditing(true);
     setShowActionSheet(false);
@@ -162,6 +169,33 @@ export default function GoalsScreen() {
 
   const toggleGoalComplete = (goal: Goal) => {
     updateGoal(goal.id, { completed: !goal.completed });
+  };
+
+  const addHabitToState = () => {
+    if (newHabit.trim()) {
+      setHabits([...habits, { title: newHabit.trim(), completed: false }]);
+      setNewHabit('');
+    }
+  };
+
+  const removeHabitFromState = (index: number) => {
+    setHabits(habits.filter((_, i) => i !== index));
+  };
+
+  const toggleHabit = (goal: Goal, habitIndex: number) => {
+    if (!goal.habits) return;
+    const updatedHabits = [...goal.habits];
+    updatedHabits[habitIndex] = {
+      ...updatedHabits[habitIndex],
+      completed: !updatedHabits[habitIndex].completed,
+    };
+    updateGoal(goal.id, { habits: updatedHabits });
+  };
+
+  const calculateProgress = (habits?: { completed: boolean }[]) => {
+    if (!habits || habits.length === 0) return 0;
+    const completedCount = habits.filter(h => h.completed).length;
+    return (completedCount / habits.length) * 100;
   };
 
   // Pull-to-refresh handler
@@ -232,6 +266,47 @@ export default function GoalsScreen() {
                     </View>
                   </View>
                 </TouchableOpacity>
+
+                {/* Habits Section */}
+                {goal.habits && goal.habits.length > 0 && (
+                  <View style={styles.habitsSection}>
+                    <View style={styles.progressHeader}>
+                      <Text style={styles.habitsTitle}>Daily Habits</Text>
+                      <Text style={styles.progressText}>
+                        {Math.round(calculateProgress(goal.habits))}%
+                      </Text>
+                    </View>
+                    <View style={styles.progressBarContainer}>
+                      <View
+                        style={[
+                          styles.progressBar,
+                          { width: `${calculateProgress(goal.habits)}%` }
+                        ]}
+                      />
+                    </View>
+                    <View>
+                      {goal.habits.map((habit, index) => (
+                        <TouchableOpacity
+                          key={index}
+                          style={styles.habitItem}
+                          onPress={() => toggleHabit(goal, index)}
+                        >
+                          {habit.completed ? (
+                            <CheckCircle size={20} color={colors.primary} />
+                          ) : (
+                            <Circle size={20} color={colors.border} />
+                          )}
+                          <Text style={[
+                            styles.habitTitle,
+                            habit.completed && styles.habitTitleCompleted
+                          ]}>
+                            {habit.title}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+                )}
               </View>
             ))}
           </View>
@@ -328,6 +403,34 @@ export default function GoalsScreen() {
                     }}
                     onCancel={() => setShowTimePicker(false)}
                   />
+
+                  <Text style={styles.label}>Daily Habits</Text>
+                  <View style={styles.habitInputRow}>
+                    <TextInput
+                      style={[styles.input, styles.habitInput]}
+                      placeholder="Add a habit (e.g., Read 30 mins)"
+                      placeholderTextColor={colors.textLight}
+                      value={newHabit}
+                      onChangeText={setNewHabit}
+                    />
+                    <TouchableOpacity
+                      style={styles.addHabitButton}
+                      onPress={addHabitToState}
+                    >
+                      <Plus size={24} color={colors.surface} />
+                    </TouchableOpacity>
+                  </View>
+
+                  <View style={styles.habitsList}>
+                    {habits.map((habit, index) => (
+                      <View key={index} style={styles.habitChip}>
+                        <Text style={styles.habitChipText}>{habit.title}</Text>
+                        <TouchableOpacity onPress={() => removeHabitFromState(index)}>
+                          <X size={20} color={colors.textSecondary} />
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                  </View>
 
                   <TouchableOpacity
                     style={styles.createButton}

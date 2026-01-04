@@ -335,8 +335,9 @@ export const [AppProvider, useApp] = createContextHook(() => {
 
 			if (success) {
 				// Reschedule notification if task is not completed and has reminder
-				const updatedTask = { ...task, ...updates };
+				const updatedTask = { ...task, ...updates } as Task;
 				if (updatedTask.reminder && !updatedTask.completed) {
+					console.log(`[AppContext] Rescheduling reminder for uncrossed task: ${updatedTask.id}`);
 					await NotificationService.scheduleTaskReminder(updatedTask);
 				}
 
@@ -486,6 +487,7 @@ export const [AppProvider, useApp] = createContextHook(() => {
 				completed: goal.completed,
 				notificationId: goal.notificationId,
 				createdAt: goal.createdAt,
+				habits: goal.habits || [],
 			});
 
 			// Don't add to state here - the WebSocket event will handle it

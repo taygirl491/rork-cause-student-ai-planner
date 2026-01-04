@@ -67,9 +67,9 @@ export default function StudyGroupsScreen() {
 		const query = searchQuery.toLowerCase();
 		return studyGroups.filter(
 			(group) =>
-				group.name.toLowerCase().includes(query) ||
-				group.className.toLowerCase().includes(query) ||
-				group.code.toLowerCase().includes(query)
+				(group.name?.toLowerCase() || '').includes(query) ||
+				(group.className?.toLowerCase() || '').includes(query) ||
+				(group.code?.toLowerCase() || '').includes(query)
 		);
 	}, [studyGroups, searchQuery]);
 
