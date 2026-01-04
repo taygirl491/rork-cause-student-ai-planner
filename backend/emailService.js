@@ -14,24 +14,6 @@ const createTransporter = () => {
       user: process.env.GMAIL_USER,
       pass: process.env.GMAIL_APP_PASSWORD
     },
-    // Connection settings
-    pool: true,
-    maxConnections: 5,
-    maxMessages: 100,
-    // Aggressive timeouts
-    connectionTimeout: 60000, // 60 seconds (increased from 10)
-    greetingTimeout: 30000,   // 30 seconds (increased from 5)
-    socketTimeout: 60000,     // 60 seconds (increased from 30)
-    // Force IPv4
-    family: 4,
-    // TLS options - sometimes needed for cloud servers
-    tls: {
-      rejectUnauthorized: false, // Accept self-signed certificates
-      minVersion: 'TLSv1.2'
-    },
-    // Enable debug
-    debug: process.env.NODE_ENV !== 'production',
-    logger: process.env.NODE_ENV !== 'production'
   });
 };
 
