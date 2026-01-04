@@ -294,12 +294,23 @@ app.delete("/api/users/:userId", authenticate, async (req, res) => {
 		const io = req.app.get('io');
 
 		// Handle study groups properly
-		// 1. Find all groups where user is a member
-		const userGroups = await StudyGroup.find({ members: userId });
+		// 1. Find all groups where user is a member or admin
+		const userGroups = await StudyGroup.find({
+			$or: [
+				{ 'members.userId': userId },
+				{ creatorId: userId },
+				{ admins: userId }
+			]
+		});
 
 		for (const group of userGroups) {
 			// Remove user from members array
-			group.members = group.members.filter(memberId => memberId !== userId);
+			group.members = group.members.filter(member => member.userId !== userId);
+
+			// Remove user from admins array if present
+			if (group.admins && group.admins.includes(userId)) {
+				group.admins = group.admins.filter(adminId => adminId !== userId);
+			}
 
 			// If group now has no members, delete it
 			if (group.members.length === 0) {
@@ -311,10 +322,18 @@ app.delete("/api/users/:userId", authenticate, async (req, res) => {
 					io.to(`group-${group._id}`).emit('group-deleted', { groupId: group._id });
 				}
 			} else {
-				// If user was the creator, transfer ownership to first remaining member
-				if (group.createdBy === userId) {
-					group.createdBy = group.members[0];
-					console.log(`✓ Transferred ownership of group "${group.name}" to ${group.members[0]}`);
+				// If user was the creator, transfer ownership to first remaining admin or member
+				if (group.creatorId === userId) {
+					// Try to transfer to first admin, otherwise first member
+					if (group.admins && group.admins.length > 0) {
+						group.creatorId = group.admins[0];
+					} else if (group.members.length > 0) {
+						group.creatorId = group.members[0].userId;
+						// Also make them an admin
+						if (!group.admins) group.admins = [];
+						group.admins.push(group.members[0].userId);
+					}
+					console.log(`✓ Transferred ownership of group "${group.name}" to ${group.creatorId}`);
 				}
 				await group.save();
 				console.log(`✓ Removed user from group: ${group.name}`);
@@ -327,9 +346,10 @@ app.delete("/api/users/:userId", authenticate, async (req, res) => {
 							_id: group._id,
 							name: group.name,
 							description: group.description,
-							createdBy: group.createdBy,
+							creatorId: group.creatorId,
+							admins: group.admins,
 							members: group.members,
-							inviteCode: group.inviteCode,
+							code: group.code,
 							createdAt: group.createdAt,
 						}
 					});
