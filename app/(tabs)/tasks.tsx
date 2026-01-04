@@ -93,7 +93,7 @@ export default function TasksScreen() {
     }
   }, [showDetailModal, detailScaleAnim]);
 
-  const taskTypes: TaskType[] = ['task', 'event', 'exam', 'paper', 'appointment', 'homework'];
+  const taskTypes: TaskType[] = ['task', 'event', 'exam', 'paper', 'appointment', 'homework', 'work','internship'];
   const priorities: Priority[] = ['low', 'medium', 'high'];
   const reminders: ReminderTime[] = ['1h', '2h', '1d', '2d', 'custom'];
 
