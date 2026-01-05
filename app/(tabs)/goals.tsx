@@ -343,7 +343,10 @@ export default function GoalsScreen() {
                   </TouchableOpacity>
                 </View>
 
-                <ScrollView showsVerticalScrollIndicator={false}>
+                <ScrollView
+                  showsVerticalScrollIndicator={false}
+                  contentContainerStyle={styles.scrollContent}
+                >
                   <Text style={styles.label}>Goal Title *</Text>
                   <TextInput
                     style={styles.input}
@@ -741,5 +744,8 @@ const styles = StyleSheet.create({
   actionDivider: {
     height: 1,
     backgroundColor: colors.border,
+  },
+  scrollContent: {
+    paddingBottom: 20,
   },
 });

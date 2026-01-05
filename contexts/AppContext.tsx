@@ -82,12 +82,29 @@ export const [AppProvider, useApp] = createContextHook(() => {
 		}
 	};
 
-	// Auto-load tasks when user logs in
+	// Auto-load tasks and register push token
 	useEffect(() => {
 		if (user?.uid) {
 			refreshTasks();
+			// Register for push notifications
+			registerPushToken();
 		}
 	}, [user?.uid]);
+
+	const registerPushToken = async () => {
+		try {
+			const token = await NotificationService.registerForPushNotificationsAsync();
+			if (token && user?.uid) {
+				console.log("Registering push token:", token);
+				await apiService.post('/users/push-token', {
+					userId: user.uid,
+					token
+				});
+			}
+		} catch (error) {
+			console.error("Error registering push token:", error);
+		}
+	};
 
 
 	// Manual refresh function for classes
