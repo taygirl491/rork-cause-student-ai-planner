@@ -346,6 +346,7 @@ export default function GoalsScreen() {
                 <ScrollView
                   showsVerticalScrollIndicator={false}
                   contentContainerStyle={styles.scrollContent}
+                  keyboardShouldPersistTaps="handled"
                 >
                   <Text style={styles.label}>Goal Title *</Text>
                   <TextInput
