@@ -480,7 +480,7 @@ export default function TasksScreen() {
                   </TouchableOpacity>
                 </View>
 
-                <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.modalScrollContent}>
+                <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.modalScrollContent} keyboardShouldPersistTaps="handled">
                   <Text style={styles.label}>Description *</Text>
                   <TextInput
                     style={styles.input}

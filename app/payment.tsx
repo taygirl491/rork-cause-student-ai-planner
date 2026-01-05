@@ -48,6 +48,13 @@ export default function PaymentScreen() {
         try {
             setLoading(true);
 
+            // Check if Stripe is initialized
+            if (!initPaymentSheet || !presentPaymentSheet) {
+                Alert.alert('Configuration Error', 'Stripe SDK is not initialized. Please check your internet connection or restart the app.');
+                setLoading(false);
+                return;
+            }
+
             // 1. Create subscription via backend
             const response = await apiService.createSubscription(user.uid, PREMIUM_MONTHLY_PRICE_ID);
 

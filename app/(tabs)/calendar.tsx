@@ -563,7 +563,7 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   dayCell: {
-    width: `${100 / 7}%`,
+    width: '14.28%',
     aspectRatio: 1,
     padding: 4,
   },
