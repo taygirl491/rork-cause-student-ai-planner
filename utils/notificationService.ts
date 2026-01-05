@@ -49,7 +49,7 @@ export async function requestNotificationPermissions(): Promise<boolean> {
  */
 export async function setupNotificationChannels() {
   if (Platform.OS === 'android') {
-    await Notifications.setNotificationChannelAsync('task-reminders-v2', {
+    await Notifications.setNotificationChannelAsync('task-reminders-v3', {
       name: 'Task Reminders',
       importance: Notifications.AndroidImportance.HIGH,
       vibrationPattern: [0, 250, 250, 250],
@@ -66,7 +66,7 @@ export async function setupNotificationChannels() {
  */
 export async function registerForPushNotificationsAsync(): Promise<string | undefined> {
   if (Platform.OS === 'android') {
-    await Notifications.setNotificationChannelAsync('task-reminders-v2', {
+    await Notifications.setNotificationChannelAsync('task-reminders-v3', {
       name: 'Task Reminders',
       importance: Notifications.AndroidImportance.HIGH,
       vibrationPattern: [0, 250, 250, 250],
@@ -212,7 +212,7 @@ export async function scheduleTaskReminder(task: Task): Promise<string | null> {
         badge: 1,
         color: '#6366F1',
         // @ts-ignore
-        channelId: 'task-reminders-v2',
+        channelId: 'task-reminders-v3',
       } as Notifications.NotificationContentInput, // Cast to any to allow channelId on Android if needed, though usually part of content
       trigger: {
         type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
@@ -280,7 +280,7 @@ export async function scheduleDueDateNotification(task: Task): Promise<string | 
         badge: 1,
         color: '#6366F1',
         // @ts-ignore
-        channelId: 'task-reminders-v2',
+        channelId: 'task-reminders-v3',
       } as Notifications.NotificationContentInput,
       trigger: {
         type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,

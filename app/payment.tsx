@@ -14,6 +14,12 @@ import { useRouter } from 'expo-router';
 import colors from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
 
+import { useStripe } from '@stripe/stripe-react-native';
+import apiService from '@/utils/apiService';
+
+// This ID should match the Premium Monthly price ID from AccountScreen
+const PREMIUM_MONTHLY_PRICE_ID = 'price_1Sl6opP0t2AuYFqKRMdGp5kO';
+
 const PRICING = {
     name: 'Premium Monthly',
     price: 4.99,
@@ -31,6 +37,7 @@ export default function PaymentScreen() {
     const router = useRouter();
     const { user } = useAuth();
     const [loading, setLoading] = useState(false);
+    const { initPaymentSheet, presentPaymentSheet } = useStripe();
 
     const handlePayment = async () => {
         if (!user?.uid) {
@@ -38,19 +45,54 @@ export default function PaymentScreen() {
             return;
         }
 
-        Alert.alert(
-            'Payment Setup Required',
-            'To enable payments, you need to build the app with EAS Build. This allows the Stripe SDK to work properly.\n\nWould you like to learn how?',
-            [
-                { text: 'Maybe Later', style: 'cancel' },
-                {
-                    text: 'Learn More',
-                    onPress: () => {
-                        Linking.openURL('https://docs.expo.dev/build/introduction/');
-                    },
-                },
-            ]
-        );
+        try {
+            setLoading(true);
+
+            // 1. Create subscription via backend
+            const response = await apiService.createSubscription(user.uid, PREMIUM_MONTHLY_PRICE_ID);
+
+            if (!response.success) {
+                throw new Error(response.error || 'Failed to initialize subscription');
+            }
+
+            const { clientSecret, customerId } = response;
+
+            if (!clientSecret) {
+                throw new Error('Failed to get payment details');
+            }
+
+            // 2. Initialize Payment Sheet
+            const { error: initError } = await initPaymentSheet({
+                paymentIntentClientSecret: clientSecret.startsWith('pi_') ? clientSecret : undefined,
+                setupIntentClientSecret: clientSecret.startsWith('seti_') ? clientSecret : undefined,
+                merchantDisplayName: 'Cause Student AI Planner',
+                customerId: customerId,
+                returnURL: 'cause-student-ai-planner://stripe-redirect',
+            });
+
+            if (initError) {
+                Alert.alert('Error', initError.message);
+                return;
+            }
+
+            // 3. Present Payment Sheet
+            const { error: paymentError } = await presentPaymentSheet();
+
+            if (paymentError) {
+                if (paymentError.code !== 'Canceled') {
+                    Alert.alert('Error', paymentError.message);
+                }
+            } else {
+                Alert.alert('Success', 'Thank you for subscribing!', [
+                    { text: 'OK', onPress: () => router.back() }
+                ]);
+            }
+        } catch (error: any) {
+            console.error('Payment error:', error);
+            Alert.alert('Error', error.message || 'Something went wrong');
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (

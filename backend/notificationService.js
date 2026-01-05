@@ -50,6 +50,7 @@ async function sendPushNotifications(tokens, title, body, data = {}) {
             title,
             body,
             data,
+            channelId: 'task-reminders-v3', // Required for Android custom sound
         });
     }
 
