@@ -9,9 +9,13 @@ import {
     Alert,
     Image,
     ActivityIndicator,
+    Modal,
+    TextInput,
+    KeyboardAvoidingView,
+    Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowLeft, Upload, FileText, CheckCircle, Circle, Save, Trash2 } from 'lucide-react-native';
+import { ArrowLeft, Upload, FileText, CheckCircle, Circle, Save, Trash2, Pencil, X } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
@@ -115,6 +119,53 @@ export default function SyllabusParserScreen() {
         setSelectedExams(newSelected);
     };
 
+    // Edit Modal State
+    const [editModalVisible, setEditModalVisible] = useState(false);
+    const [editingType, setEditingType] = useState<'assignment' | 'exam' | null>(null);
+    const [editingIndex, setEditingIndex] = useState<number>(-1);
+    const [editForm, setEditForm] = useState({ title: '', date: '', description: '' });
+
+    const openEditModal = (type: 'assignment' | 'exam', index: number) => {
+        if (!parsedData) return;
+        const item = type === 'assignment'
+            ? parsedData.assignments![index]
+            : parsedData.exams![index];
+
+        setEditingType(type);
+        setEditingIndex(index);
+        setEditForm({
+            title: item.title,
+            date: (type === 'assignment' ? (item as ParsedAssignment).dueDate : (item as ParsedExam).date) || '',
+            description: item.description
+        });
+        setEditModalVisible(true);
+    };
+
+    const saveEdit = () => {
+        if (!parsedData || !editingType || editingIndex === -1) return;
+
+        const newData = { ...parsedData };
+        if (editingType === 'assignment') {
+            if (!newData.assignments) newData.assignments = [];
+            newData.assignments[editingIndex] = {
+                ...newData.assignments[editingIndex],
+                title: editForm.title,
+                dueDate: editForm.date,
+                description: editForm.description
+            };
+        } else {
+            if (!newData.exams) newData.exams = [];
+            newData.exams[editingIndex] = {
+                ...newData.exams[editingIndex],
+                title: editForm.title,
+                date: editForm.date,
+                description: editForm.description
+            };
+        }
+        setParsedData(newData);
+        setEditModalVisible(false);
+    };
+
     const handleSave = async () => {
         if (!parsedData || !user?.uid) return;
 
@@ -126,12 +177,15 @@ export default function SyllabusParserScreen() {
                 const assignment = parsedData.assignments[index];
                 try {
                     await addTask({
-                        title: assignment.title,
-                        description: `${parsedData.courseInfo?.code ? `[${parsedData.courseInfo.code}] ` : ''}${assignment.description || 'Syllabus Assignment'}`,
-                        dueDate: assignment.dueDate ? new Date(assignment.dueDate) : new Date(), // Default to today if null? Or maybe null
-                        priority: 'Medium',
+                        description: assignment.title, // Map title to description
+                        className: parsedData.courseInfo?.code || '',
+                        type: 'homework',
+                        dueDate: assignment.dueDate ? assignment.dueDate : new Date().toISOString(),
+                        priority: 'medium',
                         completed: false,
-                        userId: user.uid,
+                        id: '', // Placeholder, will be generated
+                        alarmEnabled: false,
+                        createdAt: new Date().toISOString()
                     });
                     successCount++;
                 } catch (e) {
@@ -146,12 +200,15 @@ export default function SyllabusParserScreen() {
                 const exam = parsedData.exams[index];
                 try {
                     await addTask({
-                        title: `EXAM: ${exam.title}`,
-                        description: `${parsedData.courseInfo?.code ? `[${parsedData.courseInfo.code}] ` : ''}${exam.description || 'Syllabus Exam'}`,
-                        dueDate: exam.date ? new Date(exam.date) : new Date(),
-                        priority: 'High',
+                        description: `EXAM: ${exam.title}`,
+                        className: parsedData.courseInfo?.code || '',
+                        type: 'exam',
+                        dueDate: exam.date ? exam.date : new Date().toISOString(),
+                        priority: 'high',
                         completed: false,
-                        userId: user.uid,
+                        id: '', // Placeholder
+                        alarmEnabled: true, // Enable alarm for exams
+                        createdAt: new Date().toISOString()
                     });
                     successCount++;
                 } catch (e) {
@@ -226,23 +283,27 @@ export default function SyllabusParserScreen() {
                             <View style={styles.section}>
                                 <Text style={styles.sectionTitle}>Exams found ({selectedExams.size})</Text>
                                 {parsedData.exams.map((exam, index) => (
-                                    <TouchableOpacity
-                                        key={`exam-${index}`}
-                                        style={[styles.itemCard, selectedExams.has(index) && styles.itemCardSelected]}
-                                        onPress={() => toggleExam(index)}
-                                    >
-                                        <View style={styles.checkbox}>
-                                            {selectedExams.has(index) ?
-                                                <CheckCircle size={24} color={colors.primary} /> :
-                                                <Circle size={24} color={colors.textLight} />
-                                            }
-                                        </View>
-                                        <View style={styles.itemContent}>
-                                            <Text style={styles.itemTitle}>{exam.title}</Text>
-                                            <Text style={styles.itemDate}>{exam.date || 'No Date'}</Text>
-                                            {exam.description && <Text style={styles.itemDesc} numberOfLines={1}>{exam.description}</Text>}
-                                        </View>
-                                    </TouchableOpacity>
+                                    <View key={`exam-${index}`} style={[styles.itemCard, selectedExams.has(index) && styles.itemCardSelected]}>
+                                        <TouchableOpacity
+                                            style={styles.itemSelectionArea}
+                                            onPress={() => toggleExam(index)}
+                                        >
+                                            <View style={styles.checkbox}>
+                                                {selectedExams.has(index) ?
+                                                    <CheckCircle size={24} color={colors.primary} /> :
+                                                    <Circle size={24} color={colors.textLight} />
+                                                }
+                                            </View>
+                                            <View style={styles.itemContent}>
+                                                <Text style={styles.itemTitle}>{exam.title}</Text>
+                                                <Text style={styles.itemDate}>{exam.date || 'No Date'}</Text>
+                                                {exam.description && <Text style={styles.itemDesc} numberOfLines={1}>{exam.description}</Text>}
+                                            </View>
+                                        </TouchableOpacity>
+                                        <TouchableOpacity style={styles.editButton} onPress={() => openEditModal('exam', index)}>
+                                            <Pencil size={20} color={colors.textSecondary} />
+                                        </TouchableOpacity>
+                                    </View>
                                 ))}
                             </View>
                         )}
@@ -251,23 +312,27 @@ export default function SyllabusParserScreen() {
                             <View style={styles.section}>
                                 <Text style={styles.sectionTitle}>Assignments found ({selectedItems.size})</Text>
                                 {parsedData.assignments.map((assignment, index) => (
-                                    <TouchableOpacity
-                                        key={`assign-${index}`}
-                                        style={[styles.itemCard, selectedItems.has(index) && styles.itemCardSelected]}
-                                        onPress={() => toggleAssignment(index)}
-                                    >
-                                        <View style={styles.checkbox}>
-                                            {selectedItems.has(index) ?
-                                                <CheckCircle size={24} color={colors.primary} /> :
-                                                <Circle size={24} color={colors.textLight} />
-                                            }
-                                        </View>
-                                        <View style={styles.itemContent}>
-                                            <Text style={styles.itemTitle}>{assignment.title}</Text>
-                                            <Text style={styles.itemDate}>{assignment.dueDate || 'No Date'}</Text>
-                                            {assignment.description && <Text style={styles.itemDesc} numberOfLines={1}>{assignment.description}</Text>}
-                                        </View>
-                                    </TouchableOpacity>
+                                    <View key={`assign-${index}`} style={[styles.itemCard, selectedItems.has(index) && styles.itemCardSelected]}>
+                                        <TouchableOpacity
+                                            style={styles.itemSelectionArea}
+                                            onPress={() => toggleAssignment(index)}
+                                        >
+                                            <View style={styles.checkbox}>
+                                                {selectedItems.has(index) ?
+                                                    <CheckCircle size={24} color={colors.primary} /> :
+                                                    <Circle size={24} color={colors.textLight} />
+                                                }
+                                            </View>
+                                            <View style={styles.itemContent}>
+                                                <Text style={styles.itemTitle}>{assignment.title}</Text>
+                                                <Text style={styles.itemDate}>{assignment.dueDate || 'No Date'}</Text>
+                                                {assignment.description && <Text style={styles.itemDesc} numberOfLines={1}>{assignment.description}</Text>}
+                                            </View>
+                                        </TouchableOpacity>
+                                        <TouchableOpacity style={styles.editButton} onPress={() => openEditModal('assignment', index)}>
+                                            <Pencil size={20} color={colors.textSecondary} />
+                                        </TouchableOpacity>
+                                    </View>
                                 ))}
                             </View>
                         )}
@@ -276,6 +341,63 @@ export default function SyllabusParserScreen() {
 
                 <View style={{ height: 40 }} />
             </ScrollView>
+
+            <Modal
+                visible={editModalVisible}
+                animationType="slide"
+                transparent={true}
+                onRequestClose={() => setEditModalVisible(false)}
+            >
+                <KeyboardAvoidingView
+                    behavior={Platform.OS === "ios" ? "padding" : "height"}
+                    style={styles.modalOverlay}
+                >
+                    <View style={styles.modalContent}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>Edit Item</Text>
+                            <TouchableOpacity onPress={() => setEditModalVisible(false)}>
+                                <X size={24} color={colors.text} />
+                            </TouchableOpacity>
+                        </View>
+
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.label}>Title</Text>
+                            <TextInput
+                                style={styles.input}
+                                value={editForm.title}
+                                onChangeText={(text) => setEditForm(prev => ({ ...prev, title: text }))}
+                                placeholder="Assignment Title"
+                            />
+                        </View>
+
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.label}>Date (YYYY-MM-DD)</Text>
+                            <TextInput
+                                style={styles.input}
+                                value={editForm.date}
+                                onChangeText={(text) => setEditForm(prev => ({ ...prev, date: text }))}
+                                placeholder="YYYY-MM-DD"
+                            />
+                        </View>
+
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.label}>Description</Text>
+                            <TextInput
+                                style={[styles.input, styles.textArea]}
+                                value={editForm.description}
+                                onChangeText={(text) => setEditForm(prev => ({ ...prev, description: text }))}
+                                placeholder="Description"
+                                multiline
+                                numberOfLines={3}
+                            />
+                        </View>
+
+                        <TouchableOpacity style={styles.saveButton} onPress={saveEdit}>
+                            <Text style={styles.saveButtonText}>Save Changes</Text>
+                        </TouchableOpacity>
+                    </View>
+                </KeyboardAvoidingView>
+            </Modal>
         </SafeAreaView>
     );
 }
@@ -411,11 +533,17 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         backgroundColor: colors.surface,
-        padding: 16,
         borderRadius: 12,
         marginBottom: 10,
         borderWidth: 1,
         borderColor: 'transparent',
+        paddingRight: 16, // Padding for edit button
+    },
+    itemSelectionArea: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 16,
     },
     itemCardSelected: {
         borderColor: colors.primary,
@@ -442,5 +570,70 @@ const styles = StyleSheet.create({
     itemDesc: {
         fontSize: 12,
         color: colors.textSecondary,
+    },
+    editButton: {
+        padding: 8,
+    },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'center',
+        padding: 20,
+    },
+    modalContent: {
+        backgroundColor: colors.surface,
+        borderRadius: 20,
+        padding: 24,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 4,
+        elevation: 5,
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 24,
+    },
+    modalTitle: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        color: colors.text,
+    },
+    inputGroup: {
+        marginBottom: 16,
+    },
+    label: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: colors.textStart,
+        marginBottom: 8,
+    },
+    input: {
+        borderWidth: 1,
+        borderColor: colors.border,
+        borderRadius: 12,
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        fontSize: 16,
+        color: colors.text,
+        backgroundColor: colors.background,
+    },
+    textArea: {
+        height: 100,
+        textAlignVertical: 'top',
+    },
+    saveButton: {
+        backgroundColor: colors.primary,
+        borderRadius: 12,
+        paddingVertical: 16,
+        alignItems: 'center',
+        marginTop: 8,
+    },
+    saveButtonText: {
+        color: 'white',
+        fontSize: 16,
+        fontWeight: 'bold',
     },
 });
