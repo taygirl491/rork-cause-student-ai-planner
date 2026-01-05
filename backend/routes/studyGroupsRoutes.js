@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const StudyGroup = require('../models/StudyGroupMongo');
 const StudyGroupMessage = require('../models/StudyGroupMessageMongo');
+const notificationService = require('../notificationService');
+const User = require('../models/User');
 
 /**
  * GET /api/study-groups/:userId
@@ -321,6 +323,23 @@ router.post('/:groupId/messages', async (req, res) => {
                 createdAt: newMessage.createdAt,
             }
         });
+
+        // Send push notification to other members
+        try {
+            const group = await StudyGroup.findById(groupId);
+            if (group) {
+                const recipients = group.members.filter(m => m.email !== senderEmail);
+                if (recipients.length > 0) {
+                    notificationService.sendMessageNotification(group, {
+                        ...newMessage.toObject(),
+                        id: newMessage._id
+                    }, recipients);
+                }
+            }
+        } catch (notifError) {
+            console.error('Error triggering push notification:', notifError);
+            // Don't fail the request if notification fails
+        }
 
         res.json({
             success: true,

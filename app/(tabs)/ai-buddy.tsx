@@ -16,6 +16,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Send, Bot, User as UserIcon, Sparkles, BookOpen, FileText, BrainCircuit, ArrowLeft, Paperclip, X } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
+import TextRecognition from '@react-native-ml-kit/text-recognition';
 import * as DocumentPicker from 'expo-document-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import colors from '@/constants/colors';
@@ -207,22 +208,38 @@ export default function AIBuddyScreen() {
       let response;
 
       if (selectedFile) {
-        // Send image/document analysis request
-        const analysisResult = await analyzeImage(
-          selectedFile.uri,
-          inputText.trim() || "Analyze this",
-          user.uid
-        );
+        let extractedText = "";
 
-        response = {
-          reply: analysisResult.analysis,
-          timestamp: analysisResult.timestamp
-        };
-
-        // Update usage stats
-        if (analysisResult.usageRemaining !== undefined) {
-          setUsageStats(prev => prev ? { ...prev, remaining: analysisResult.usageRemaining } : null);
+        if (selectedFile.type === 'image') {
+          // Perform On-Device OCR
+          try {
+            console.log("Starting OCR on:", selectedFile.uri);
+            const result = await TextRecognition.recognize(selectedFile.uri);
+            extractedText = result.text;
+            console.log("OCR Result:", extractedText.substring(0, 100) + "...");
+          } catch (ocrError) {
+            console.error("OCR Error:", ocrError);
+            Alert.alert("OCR Error", "Failed to extract text from image.");
+          }
         }
+
+        // Construct message with extracted text or attached file info
+        const messageContent = selectedFile.type === 'image' && extractedText
+          ? `[Attached Image Text]:\n${extractedText}\n\n[User Question]:\n${inputText.trim()}`
+          : `[Attached ${selectedFile.type}: ${selectedFile.name}]\n\n${inputText.trim()}`;
+
+        // Update user message content in local state for display context if needed
+        // But we already added it to state above. We might want to update the displayed message or just send the enhanced prompt.
+        // Actually, 'userMessage' above (line 180) holds the display content. 
+        // We should send the ENHANCED content to the AI, but maybe keep the display simple?
+        // For now, let's send the enhanced content as the prompt.
+
+        response = await sendMessage(
+          messageContent,
+          user.uid,
+          contextMessages,
+          mode
+        );
 
         // Clear selection
         setSelectedFile(null);

@@ -19,6 +19,7 @@ const notesRoutes = require("./routes/notesRoutes");
 const goalsRoutes = require("./routes/goalsRoutes");
 const studyGroupsRoutes = require("./routes/studyGroupsRoutes");
 const adminRoutes = require("./routes/adminRoutes");
+const userRoutes = require("./routes/userRoutes");
 
 const app = express();
 const server = http.createServer(app);
@@ -537,6 +538,7 @@ app.use("/api/notes", authenticate, notesRoutes);
 app.use("/api/goals", authenticate, goalsRoutes);
 app.use("/api/study-groups", authenticate, studyGroupsRoutes);
 app.use("/api/admin", authenticate, adminRoutes);
+app.use("/api/users", authenticate, userRoutes);
 
 // Stripe Routes
 const stripeRoutes = require("./stripeRoutes");

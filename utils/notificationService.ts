@@ -61,6 +61,49 @@ export async function setupNotificationChannels() {
 }
 
 /**
+ * Register for push notifications and get the token
+ * @returns Promise<string | undefined> - The Expo push token
+ */
+export async function registerForPushNotificationsAsync(): Promise<string | undefined> {
+  if (Platform.OS === 'android') {
+    await Notifications.setNotificationChannelAsync('task-reminders-v2', {
+      name: 'Task Reminders',
+      importance: Notifications.AndroidImportance.HIGH,
+      vibrationPattern: [0, 250, 250, 250],
+      lightColor: '#6366F1',
+    });
+  }
+
+  if (Platform.OS === 'web') {
+    return undefined;
+  }
+
+  const { status: existingStatus } = await Notifications.getPermissionsAsync();
+  let finalStatus = existingStatus;
+
+  if (existingStatus !== 'granted') {
+    const { status } = await Notifications.requestPermissionsAsync();
+    finalStatus = status;
+  }
+
+  if (finalStatus !== 'granted') {
+    console.log('Failed to get push token for push notification!');
+    return undefined;
+  }
+
+  try {
+    const token = (await Notifications.getExpoPushTokenAsync({
+        // projectId: Constants.expoConfig?.extra?.eas?.projectId, // Optional if configured in app.json
+    })).data;
+    console.log("Expo Push Token:", token);
+    return token;
+  } catch (error) {
+    console.error("Error fetching push token:", error);
+    return undefined;
+  }
+}
+
+/**
  * Calculate the trigger time for a task reminder
  * @param task - The task to calculate reminder time for
  * @returns Date | null - The trigger date or null if invalid
