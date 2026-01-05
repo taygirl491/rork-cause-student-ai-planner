@@ -604,12 +604,7 @@ const styles = StyleSheet.create({
     inputGroup: {
         marginBottom: 16,
     },
-    label: {
-        fontSize: 14,
-        fontWeight: '600',
-        color: colors.textStart,
-        marginBottom: 8,
-    },
+    color: colors.text,
     input: {
         borderWidth: 1,
         borderColor: colors.border,

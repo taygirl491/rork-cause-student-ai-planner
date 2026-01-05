@@ -180,42 +180,27 @@ async function analyzeImage(imageBase64, prompt, userContext = {}) {
  */
 async function parseSyllabus(fileBase64, mimeType = 'application/pdf') {
     try {
-        const systemPrompt = `You are a precise data extraction assistant for students. Your task is to extract course details, assignments, and exams from the provided syllabus image.
+        const systemPrompt = `You are a helpful assistant that extracts course schedules from syllabus images. 
+        CRITICAL: You MUST find all assignments, exams, quizzes, and readings.
         
-        Return the result as a STRICT valid JSON object with the following structure:
+        Return a valid JSON object:
         {
-            "courseInfo": {
-                "code": "Course Code (e.g., CS101, CHEM 121)",
-                "name": "Course Name",
-                "professor": "Professor Name"
-            },
-            "assignments": [
-                {
-                    "title": "Assignment Title (e.g., Homework 1, Lab Report 3, Chapter 5 Problems)",
-                    "dueDate": "YYYY-MM-DD",
-                    "description": "Any additional details or context"
-                }
-            ],
-            "exams": [
-                {
-                    "title": "Exam Title (e.g., Midterm 1, Final Exam, Quiz 2)",
-                    "date": "YYYY-MM-DD",
-                    "description": "Topics covered or location"
-                }
-            ]
+            "courseInfo": { "code": "e.g. CS101", "name": "Course Name", "professor": "Name" },
+            "assignments": [ { "title": "...", "dueDate": "YYYY-MM-DD", "description": "..." } ],
+            "exams": [ { "title": "...", "date": "YYYY-MM-DD", "description": "..." } ]
         }
-
-        Extraction Strategies:
-        1. **Look for Tables**: Syllabus schedules are often in tables with headers like "Week", "Date", "Topic", "Assignment", "Due".
-        2. **Identify Dates**: Scan for dates associated with "Due", "Exam", "Test", "Quiz", "Submit". 
-        3. **Infer Assignments**: If a row says "Chapter 5" and "Due Oct 15", infer an assignment titled "Chapter 5".
-        4. **Course Info**: Look at the top of the document for header information.
+        
+        Strategies:
+        1. **Everything is a task**: If it has a date and a name, it is an assignment. 
+        2. **Weekly Items**: If the syllabus lists "Week 1: Output Devices", create an assignment "Week 1 - Output Devices" due on the Friday of that week (estimate dates if needed).
+        3. **Readings**: Even "Read Chapter 1" is an assignment.
+        4. **Tables**: Iterate through every row of any schedule table.
         
         Rules:
-        - If a specific date is not found but a week is given (e.g., "Week 5"), try to estimate relative to a standard semester start or return null if unsure. 
-        - Convert all dates to YYYY-MM-DD format. Assume the current year (${new Date().getFullYear()}) or the next year if the month is early and we are late in the year.
-        - **Be aggressive in extraction**: If something looks like a task the student needs to do, add it to 'assignments'.
-        - Do not include markdown formatting (like \`\`\`json), just the raw JSON object.`;
+        - If 'dueDate' is missing, Use the current date "${new Date().toISOString().split('T')[0]}" as a fallback. DO NOT USE NULL.
+        - **If you are unsure if something is an assignment, INCLUDE IT ANYWAY.**
+        - Default to "assignments" for everything that isn't explicitly an "exam" or "test".
+        `;
 
         // Determine if we treat it as image or text (for now, using GPT-4o vision for everything or text if extracted)
         // Since we are receiving base64, we'll pass it to GPT-4o which handles both if we format it right?
