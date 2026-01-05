@@ -78,6 +78,13 @@ export default function HomeScreen() {
         <View style={styles.heroSection}>
           <Text style={styles.appTitle}>Cause Student AI Planner</Text>
           <Text style={styles.heroSubtitle}>Making a difference, one task at a time</Text>
+          <TouchableOpacity
+            style={styles.importButton}
+            onPress={() => router.push('/syllabus-parser')}
+          >
+            <Clock size={20} color={colors.primary} />
+            <Text style={styles.importButtonText}>Import Syllabus</Text>
+          </TouchableOpacity>
         </View>
 
         <View style={styles.quoteSection}>
@@ -293,5 +300,25 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     overflow: 'hidden',
     backgroundColor: colors.cardShadow,
+  },
+  importButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginTop: 16,
+    shadowColor: colors.cardShadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  importButtonText: {
+    marginLeft: 8,
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.primary,
   },
 });

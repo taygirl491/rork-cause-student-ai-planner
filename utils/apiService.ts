@@ -441,9 +441,39 @@ class ApiService {
 		}
 	}
 
+
+	/**
+	 * Parse syllabus document
+	 */
+	async parseSyllabus(uri: string, userId: string) {
+		try {
+			console.log(`[API] Parsing syllabus for user ${userId}`);
+			const formData = new FormData();
+			
+			const filename = uri.split('/').pop() || 'syllabus.jpg';
+			const match = /\.(\w+)$/.exec(filename);
+			const type = match ? `image/${match[1]}` : 'image/jpeg';
+			
+			formData.append('file', {
+				uri,
+				type,
+				name: filename,
+			} as any);
+			
+			formData.append('userId', userId);
+
+			const response = await this.postFormData('/api/ai/syllabus/parse', formData);
+			return response;
+		} catch (error: any) {
+			console.error("[API] Syllabus parsing error:", error);
+			return { success: false, error: error.message || String(error) };
+		}
+	}
+
 	/**
 	 * Create Payment Intent (for one-time payment)
 	 */
+
 	async createPaymentIntent(userId: string, amount: number) {
 		try {
 			console.log(`[API] Creating payment intent for user ${userId}, amount: ${amount}`);

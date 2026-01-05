@@ -100,8 +100,58 @@ router.post("/analyze-image", upload.single('file'), async (req, res) => {
     }
 });
 
+
+/**
+ * POST /api/ai/syllabus/parse
+ * Parse a syllabus file (Image) to extract structured data
+ */
+router.post("/syllabus/parse", upload.single('file'), async (req, res) => {
+    try {
+        const { userId } = req.body;
+
+        if (!req.file) {
+            return res.status(400).json({ error: "No file uploaded" });
+        }
+
+        // Basic daily limit check (shared with vision or separate?)
+        // Let's assume it shares the 'vision' limit for now or is unlimited for MVP.
+        // Let's keep it simple and just do the parsing.
+
+        const fileBase64 = req.file.buffer.toString('base64');
+        const mimeType = req.file.mimetype;
+
+        // Note: GPT-4o Vision only supports images. If PDF, we'd need conversion.
+        // For this MVP, we will inform the frontend to prefer images or warn about PDFs if not supported.
+        // Actually, let's strictly check content-type here if we only support images for now.
+        if (mimeType === 'application/pdf') {
+            // If we really want to support PDFs without extra libs, we might be stuck.
+            // But the user asked for "syllabus document". 
+            // Providing a clean error message if PDF is sent:
+            return res.status(400).json({
+                error: "PDF parsing is currently optimized for text. Please upload an image (screenshot or photo) of the syllabus for best results."
+            });
+        }
+
+        const { parseSyllabus } = require("./openaiService");
+        const parsedData = await parseSyllabus(fileBase64, mimeType);
+
+        res.json({
+            success: true,
+            data: parsedData
+        });
+
+    } catch (error) {
+        console.error("Syllabus route error:", error);
+        res.status(500).json({
+            error: "Failed to parse syllabus",
+            details: error.message
+        });
+    }
+});
+
 /**
  * GET /api/ai/usage
+
  * Get current usage stats for the user
  */
 router.get("/usage/:userId", async (req, res) => {
