@@ -124,37 +124,32 @@ async function createSubscription(customerId, priceIdOrProductId, metadata = {})
 
         if (invoice && typeof invoice === 'object') {
             console.log(`[Stripe] Invoice ID: ${invoice.id}, Status: ${invoice.status}, Amount Due: ${invoice.amount_due}`);
+
             if (invoice.payment_intent) {
-                // Handle both object and string cases for payment_intent
+                // Payment intent already present on the invoice object
                 if (typeof invoice.payment_intent === 'object') {
                     clientSecret = invoice.payment_intent.client_secret;
-                    console.log(`[Stripe] Payment Intent object found: ${invoice.payment_intent.id}`);
                 } else {
                     // It's a string ID, retrieve it
-                    console.log(`[Stripe] Payment Intent ID found: ${invoice.payment_intent}, retrieving...`);
                     const pi = await stripe.paymentIntents.retrieve(invoice.payment_intent);
                     clientSecret = pi.client_secret;
                 }
             } else {
-                console.warn(`[Stripe] Payment Intent missing in expanded invoice ${invoice.id}. Attempting explicit retrieval...`);
-                // Fallback: Retrieve invoice explicitly
+                // Payment intent missing, try explicit retrieval of invoice
+                console.log(`[Stripe] Payment Intent missing in expanded invoice ${invoice.id}. Retrieving explicitly...`);
                 try {
+                    // Re-declare fullInvoice in correct scope
                     const fullInvoice = await stripe.invoices.retrieve(invoice.id, {
                         expand: ['payment_intent']
                     });
-                    console.log(`[Stripe] Retrieved full invoice. Payment Intent: ${fullInvoice.payment_intent ? (typeof fullInvoice.payment_intent === 'object' ? fullInvoice.payment_intent.id : fullInvoice.payment_intent) : 'NULL'}`);
 
                     if (fullInvoice.payment_intent) {
-                        if (typeof fullInvoice.payment_intent === 'object') {
-                            clientSecret = fullInvoice.payment_intent.client_secret;
-                        } else {
-                            const pi = await stripe.paymentIntents.retrieve(fullInvoice.payment_intent);
-                            clientSecret = pi.client_secret;
-                        }
-                        console.log(`[Stripe] Payment Intent found after explicit retrieval: ${clientSecret ? 'HAS SECRET' : 'NO SECRET'}`);
+                        clientSecret = typeof fullInvoice.payment_intent === 'object'
+                            ? fullInvoice.payment_intent.client_secret
+                            : (await stripe.paymentIntents.retrieve(fullInvoice.payment_intent)).client_secret;
+                        console.log(`[Stripe] Payment Intent found after retrieval: ${fullInvoice.payment_intent.id || fullInvoice.payment_intent}`);
                     } else {
-                        console.error(`[Stripe] CRITICAL: Invoice ${invoice.id} still has no payment_intent even after retrieval.`);
-                        console.log('[Stripe] Invoice Dump:', JSON.stringify(fullInvoice, null, 2));
+                        console.warn(`[Stripe] CRITICAL: Invoice ${invoice.id} still has no payment_intent.`);
                     }
                 } catch (err) {
                     console.error(`[Stripe] Error retrieving invoice ${invoice.id}:`, err);
