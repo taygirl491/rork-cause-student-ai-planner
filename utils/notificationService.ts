@@ -290,9 +290,73 @@ export async function scheduleDueDateNotification(task: Task): Promise<string | 
     });
 
     console.log(`Scheduled due date notification ${notificationId} for task ${task.id} at ${dueDate.toLocaleString()}`);
+
+    // Schedule missed task notification (5 minutes after due date)
+    await scheduleMissedTaskNotification(task);
+
     return notificationId;
   } catch (error) {
     console.error('Error scheduling due date notification:', error);
+    return null;
+  }
+}
+
+/**
+ * Schedule a notification for when a task is missed (5 minutes after due time)
+ * @param task - The task to schedule a missed notification for
+ * @returns Promise<string | null> - The notification ID or null if not scheduled
+ */
+export async function scheduleMissedTaskNotification(task: Task): Promise<string | null> {
+  try {
+    if (task.completed || !task.dueDate) return null;
+
+    const missedDate = new Date(task.dueDate);
+    
+    // If task has a specific time, use it
+    if (task.dueTime) {
+      const [hours, minutes] = task.dueTime.split(':');
+      missedDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+    } else {
+      // Default to 9 AM if no time specified
+      missedDate.setHours(9, 0, 0, 0);
+    }
+
+    // Add 5 minutes
+    missedDate.setMinutes(missedDate.getMinutes() + 5);
+
+    // Don't schedule if in the past
+    if (missedDate <= new Date()) {
+      return null;
+    }
+
+    const secondsUntilMissed = Math.floor((missedDate.getTime() - Date.now()) / 1000);
+    
+    const notificationId = await Notifications.scheduleNotificationAsync({
+      content: {
+        title: `Missed Task: ${task.type.toUpperCase()}`,
+        body: `You set this due 5 minutes ago: ${task.description}. Mark it done?`,
+        data: { 
+          taskId: task.id, 
+          type: 'missed_task',
+          className: task.className,
+        },
+        sound: 'default',
+        badge: 1,
+        color: '#EF4444', // Red color for missed
+        // @ts-ignore
+        channelId: 'task-reminders-v3', // Reuse same channel
+      } as Notifications.NotificationContentInput,
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+        seconds: secondsUntilMissed > 0 ? secondsUntilMissed : 1,
+        repeats: false,
+      },
+    });
+
+    console.log(`Scheduled missed task notification ${notificationId} for task ${task.id} at ${missedDate.toLocaleString()}`);
+    return notificationId;
+  } catch (error) {
+    console.error('Error scheduling missed task notification:', error);
     return null;
   }
 }
@@ -418,6 +482,45 @@ export async function scheduleGoalNotification(goal: Goal): Promise<string | nul
     return notificationId;
   } catch (error) {
     console.error('Error scheduling goal notification:', error);
+    return null;
+  }
+}
+
+/**
+ * Schedule a daily recurring notification for a habit
+ * @param goalTitle - The title of the parent goal
+ * @param habitTitle - The title of the habit
+ * @param timeStr - The time string in "HH:MM" format (24hr)
+ * @returns Promise<string | null> - The notification ID or null
+ */
+export async function scheduleHabitReminder(goalTitle: string, habitTitle: string, timeStr: string): Promise<string | null> {
+  try {
+    const [hours, minutes] = timeStr.split(':').map(Number);
+    
+    // Create a unique identifier for this habit notification logic might needed if we want to cancel specifically
+    // but for now relying on the returned ID is standard.
+
+    const notificationId = await Notifications.scheduleNotificationAsync({
+      content: {
+        title: `Habit Reminder: ${habitTitle}`,
+        body: `Time to work on your habit for goal: ${goalTitle}`,
+        sound: 'default',
+        badge: 1,
+        color: '#6366F1',
+        data: { type: 'habit_reminder' },
+      },
+      trigger: {
+        type: 'daily' as any,
+        hour: hours,
+        minute: minutes,
+        repeats: true,
+      },
+    });
+
+    console.log(`Scheduled daily habit reminder ${notificationId} for "${habitTitle}" at ${timeStr}`);
+    return notificationId;
+  } catch (error) {
+    console.error('Error scheduling habit reminder:', error);
     return null;
   }
 }

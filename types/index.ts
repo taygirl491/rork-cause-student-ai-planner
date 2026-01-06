@@ -43,7 +43,13 @@ export interface Goal {
   completed: boolean;
   notificationId?: string;
   createdAt: string;
-  habits?: { title: string; completed: boolean }[];
+  habits?: { 
+    title: string; 
+    completed: boolean;
+    reminderEnabled?: boolean;
+    reminderTime?: string; // HH:MM 24hr format
+    notificationId?: string;
+  }[];
 }
 
 export interface Habit {

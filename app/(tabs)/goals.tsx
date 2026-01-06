@@ -18,11 +18,11 @@ import {
 import { useFocusEffect } from 'expo-router';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Plus, X, Target, CheckCircle, Circle, Trash2, Edit2 } from 'lucide-react-native';
+import { Plus, X, Target, CheckCircle, Circle, Trash2, Edit2, Bell, BellOff } from 'lucide-react-native';
 import colors from '@/constants/colors';
 import { useApp } from '@/contexts/AppContext';
 import { Goal } from '@/types';
-import { cancelNotification, scheduleGoalNotification } from '@/utils/notificationService';
+import { cancelNotification, scheduleGoalNotification, scheduleHabitReminder } from '@/utils/notificationService';
 
 export default function GoalsScreen() {
   const { goals, addGoal, updateGoal, deleteGoal, refreshGoals } = useApp();
@@ -39,8 +39,16 @@ export default function GoalsScreen() {
   const [showActionSheet, setShowActionSheet] = useState(false);
   const [selectedGoal, setSelectedGoal] = useState<Goal | null>(null);
   const [isEditing, setIsEditing] = useState(false);
-  const [habits, setHabits] = useState<{ title: string; completed: boolean }[]>([]);
+  const [habits, setHabits] = useState<{
+    title: string;
+    completed: boolean;
+    reminderEnabled?: boolean;
+    reminderTime?: string; // HH:MM
+    notificationId?: string;
+  }[]>([]);
   const [newHabit, setNewHabit] = useState('');
+  const [newHabitTime, setNewHabitTime] = useState<Date | null>(null);
+  const [showHabitTimePicker, setShowHabitTimePicker] = useState(false);
 
   const scaleAnim = React.useRef(new Animated.Value(0)).current;
 
@@ -77,13 +85,30 @@ export default function GoalsScreen() {
     const formattedDate = dueDate.toISOString().split('T')[0];
     const formattedTime = dueTime.toTimeString().split(' ')[0].substring(0, 5);
 
+    // Process habits to schedule notifications if needed
+    const processedHabits = await Promise.all(habits.map(async (habit) => {
+      if (habit.reminderEnabled && habit.reminderTime) {
+        // Cancel old if exists (re-scheduling)
+        if (habit.notificationId) {
+          await cancelNotification(habit.notificationId);
+        }
+        const notifId = await scheduleHabitReminder(title, habit.title, habit.reminderTime);
+        return { ...habit, notificationId: notifId || undefined };
+      } else if (!habit.reminderEnabled && habit.notificationId) {
+        // If reminder disabled but has ID, cancel it
+        await cancelNotification(habit.notificationId);
+        return { ...habit, notificationId: undefined };
+      }
+      return habit;
+    }));
+
     if (isEditing && selectedGoal) {
       const updatedGoal: Partial<Goal> = {
         title,
         description,
         dueDate: formattedDate,
         dueTime: formattedTime,
-        habits,
+        habits: processedHabits,
       };
       updateGoal(selectedGoal.id, updatedGoal);
 
@@ -99,7 +124,7 @@ export default function GoalsScreen() {
         updateGoal(selectedGoal.id, { notificationId });
       }
     } else {
-      const newGoal: Goal = {
+      const tempGoal: Goal = {
         id: Date.now().toString(),
         title,
         description,
@@ -107,15 +132,18 @@ export default function GoalsScreen() {
         dueTime: formattedTime,
         completed: false,
         createdAt: new Date().toISOString(),
-        habits,
+        habits: processedHabits,
       };
-      addGoal(newGoal);
 
-      // Schedule notification
-      const notificationId = await scheduleGoalNotification(newGoal);
-      if (notificationId) {
-        updateGoal(newGoal.id, { notificationId });
-      }
+      // Schedule notification first to get ID
+      const notificationId = await scheduleGoalNotification(tempGoal);
+
+      const newGoal: Goal = {
+        ...tempGoal,
+        notificationId: notificationId || undefined,
+      };
+
+      addGoal(newGoal);
     }
 
     refreshGoals();
@@ -132,6 +160,7 @@ export default function GoalsScreen() {
     setDueTime(new Date());
     setHabits([]);
     setNewHabit('');
+    setNewHabitTime(null);
   };
 
   const handleLongPress = (goal: Goal) => {
@@ -161,6 +190,15 @@ export default function GoalsScreen() {
       await cancelNotification(selectedGoal.notificationId);
     }
 
+    // Cancel habit notifications
+    if (selectedGoal.habits) {
+      for (const habit of selectedGoal.habits) {
+        if (habit.notificationId) {
+          await cancelNotification(habit.notificationId);
+        }
+      }
+    }
+
     deleteGoal(selectedGoal.id);
     refreshGoals();
     setShowActionSheet(false);
@@ -173,8 +211,18 @@ export default function GoalsScreen() {
 
   const addHabitToState = () => {
     if (newHabit.trim()) {
-      setHabits([...habits, { title: newHabit.trim(), completed: false }]);
+      const reminderTimeStr = newHabitTime
+        ? newHabitTime.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' })
+        : undefined;
+
+      setHabits([...habits, {
+        title: newHabit.trim(),
+        completed: false,
+        reminderEnabled: !!newHabitTime,
+        reminderTime: reminderTimeStr
+      }]);
       setNewHabit('');
+      setNewHabitTime(null);
     }
   };
 
@@ -207,6 +255,7 @@ export default function GoalsScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
+      {/* ... previous header logic unchanged ... */}
       <View style={styles.header}>
         <View>
           <Text style={styles.title}>Goals & Purpose</Text>
@@ -302,6 +351,12 @@ export default function GoalsScreen() {
                           ]}>
                             {habit.title}
                           </Text>
+                          {habit.reminderEnabled && habit.reminderTime && (
+                            <View style={styles.habitBadge}>
+                              <Bell size={12} color={colors.primary} />
+                              <Text style={styles.habitBadgeText}>{habit.reminderTime}</Text>
+                            </View>
+                          )}
                         </TouchableOpacity>
                       ))}
                     </View>
@@ -368,6 +423,7 @@ export default function GoalsScreen() {
                     numberOfLines={3}
                   />
 
+                  {/* ... Due Date/Time pickers (unchanged code omitted for brevity if not changing) ... */}
                   <Text style={styles.label}>Due Date *</Text>
                   <TouchableOpacity
                     style={styles.input}
@@ -408,14 +464,30 @@ export default function GoalsScreen() {
                     onCancel={() => setShowTimePicker(false)}
                   />
 
+
                   <Text style={styles.label}>Daily Habits</Text>
                   <View style={styles.habitInputRow}>
                     <TextInput
                       style={[styles.input, styles.habitInput]}
-                      placeholder="Add a habit (e.g., Read 30 mins)"
+                      placeholder="Add a habit "
                       placeholderTextColor={colors.textLight}
                       value={newHabit}
                       onChangeText={setNewHabit}
+                    />
+                    <TouchableOpacity
+                      style={[styles.timeButton, newHabitTime && styles.timeButtonActive]}
+                      onPress={() => setShowHabitTimePicker(true)}
+                    >
+                      {newHabitTime ? <Bell size={20} color="white" /> : <BellOff size={20} color={colors.textLight} />}
+                    </TouchableOpacity>
+                    <DateTimePickerModal
+                      isVisible={showHabitTimePicker}
+                      mode="time"
+                      onConfirm={(time) => {
+                        setNewHabitTime(time);
+                        setShowHabitTimePicker(false);
+                      }}
+                      onCancel={() => setShowHabitTimePicker(false)}
                     />
                     <TouchableOpacity
                       style={styles.addHabitButton}
@@ -424,11 +496,26 @@ export default function GoalsScreen() {
                       <Plus size={24} color={colors.surface} />
                     </TouchableOpacity>
                   </View>
+                  {newHabitTime && (
+                    <View style={styles.reminderPreview}>
+                      <Text style={styles.reminderPreviewText}>
+                        Reminder set for: {newHabitTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                      </Text>
+                      <TouchableOpacity onPress={() => setNewHabitTime(null)}>
+                        <X size={16} color={colors.textSecondary} />
+                      </TouchableOpacity>
+                    </View>
+                  )}
 
                   <View style={styles.habitsList}>
                     {habits.map((habit, index) => (
                       <View key={index} style={styles.habitChip}>
-                        <Text style={styles.habitChipText}>{habit.title}</Text>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.habitChipText}>{habit.title}</Text>
+                          {habit.reminderEnabled && habit.reminderTime && (
+                            <Text style={styles.habitChipSubtext}>🔔 {habit.reminderTime}</Text>
+                          )}
+                        </View>
                         <TouchableOpacity onPress={() => removeHabitFromState(index)}>
                           <X size={20} color={colors.textSecondary} />
                         </TouchableOpacity>
@@ -678,6 +765,20 @@ const styles = StyleSheet.create({
   habitInput: {
     flex: 1,
   },
+  timeButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  timeButtonActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
   addHabitButton: {
     width: 48,
     height: 48,
@@ -702,6 +803,39 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.text,
     flex: 1,
+  },
+  habitBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F3F4F6',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    gap: 4,
+  },
+  habitBadgeText: {
+    fontSize: 12,
+    color: colors.primary,
+    fontWeight: '500',
+  },
+  reminderPreview: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F3F4F6',
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 8,
+  },
+  reminderPreviewText: {
+    fontSize: 14,
+    color: colors.primary,
+    fontWeight: '500',
+  },
+  habitChipSubtext: {
+    fontSize: 12,
+    color: colors.primary,
+    marginTop: 2,
   },
   createButton: {
     backgroundColor: colors.primary,

@@ -56,10 +56,31 @@ export default function TasksScreen() {
 
   // Search and filter states
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeFilter, setActiveFilter] = useState<'all' | 'active' | 'completed' | TaskType>('all');
+  const [activeFilter, setActiveFilter] = useState<'all' | 'active' | 'completed' | 'missed' | TaskType>('all');
 
   const scaleAnim = React.useRef(new Animated.Value(0)).current;
   const detailScaleAnim = React.useRef(new Animated.Value(0)).current;
+
+  // Helper to check if a task is missed (not completed and > 10 mins past due)
+  const isTaskMissed = (task: Task) => {
+    if (task.completed) return false;
+
+    // Create due date object
+    const due = new Date(task.dueDate);
+    if (task.dueTime) {
+      const [hours, minutes] = task.dueTime.split(':');
+      due.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+    } else {
+      // Default to 9 AM logic if needed, but if no time is specified, usually implies end of day.
+      // However, notification service assumes 9 AM, so let's stick to that for "missed" consistency.
+      due.setHours(9, 0, 0, 0);
+    }
+
+    // Add 10 minutes grace period
+    const gracePeriod = new Date(due.getTime() + 10 * 60000); // 10 minutes in ms
+
+    return new Date() > gracePeriod;
+  };
 
   useFocusEffect(
     useCallback(() => {
@@ -106,9 +127,12 @@ export default function TasksScreen() {
       // Single active filter
       let matchesFilter = true;
       if (activeFilter === 'active') {
-        matchesFilter = !task.completed;
+        // Active tasks are incomplete AND NOT missed
+        matchesFilter = !task.completed && !isTaskMissed(task);
       } else if (activeFilter === 'completed') {
         matchesFilter = task.completed;
+      } else if (activeFilter === 'missed') {
+        matchesFilter = isTaskMissed(task);
       } else if (activeFilter !== 'all') {
         // It's a task type filter
         matchesFilter = task.type === activeFilter;
@@ -310,50 +334,62 @@ export default function TasksScreen() {
     );
   };
 
-  const renderTaskItem = ({ item: task }: { item: Task }) => (
-    <Pressable
-      style={[
-        styles.taskCard,
-        task.completed && styles.taskCardCompleted,
-      ]}
-      onPress={() => handleTaskPress(task)}
-      onLongPress={() => handleLongPress(task)}
-    >
-      <View style={styles.taskLeft}>
-        <TouchableOpacity
-          onPress={() => toggleTaskComplete(task)}
-          style={[styles.taskIcon, { backgroundColor: colors.taskColors[task.type] }]}
-          activeOpacity={0.7}
-        >
-          {task.completed ? (
-            <CheckCircle size={24} color={colors.surface} />
-          ) : (
-            <Circle size={24} color={colors.surface} />
-          )}
-        </TouchableOpacity>
-        <View style={styles.taskContent}>
-          <Text style={[styles.taskTitle, task.completed && styles.taskTitleCompleted]}>
-            {task.description}
-          </Text>
-          <View style={styles.taskMeta}>
-            <View style={[styles.typeBadge, { backgroundColor: colors.taskColors[task.type] + '20' }]}>
-              <Text style={[styles.typeBadgeText, { color: colors.taskColors[task.type] }]}>
-                {task.type}
-              </Text>
-            </View>
-            {task.className && (
-              <Text style={styles.taskClass}>{task.className}</Text>
+  const renderTaskItem = ({ item: task }: { item: Task }) => {
+    const missed = isTaskMissed(task);
+
+    return (
+      <Pressable
+        style={[
+          styles.taskCard,
+          task.completed && styles.taskCardCompleted,
+          missed && { borderColor: '#FECACA', borderWidth: 1 } // Red border for missed
+        ]}
+        onPress={() => handleTaskPress(task)}
+        onLongPress={() => handleLongPress(task)}
+      >
+        <View style={styles.taskLeft}>
+          <TouchableOpacity
+            onPress={() => toggleTaskComplete(task)}
+            style={[styles.taskIcon, { backgroundColor: colors.taskColors[task.type] }]}
+            activeOpacity={0.7}
+          >
+            {task.completed ? (
+              <CheckCircle size={24} color={colors.surface} />
+            ) : (
+              <Circle size={24} color={colors.surface} />
             )}
+          </TouchableOpacity>
+          <View style={styles.taskContent}>
+            <Text style={[styles.taskTitle, task.completed && styles.taskTitleCompleted]}>
+              {task.description}
+            </Text>
+            <View style={styles.taskMeta}>
+              <View style={[styles.typeBadge, { backgroundColor: colors.taskColors[task.type] + '20' }]}>
+                <Text style={[styles.typeBadgeText, { color: colors.taskColors[task.type] }]}>
+                  {task.type}
+                </Text>
+              </View>
+              {missed && (
+                <View style={[styles.typeBadge, { backgroundColor: '#FEE2E2', marginLeft: 6 }]}>
+                  <Text style={[styles.typeBadgeText, { color: '#EF4444' }]}>
+                    Missed
+                  </Text>
+                </View>
+              )}
+              {task.className && (
+                <Text style={styles.taskClass}>{task.className}</Text>
+              )}
+            </View>
+            <Text style={[styles.taskDate, missed && { color: '#EF4444' }]}>
+              {getDaysUntil(task.dueDate)} • {formatDate(task.dueDate)}
+              {task.dueTime && ` at ${task.dueTime}`}
+            </Text>
           </View>
-          <Text style={styles.taskDate}>
-            {getDaysUntil(task.dueDate)} • {formatDate(task.dueDate)}
-            {task.dueTime && ` at ${task.dueTime}`}
-          </Text>
         </View>
-      </View>
-      <View style={[styles.priorityDot, { backgroundColor: colors.priorityColors[task.priority] }]} />
-    </Pressable>
-  );
+        <View style={[styles.priorityDot, { backgroundColor: colors.priorityColors[task.priority] }]} />
+      </Pressable>
+    );
+  };
   // Pull-to-refresh handler
   const onRefresh = async () => {
     setRefreshing(true);
@@ -411,6 +447,12 @@ export default function TasksScreen() {
                   onPress={() => setActiveFilter('active')}
                 >
                   <Text style={[styles.filterChipText, activeFilter === 'active' && styles.filterChipTextActive]}>Active</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.filterChip, activeFilter === 'missed' && styles.filterChipActive]}
+                  onPress={() => setActiveFilter('missed')}
+                >
+                  <Text style={[styles.filterChipText, activeFilter === 'missed' && styles.filterChipTextActive]}>Missed</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.filterChip, activeFilter === 'completed' && styles.filterChipActive]}

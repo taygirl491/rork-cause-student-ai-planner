@@ -36,6 +36,7 @@ import {
 	Shield,
 } from "lucide-react-native";
 import * as DocumentPicker from "expo-document-picker";
+import * as Clipboard from 'expo-clipboard';
 import colors from "@/constants/colors";
 import { useApp } from "@/contexts/AppContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -255,8 +256,9 @@ export default function StudyGroupsScreen() {
 		});
 	};
 
-	const copyGroupCode = (code: string) => {
-		Alert.alert("Code Copied", `Group code: ${code}`);
+	const copyGroupCode = async (code: string) => {
+		await Clipboard.setStringAsync(code);
+		Alert.alert("Code Copied", `Group code copied to clipboard: ${code}`);
 	};
 
 
