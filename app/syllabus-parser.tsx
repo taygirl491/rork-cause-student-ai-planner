@@ -224,15 +224,6 @@ export default function SyllabusParserScreen() {
 
     return (
         <SafeAreaView style={styles.container} edges={['bottom', 'top']}>
-            <View style={styles.header}>
-                <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                    <ArrowLeft size={24} color={colors.text} />
-                </TouchableOpacity>
-                <Text style={styles.headerTitle}>Import Syllabus</Text>
-                <TouchableOpacity onPress={handleSave} disabled={!parsedData} style={{ opacity: parsedData ? 1 : 0 }}>
-                    <Save size={24} color={colors.primary} />
-                </TouchableOpacity>
-            </View>
 
             <ScrollView style={styles.content}>
                 {!selectedImage ? (
@@ -601,10 +592,15 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         color: colors.text,
     },
+    label: {
+        fontSize: 16,
+        fontWeight: '500',
+        color: colors.text,
+        marginBottom: 8,
+    },
     inputGroup: {
         marginBottom: 16,
     },
-    color: colors.text,
     input: {
         borderWidth: 1,
         borderColor: colors.border,

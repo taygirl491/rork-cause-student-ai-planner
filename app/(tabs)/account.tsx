@@ -253,7 +253,7 @@ export default function AccountScreen() {
         setupIntentClientSecret: clientSecret.startsWith('seti_') ? clientSecret : undefined,
         merchantDisplayName: 'Cause Student AI Planner',
         customerId: customerId,
-        returnURL: 'cause-student-ai-planner://stripe-redirect',
+        returnURL: 'causeai://stripe-redirect',
       });
 
       if (error) {
