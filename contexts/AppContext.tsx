@@ -704,6 +704,65 @@ export const [AppProvider, useApp] = createContextHook(() => {
 			);
 		};
 
+		const handlePendingRequest = (data: any) => {
+			console.log('Pending request event:', data);
+			setStudyGroups((prev) =>
+				prev.map(g => {
+					if (g.id === data.groupId) {
+						// Avoid duplicates
+						const exists = g.pendingMembers?.some(p => p.email === data.pendingMember.email);
+						if (exists) return g;
+
+						return {
+							...g,
+							pendingMembers: [...(g.pendingMembers || []), data.pendingMember]
+						};
+					}
+					return g;
+				})
+			);
+		};
+
+		const handleMemberApproved = (data: any) => {
+			console.log('Member approved event:', data);
+			setStudyGroups((prev) =>
+				prev.map((g) => {
+					if (g.id === data.groupId) {
+						// Remove from pending
+						const newPending = (g.pendingMembers || []).filter(p => p.email !== data.member.email);
+
+						// Add to members (avoid duplicates)
+						const memberExists = g.members?.some(m => m.email === data.member.email);
+						const newMembers = memberExists
+							? g.members
+							: [...(g.members || []), { ...data.member, joinedAt: new Date(), userId: data.member.userId || '' }];
+
+						return {
+							...g,
+							pendingMembers: newPending,
+							members: newMembers,
+						};
+					}
+					return g;
+				})
+			);
+		};
+
+		const handleMemberRejected = (data: any) => {
+			console.log('Member rejected event:', data);
+			setStudyGroups((prev) =>
+				prev.map((g) => {
+					if (g.id === data.groupId) {
+						return {
+							...g,
+							pendingMembers: (g.pendingMembers || []).filter(p => p.email !== data.email)
+						};
+					}
+					return g;
+				})
+			);
+		};
+
 		const handleGroupDeleted = (data: any) => {
 			console.log('Group deleted event:', data);
 			setStudyGroups((prev) => prev.filter((g) => g.id !== data.groupId));
@@ -811,6 +870,9 @@ export const [AppProvider, useApp] = createContextHook(() => {
 		socketService.on('member-joined', handleMemberJoined);
 		socketService.on('new-message', handleNewMessage);
 		socketService.on('group-deleted', handleGroupDeleted);
+		socketService.on('pending-request', handlePendingRequest);
+		socketService.on('member-approved', handleMemberApproved);
+		socketService.on('member-rejected', handleMemberRejected);
 
 		return () => {
 			// Clean up all event listeners
@@ -839,6 +901,9 @@ export const [AppProvider, useApp] = createContextHook(() => {
 			socketService.off('member-joined', handleMemberJoined);
 			socketService.off('new-message', handleNewMessage);
 			socketService.off('group-deleted', handleGroupDeleted);
+			socketService.off('pending-request', handlePendingRequest);
+			socketService.off('member-approved', handleMemberApproved);
+			socketService.off('member-rejected', handleMemberRejected);
 
 			socketService.disconnect();
 		};

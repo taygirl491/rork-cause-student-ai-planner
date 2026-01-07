@@ -480,6 +480,13 @@ router.post('/:groupId/reject-member', async (req, res) => {
         group.pendingMembers.splice(pendingMemberIndex, 1);
         await group.save();
 
+        // Emit WebSocket events
+        const io = req.app.get('io');
+        io.to(`group-${groupId}`).emit('member-rejected', {
+            groupId,
+            email,
+        });
+
         res.json({
             success: true,
             message: 'Member request rejected',
