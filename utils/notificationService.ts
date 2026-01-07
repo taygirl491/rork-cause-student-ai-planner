@@ -54,8 +54,21 @@ export async function setupNotificationChannels() {
       importance: Notifications.AndroidImportance.HIGH,
       vibrationPattern: [0, 250, 250, 250],
       lightColor: '#6366F1',
+    });
+
+    // High priority alarm channel
+    await Notifications.setNotificationChannelAsync('task-alarms', {
+      name: 'Task Alarms',
+      importance: Notifications.AndroidImportance.MAX,
+      vibrationPattern: [0, 500, 500, 500],
+      lightColor: '#EF4444',
       sound: 'alarm_clock_90867.wav',
       enableVibrate: true,
+      lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+      audioAttributes: {
+        usage: Notifications.AndroidAudioUsage.ALARM,
+        contentType: Notifications.AndroidAudioContentType.SONIFICATION,
+      }
     });
   }
 }
@@ -267,6 +280,9 @@ export async function scheduleDueDateNotification(task: Task): Promise<string | 
     // Calculate seconds until due date
     const secondsUntilDue = Math.floor((dueDate.getTime() - Date.now()) / 1000);
     
+    const channelId = task.alarmEnabled ? 'task-alarms' : 'task-reminders-v3';
+    const sound = task.alarmEnabled ? 'alarm_clock_90867.wav' : 'default';
+
     const notificationId = await Notifications.scheduleNotificationAsync({
       content: {
         title: `Task Due: ${task.type.toUpperCase()}`,
@@ -276,11 +292,11 @@ export async function scheduleDueDateNotification(task: Task): Promise<string | 
           type: 'task_due',
           className: task.className,
         },
-        sound: 'default', // Always play notification sound
+        sound: sound,
         badge: 1,
         color: '#6366F1',
         // @ts-ignore
-        channelId: 'task-reminders-v3',
+        channelId: channelId,
       } as Notifications.NotificationContentInput,
       trigger: {
         type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
