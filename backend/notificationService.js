@@ -19,11 +19,11 @@ async function getTokensForEmails(emails) {
         console.log(`[PushDebug] Found ${users.length} user docs for ${emails.length} emails`);
 
         users.forEach((user) => {
-            console.log(`[PushDebug] User ${user.email} has token: ${user.pushToken ? 'YES' : 'NO'}`);
-            if (user.pushToken && Expo.isExpoPushToken(user.pushToken)) {
-                tokens.push(user.pushToken);
+            console.log(`[PushDebug] User ${user.email} has token: ${user.expoPushToken ? 'YES' : 'NO'}`);
+            if (user.expoPushToken && Expo.isExpoPushToken(user.expoPushToken)) {
+                tokens.push(user.expoPushToken);
             } else {
-                console.log(`[PushDebug] Token invalid or missing for ${user.email}: ${user.pushToken}`);
+                console.log(`[PushDebug] Token invalid or missing for ${user.email}: ${user.expoPushToken}`);
             }
         });
 

@@ -603,6 +603,15 @@ export const [AppProvider, useApp] = createContextHook(() => {
 		try {
 			const groupsData = await studyGroupsAPI.getStudyGroups(user.uid, user.email);
 			setStudyGroups(groupsData);
+
+			// Join rooms for all fetched groups
+			// Now that socketService supports buffering (we modified it), this is safe even if still connecting
+			if (socketService.isConnected() || true) { // Explicitly allow since we added buffering
+				groupsData.forEach(group => {
+					console.log(`[AppContext] Joining group room: ${group.id}`);
+					socketService.joinGroup(group.id);
+				});
+			}
 		} catch (error) {
 			console.error("Error loading study groups:", error);
 		}
@@ -802,20 +811,6 @@ export const [AppProvider, useApp] = createContextHook(() => {
 		socketService.on('member-joined', handleMemberJoined);
 		socketService.on('new-message', handleNewMessage);
 		socketService.on('group-deleted', handleGroupDeleted);
-
-		// Join all group rooms after groups are loaded
-		const joinGroupRooms = () => {
-			// Use the groups from state (already loaded by refreshStudyGroups)
-			studyGroups.forEach(group => {
-				console.log(`Joining group room: ${group.id}`);
-				socketService.joinGroup(group.id);
-			});
-		};
-
-		// Wait a bit for groups to load, then join rooms
-		setTimeout(() => {
-			joinGroupRooms();
-		}, 1000);
 
 		return () => {
 			// Clean up all event listeners

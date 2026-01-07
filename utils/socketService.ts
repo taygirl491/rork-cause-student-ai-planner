@@ -64,7 +64,7 @@ class SocketService {
      * Join a study group room
      */
     joinGroup(groupId: string) {
-        if (this.socket?.connected) {
+        if (this.socket) {
             this.socket.emit('join-group', groupId);
             console.log('Joined group room:', groupId);
         }
@@ -74,7 +74,7 @@ class SocketService {
      * Leave a study group room
      */
     leaveGroup(groupId: string) {
-        if (this.socket?.connected) {
+        if (this.socket) {
             this.socket.emit('leave-group', groupId);
             console.log('Left group room:', groupId);
         }
