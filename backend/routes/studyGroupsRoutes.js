@@ -2,7 +2,12 @@ const express = require('express');
 const router = express.Router();
 const StudyGroup = require('../models/StudyGroupMongo');
 const StudyGroupMessage = require('../models/StudyGroupMessageMongo');
-const notificationService = require('../notificationService');
+const {
+    sendJoinNotification,
+    sendMessageNotification,
+    sendMemberApprovalNotification,
+    sendMemberRejectionNotification
+} = require('../notificationService');
 const User = require('../models/User');
 
 /**
@@ -330,7 +335,7 @@ router.post('/:groupId/messages', async (req, res) => {
             if (group) {
                 const recipients = group.members.filter(m => m.email !== senderEmail);
                 if (recipients.length > 0) {
-                    notificationService.sendMessageNotification(group, {
+                    sendMessageNotification(group, {
                         ...newMessage.toObject(),
                         id: newMessage._id
                     }, recipients);
@@ -414,10 +419,21 @@ router.post('/:groupId/approve-member', async (req, res) => {
 
         // Emit WebSocket events
         const io = req.app.get('io');
+        // Notify the group room
         io.to(`group-${groupId}`).emit('member-approved', {
             groupId,
-            member: { email: pendingMember.email, name: pendingMember.name },
+            member: { email: pendingMember.email, name: pendingMember.name, userId: pendingMember.userId },
         });
+
+        // Notify the specific user (so they can see the group in their list)
+        if (pendingMember.userId) {
+            io.to(`user-${pendingMember.userId}`).emit('group-joined', {
+                group
+            });
+        }
+
+        // Send Push Notification
+        await sendMemberApprovalNotification(pendingMember.email, group.name, group.id);
 
         res.json({
             success: true,
@@ -486,6 +502,9 @@ router.post('/:groupId/reject-member', async (req, res) => {
             groupId,
             email,
         });
+
+        // Send Push Notification
+        await sendMemberRejectionNotification(email, group.name, group.id);
 
         res.json({
             success: true,

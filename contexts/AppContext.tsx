@@ -668,6 +668,24 @@ export const [AppProvider, useApp] = createContextHook(() => {
 			}
 		};
 
+		const handleGroupJoined = (data: any) => {
+			console.log('Group joined event via user channel:', data);
+			if (data.group) {
+				setStudyGroups((prev) => {
+					// Avoid duplicates
+					if (prev.some(g => g.id === data.group._id)) return prev;
+					// Ensure we have a correctly formatted group object
+					const newGroup = {
+						...data.group,
+						id: data.group._id || data.group.id
+					};
+					return [...prev, newGroup];
+				});
+				// Join the room for the new group
+				socketService.joinGroup(data.group._id);
+			}
+		};
+
 		const handleMemberJoined = (data: any) => {
 			console.log('Member joined event:', data);
 			setStudyGroups((prev) =>
@@ -873,6 +891,7 @@ export const [AppProvider, useApp] = createContextHook(() => {
 		socketService.on('pending-request', handlePendingRequest);
 		socketService.on('member-approved', handleMemberApproved);
 		socketService.on('member-rejected', handleMemberRejected);
+		socketService.on('group-joined', handleGroupJoined);
 
 		return () => {
 			// Clean up all event listeners
@@ -904,6 +923,7 @@ export const [AppProvider, useApp] = createContextHook(() => {
 			socketService.off('pending-request', handlePendingRequest);
 			socketService.off('member-approved', handleMemberApproved);
 			socketService.off('member-rejected', handleMemberRejected);
+			socketService.off('group-joined', handleGroupJoined);
 
 			socketService.disconnect();
 		};
