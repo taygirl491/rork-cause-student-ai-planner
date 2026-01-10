@@ -51,6 +51,12 @@ io.on('connection', (socket) => {
 		console.log(`User ${socket.id} left group-${groupId}`);
 	});
 
+	// Join a user channel (for personal notifications)
+	socket.on('join-user', (userId) => {
+		socket.join(`user-${userId}`);
+		console.log(`User ${socket.id} joined channel user-${userId}`);
+	});
+
 	socket.on('disconnect', () => {
 		console.log('✗ User disconnected:', socket.id);
 	});

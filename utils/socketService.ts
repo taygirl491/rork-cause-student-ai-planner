@@ -80,6 +80,12 @@ class SocketService {
         }
     }
 
+    joinUser(userId: string) {
+        if (this.socket) {
+            this.socket.emit('join-user', userId);
+        }
+    }
+
     /**
      * Listen for an event
      */
