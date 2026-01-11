@@ -23,6 +23,8 @@ router.post('/push-token', async (req, res) => {
             { new: true, upsert: true } // Create if doesn't exist (though usually it should)
         );
 
+        console.log(`[PushToken] Updated token for user ${user.email} (${userId}): ${token.substring(0, 10)}...`);
+
         res.json({
             success: true,
             message: 'Push token updated successfully',
