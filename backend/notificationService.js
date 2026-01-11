@@ -16,10 +16,17 @@ async function getTokensForEmails(emails) {
         // Normalize emails to lowercase
         const normalizedEmails = emails.map(e => e.toLowerCase());
 
+        console.log('[PushDebug] Looking for emails:', normalizedEmails);
+
         const tokens = [];
         const users = await User.find({ email: { $in: normalizedEmails } });
 
-        console.log(`[PushDebug] Found ${users.length} user docs for ${emails.length} emails`);
+        console.log(`[PushDebug] DB Query Result: Found ${users.length} users`);
+        if (users.length > 0) {
+            console.log('[PushDebug] Found users:', users.map(u => `${u.email} (Token: ${u.expoPushToken ? 'Yes' : 'No'})`));
+        } else {
+            console.log('[PushDebug] WARNING: No users found in DB for these emails!');
+        }
 
         users.forEach((user) => {
             if (user.expoPushToken && Expo.isExpoPushToken(user.expoPushToken)) {
