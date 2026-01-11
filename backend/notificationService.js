@@ -13,17 +13,17 @@ async function getTokensForEmails(emails) {
     try {
         if (!emails || emails.length === 0) return [];
 
+        // Normalize emails to lowercase
+        const normalizedEmails = emails.map(e => e.toLowerCase());
+
         const tokens = [];
-        const users = await User.find({ email: { $in: emails } });
+        const users = await User.find({ email: { $in: normalizedEmails } });
 
         console.log(`[PushDebug] Found ${users.length} user docs for ${emails.length} emails`);
 
         users.forEach((user) => {
-            console.log(`[PushDebug] User ${user.email} has token: ${user.expoPushToken ? 'YES' : 'NO'}`);
             if (user.expoPushToken && Expo.isExpoPushToken(user.expoPushToken)) {
                 tokens.push(user.expoPushToken);
-            } else {
-                console.log(`[PushDebug] Token invalid or missing for ${user.email}: ${user.expoPushToken}`);
             }
         });
 
@@ -41,17 +41,23 @@ async function getTokensForEmails(emails) {
  * @param {string} body - Notification body
  * @param {object} data - Extra data
  */
-async function sendPushNotifications(tokens, title, body, data = {}) {
+async function sendPushNotifications(tokens, title, body, data = {}, options = {}) {
+    const { sound = 'default', channelId = 'default' } = options;
     const messages = [];
     for (const token of tokens) {
-        messages.push({
+        const message = {
             to: token,
-            sound: "alarm_clock_90867.wav",
+            sound: sound,
             title,
             body,
             data,
-            channelId: 'task-reminders-v3', // Required for Android custom sound
-        });
+        };
+
+        if (channelId && channelId !== 'default') {
+            message.channelId = channelId;
+        }
+
+        messages.push(message);
     }
 
     const chunks = expo.chunkPushNotifications(messages);
@@ -155,16 +161,17 @@ async function sendTaskReminder(userId, taskData) {
             return;
         }
 
-        if (!user.pushToken || !Expo.isExpoPushToken(user.pushToken)) {
+        if (!user.expoPushToken || !Expo.isExpoPushToken(user.expoPushToken)) {
             console.log('No valid push token for user:', userId);
             return;
         }
 
         await sendPushNotifications(
-            [user.pushToken],
+            [user.expoPushToken],
             `Reminder: ${taskData.type.toUpperCase()}`,
             taskData.description,
-            { taskId: taskData.id, type: 'task_reminder', className: taskData.className }
+            { taskId: taskData.id, type: 'task_reminder', className: taskData.className },
+            { sound: 'alarm_clock_90867.wav', channelId: 'task-reminders-v3' }
         );
 
         console.log('Sent task reminder to user:', userId);
