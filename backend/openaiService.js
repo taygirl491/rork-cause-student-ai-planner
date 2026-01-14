@@ -180,7 +180,7 @@ async function analyzeImage(imageBase64, prompt, userContext = {}) {
  */
 async function parseSyllabus(fileBase64, mimeType = 'application/pdf') {
     try {
-        const systemPrompt = `You are a helpful assistant that extracts course schedules from syllabus images. 
+        const systemPrompt = `You are a helpful assistant that extracts course schedules from syllabus documents. 
         CRITICAL: You MUST find all assignments, exams, quizzes, and readings.
         
         Return a valid JSON object:
@@ -202,20 +202,39 @@ async function parseSyllabus(fileBase64, mimeType = 'application/pdf') {
         - Default to "assignments" for everything that isn't explicitly an "exam" or "test".
         `;
 
-        // Determine if we treat it as image or text (for now, using GPT-4o vision for everything or text if extracted)
-        // Since we are receiving base64, we'll pass it to GPT-4o which handles both if we format it right?
-        // Actually GPT-4o supports image_url for images. For PDFs, we might need to convert pages to images or extract text first.
-        // HOWEVER, the user asked for "upload syllabus document". If it's a PDF, we might need a parser.
-        // But for simplicity in this MVP, let's assume the user sends an IMAGE of the syllabus or we limit to images for now,
-        // OR we try to send the PDF if supported (OpenAI API doesn't support PDF uploads directly in chat completions yet without file search/assistants API).
-        // Standard approach for MVP: Assume inputs are Images or we use a library to parse text from PDF if possible.
-        // The backend `upload` middleware accepts images and PDFs.
-        // If it's PDF, we really should extract text. But we don't have pdf-parse installed?
-        // Let's check package.json of backend.
+        let userMessageContent;
 
-        // Wait, if I cannot parse PDF text easily without new packages, I will limit to Images for the "Vision" part 
-        // OR I will assume the user takes a photo of the syllabus. 
-        // Let's stick to the existing `analyzeImage` pattern but specialized for JSON.
+        if (mimeType === 'application/pdf') {
+            try {
+                const pdfParse = require('pdf-parse');
+                const buffer = Buffer.from(fileBase64, 'base64');
+                const pdfData = await pdfParse(buffer);
+                const text = pdfData.text;
+
+                // Truncate text if too long (approx 100k chars limit to be safe with tokens)
+                const truncatedText = text.substring(0, 50000);
+
+                userMessageContent = [
+                    { type: "text", text: "Parse this syllabus text extracted from a PDF:" },
+                    { type: "text", text: truncatedText }
+                ];
+            } catch (pdfError) {
+                console.error("PDF Parsing failed, trying fallback or erroring:", pdfError);
+                throw new Error("Failed to extract text from PDF. It might be a scanned image. Please upload a clear image instead.");
+            }
+        } else {
+            // Image handling
+            userMessageContent = [
+                { type: "text", text: "Parse this syllabus." },
+                {
+                    type: "image_url",
+                    image_url: {
+                        url: `data:${mimeType};base64,${fileBase64}`,
+                        detail: "high"
+                    }
+                }
+            ];
+        }
 
         const completion = await openai.chat.completions.create({
             model: "gpt-4o",
@@ -223,20 +242,11 @@ async function parseSyllabus(fileBase64, mimeType = 'application/pdf') {
                 { role: "system", content: systemPrompt },
                 {
                     role: "user",
-                    content: [
-                        { type: "text", text: "Parse this syllabus." },
-                        {
-                            type: "image_url",
-                            image_url: {
-                                url: `data:${mimeType};base64,${fileBase64}`,
-                                detail: "high"
-                            }
-                        }
-                    ]
+                    content: userMessageContent
                 }
             ],
-            temperature: 0.1, // Low temperature for deterministic extraction
-            response_format: { type: "json_object" } // Force JSON mode
+            temperature: 0.1,
+            response_format: { type: "json_object" }
         });
 
         return JSON.parse(completion.choices[0].message.content);

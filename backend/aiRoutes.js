@@ -123,14 +123,15 @@ router.post("/syllabus/parse", upload.single('file'), async (req, res) => {
         // Note: GPT-4o Vision only supports images. If PDF, we'd need conversion.
         // For this MVP, we will inform the frontend to prefer images or warn about PDFs if not supported.
         // Actually, let's strictly check content-type here if we only support images for now.
-        if (mimeType === 'application/pdf') {
-            // If we really want to support PDFs without extra libs, we might be stuck.
-            // But the user asked for "syllabus document". 
-            // Providing a clean error message if PDF is sent:
-            return res.status(400).json({
-                error: "PDF parsing is currently optimized for text. Please upload an image (screenshot or photo) of the syllabus for best results."
-            });
-        }
+        // if (mimeType === 'application/pdf') {
+        //     // If we really want to support PDFs without extra libs, we might be stuck.
+        //     // But the user asked for "syllabus document". 
+        //     // Providing a clean error message if PDF is sent:
+        //     return res.status(400).json({
+        //         error: "PDF parsing is currently optimized for text. Please upload an image (screenshot or photo) of the syllabus for best results."
+        //     });
+        // }
+
 
         const { parseSyllabus } = require("./openaiService");
         const parsedData = await parseSyllabus(fileBase64, mimeType);

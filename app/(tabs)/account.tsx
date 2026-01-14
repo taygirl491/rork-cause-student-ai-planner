@@ -244,8 +244,8 @@ export default function AccountScreen() {
 
       setLoadingSubscription(false);
 
-      if (!clientSecret) {
-        throw new Error('Failed to get payment details');
+      if (!clientSecret || typeof clientSecret !== 'string') {
+        throw new Error('Invalid payment details received');
       }
 
       const { error } = await initPaymentSheet({
@@ -254,9 +254,11 @@ export default function AccountScreen() {
         merchantDisplayName: 'Cause Student AI Planner',
         customerId: customerId,
         returnURL: 'causeai://stripe-redirect',
+        allowsDelayedPaymentMethods: true,
       });
 
       if (error) {
+        console.error('initPaymentSheet error:', error);
         Alert.alert('Error', error.message);
         return;
       }
