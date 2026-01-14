@@ -445,14 +445,25 @@ class ApiService {
 	/**
 	 * Parse syllabus document
 	 */
-	async parseSyllabus(uri: string, userId: string) {
+	async parseSyllabus(uri: string, userId: string, fileType?: string) {
 		try {
 			console.log(`[API] Parsing syllabus for user ${userId}`);
 			const formData = new FormData();
 			
 			const filename = uri.split('/').pop() || 'syllabus.jpg';
-			const match = /\.(\w+)$/.exec(filename);
-			const type = match ? `image/${match[1]}` : 'image/jpeg';
+			let type = fileType || 'image/jpeg';
+			
+			if (!fileType) {
+				const match = /\.(\w+)$/.exec(filename);
+				if (match) {
+					const ext = match[1].toLowerCase();
+					if (ext === 'pdf') {
+						type = 'application/pdf';
+					} else {
+						type = `image/${ext}`;
+					}
+				}
+			}
 			
 			formData.append('file', {
 				uri,

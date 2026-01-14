@@ -15,8 +15,9 @@ import {
     Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowLeft, Upload, FileText, CheckCircle, Circle, Save, Trash2, Pencil, X } from 'lucide-react-native';
+import { ArrowLeft, Upload, FileText, CheckCircle, Circle, Save, Trash2, Pencil, X, File as FileIcon } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { useApp } from '@/contexts/AppContext';
@@ -46,12 +47,18 @@ interface ParsedData {
     exams?: ParsedExam[];
 }
 
+interface SelectedFile {
+    uri: string;
+    name: string;
+    type: string;
+}
+
 export default function SyllabusParserScreen() {
     const router = useRouter();
     const { user } = useAuth();
     const { addTask } = useApp();
 
-    const [selectedImage, setSelectedImage] = useState<string | null>(null);
+    const [selectedFile, setSelectedFile] = useState<SelectedFile | null>(null);
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [parsedData, setParsedData] = useState<ParsedData | null>(null);
     const [selectedItems, setSelectedItems] = useState<Set<number>>(new Set());
@@ -66,7 +73,12 @@ export default function SyllabusParserScreen() {
             });
 
             if (!result.canceled && result.assets[0]) {
-                setSelectedImage(result.assets[0].uri);
+                const asset = result.assets[0];
+                setSelectedFile({
+                    uri: asset.uri,
+                    name: asset.fileName || 'syllabus.jpg',
+                    type: asset.mimeType || 'image/jpeg'
+                });
                 setParsedData(null); // Reset previous results
             }
         } catch (error) {
@@ -74,12 +86,34 @@ export default function SyllabusParserScreen() {
         }
     };
 
+    const pickDocument = async () => {
+        try {
+            const result = await DocumentPicker.getDocumentAsync({
+                type: ['application/pdf', 'image/*'],
+                copyToCacheDirectory: true,
+            });
+
+            if (!result.canceled && result.assets && result.assets.length > 0) {
+                const asset = result.assets[0];
+                setSelectedFile({
+                    uri: asset.uri,
+                    name: asset.name,
+                    type: asset.mimeType || 'application/pdf' // Default to PDF if unknown from doc picker
+                });
+                setParsedData(null);
+            }
+        } catch (error) {
+            Alert.alert('Error', 'Failed to pick document');
+            console.error(error);
+        }
+    };
+
     const handleAnalyze = async () => {
-        if (!selectedImage || !user?.uid) return;
+        if (!selectedFile || !user?.uid) return;
 
         setIsAnalyzing(true);
         try {
-            const result = await apiService.parseSyllabus(selectedImage, user.uid);
+            const result = await apiService.parseSyllabus(selectedFile.uri, user.uid, selectedFile.type);
 
             if (result.success && result.data) {
                 console.log("Parsed Data:", result.data);
@@ -90,7 +124,7 @@ export default function SyllabusParserScreen() {
                 setSelectedItems(assignIndices);
                 setSelectedExams(examIndices);
             } else {
-                Alert.alert('Extraction Failed', result.error || 'Could not extract data from the image.');
+                Alert.alert('Extraction Failed', result.error || 'Could not extract data from the file.');
             }
         } catch (error: any) {
             Alert.alert('Error', error.message || 'Failed to analyze syllabus');
@@ -226,18 +260,35 @@ export default function SyllabusParserScreen() {
         <SafeAreaView style={styles.container} edges={['bottom', 'top']}>
 
             <ScrollView style={styles.content}>
-                {!selectedImage ? (
-                    <TouchableOpacity style={styles.uploadCard} onPress={pickImage}>
-                        <View style={styles.uploadIconContainer}>
-                            <Upload size={40} color={colors.primary} />
-                        </View>
-                        <Text style={styles.uploadTitle}>Upload Syllabus Image</Text>
-                        <Text style={styles.uploadSubtitle}>Take a screenshot or photo of your course schedule</Text>
-                    </TouchableOpacity>
+                {!selectedFile ? (
+                    <View>
+                        <TouchableOpacity style={styles.uploadCard} onPress={pickImage}>
+                            <View style={styles.uploadIconContainer}>
+                                <Upload size={40} color={colors.primary} />
+                            </View>
+                            <Text style={styles.uploadTitle}>Upload Image</Text>
+                            <Text style={styles.uploadSubtitle}>Take a screenshot or photo</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity style={[styles.uploadCard, { marginTop: 12 }]} onPress={pickDocument}>
+                            <View style={[styles.uploadIconContainer, { backgroundColor: colors.secondary + '20' }]}>
+                                <FileIcon size={40} color={colors.secondary} />
+                            </View>
+                            <Text style={styles.uploadTitle}>Upload File</Text>
+                            <Text style={styles.uploadSubtitle}>Select a PDF or document</Text>
+                        </TouchableOpacity>
+                    </View>
                 ) : (
                     <View style={styles.previewContainer}>
-                        <Image source={{ uri: selectedImage }} style={styles.previewImage} resizeMode="contain" />
-                        <TouchableOpacity style={styles.removeImageButton} onPress={() => { setSelectedImage(null); setParsedData(null); }}>
+                        {selectedFile.type.includes('image') ? (
+                            <Image source={{ uri: selectedFile.uri }} style={styles.previewImage} resizeMode="contain" />
+                        ) : (
+                            <View style={[styles.previewImage, styles.previewDoc]}>
+                                <FileText size={64} color={colors.textSecondary} />
+                                <Text style={styles.previewFilename}>{selectedFile.name}</Text>
+                            </View>
+                        )}
+                        <TouchableOpacity style={styles.removeImageButton} onPress={() => { setSelectedFile(null); setParsedData(null); }}>
                             <Trash2 size={20} color="white" />
                         </TouchableOpacity>
 
@@ -252,7 +303,9 @@ export default function SyllabusParserScreen() {
                                 ) : (
                                     <>
                                         <FileText size={20} color="white" style={{ marginRight: 8 }} />
-                                        <Text style={styles.analyzeButtonText}>Extract Tasks</Text>
+                                        <Text style={styles.analyzeButtonText}>
+                                            {selectedFile.type.includes('pdf') ? 'Parse Document' : 'Extract Tasks'}
+                                        </Text>
                                     </>
                                 )}
                             </TouchableOpacity>
@@ -332,6 +385,17 @@ export default function SyllabusParserScreen() {
 
                 <View style={{ height: 40 }} />
             </ScrollView>
+
+            {parsedData && (
+                <View style={styles.footer}>
+                    <TouchableOpacity style={styles.mainSaveButton} onPress={handleSave}>
+                        <Save size={24} color="white" style={{ marginRight: 8 }} />
+                        <Text style={styles.mainSaveButtonText}>
+                            Confirm & Import ({selectedItems.size + selectedExams.size})
+                        </Text>
+                    </TouchableOpacity>
+                </View>
+            )}
 
             <Modal
                 visible={editModalVisible}
@@ -461,6 +525,18 @@ const styles = StyleSheet.create({
         height: 300,
         borderRadius: 12,
         backgroundColor: '#f0f0f0',
+    },
+    previewDoc: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: colors.border,
+    },
+    previewFilename: {
+        marginTop: 16,
+        fontSize: 16,
+        fontWeight: '600',
+        color: colors.text,
     },
     removeImageButton: {
         position: 'absolute',
@@ -625,6 +701,30 @@ const styles = StyleSheet.create({
     saveButtonText: {
         color: 'white',
         fontSize: 16,
+        fontWeight: 'bold',
+    },
+    footer: {
+        padding: 20,
+        backgroundColor: colors.surface,
+        borderTopWidth: 1,
+        borderTopColor: colors.border,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: -2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 5,
+    },
+    mainSaveButton: {
+        backgroundColor: colors.primary,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 16,
+        borderRadius: 16,
+    },
+    mainSaveButtonText: {
+        color: 'white',
+        fontSize: 18,
         fontWeight: 'bold',
     },
 });

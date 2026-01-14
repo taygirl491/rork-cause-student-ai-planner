@@ -68,6 +68,13 @@
             "./assets/sound/alarm_clock_90867.wav"
           ]
         }
+      ],
+      [
+        "@stripe/stripe-react-native",
+        {
+          "merchantIdentifier": "merchant.com.causeai",
+          "enableGooglePay": true
+        }
       ]
     ],
     "experiments": {
