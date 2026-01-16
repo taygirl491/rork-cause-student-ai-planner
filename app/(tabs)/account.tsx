@@ -221,6 +221,16 @@ export default function AccountScreen() {
   const handleUpgrade = async (tier: 'standard' | 'premium' | 'unlimited', interval: 'monthly' | 'yearly') => {
     if (!user?.uid) return;
 
+    // Check if Stripe is initialized (not available in Expo Go)
+    if (!initPaymentSheet || !presentPaymentSheet) {
+      Alert.alert(
+        'Development Build Required',
+        'Stripe payments are not available in Expo Go preview mode.\n\nTo test payments, you need to build a development version:\n\n1. Run: npx eas build --profile development --platform android\n2. Install the .apk on your device\n3. Try the payment again',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
     try {
       setLoadingSubscription(true);
       let clientSecret, customerId, response;

@@ -18,9 +18,8 @@ import { StripeProvider } from '@stripe/stripe-react-native';
 
 // Initialize Sentry
 Sentry.init({
-  dsn: process.env.EXPO_PUBLIC_SENTRY_DSN,
-  enableInExpoDevelopment: false,
-  debug: false,
+  dsn: process.env.EXPO_PUBLIC_SENTRY_DSN || 'https://b73520e1b6648db41574a92098b42ec2@o4510577981915136.ingest.us.sentry.io/4510577983356928',
+  debug: true,
   tracesSampleRate: 1.0,
 });
 
@@ -240,7 +239,7 @@ function RootLayoutNav() {
   );
 }
 
-export default function RootLayout() {
+export default Sentry.wrap(function RootLayout() {
   useEffect(() => {
     SplashScreen.hideAsync();
   }, []);
@@ -263,7 +262,7 @@ export default function RootLayout() {
       </QueryClientProvider>
     </StripeProvider>
   );
-}
+});
 
 const menuStyles = StyleSheet.create({
   menuButton: {

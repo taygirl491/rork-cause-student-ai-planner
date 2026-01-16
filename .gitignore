@@ -48,3 +48,5 @@ backend/.env
 !google-services.json
 backend/serviceAccountKey.json
 causeai-*.json
+
+.env.local
