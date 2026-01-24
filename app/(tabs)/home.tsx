@@ -6,6 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
+  Button,
 } from 'react-native';
 import YoutubePlayer from 'react-native-youtube-iframe';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -13,6 +14,7 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { CheckCircle, Circle, Clock } from 'lucide-react-native';
 import colors from '@/constants/colors';
 import { useApp } from '@/contexts/AppContext';
+import * as Sentry from '@sentry/react-native';
 
 export default function HomeScreen() {
   const { sortedTasks, videoConfig, isLoading, refreshTasks } = useApp();
@@ -322,3 +324,4 @@ const styles = StyleSheet.create({
     color: colors.primary,
   },
 });
+

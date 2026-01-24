@@ -48,45 +48,108 @@ export default function PaymentScreen() {
         try {
             setLoading(true);
 
-            // Check if Stripe is initialized
+            // Check if Stripe is initialized (not available in Expo Go)
             if (!initPaymentSheet || !presentPaymentSheet) {
-                Alert.alert('Configuration Error', 'Stripe SDK is not initialized. Please check your internet connection or restart the app.');
+                Alert.alert(
+                    'Development Build Required',
+                    'Stripe payments are not available in Expo Go preview mode.\n\nTo test payments, you need to build a development version:\n\n1. Run: npx eas build --profile development --platform android\n2. Install the .apk on your device\n3. Try the payment again',
+                    [{ text: 'OK' }]
+                );
                 setLoading(false);
                 return;
             }
 
             // 1. Create subscription via backend
-            const response = await apiService.createSubscription(user.uid, PREMIUM_MONTHLY_PRICE_ID);
+            let response;
+            try {
+                response = await apiService.createSubscription(user.uid, PREMIUM_MONTHLY_PRICE_ID);
+            } catch (apiError: any) {
+                console.error('API Error:', apiError);
+                const Sentry = await import('@sentry/react-native');
+                Sentry.captureException(apiError, {
+                    tags: { payment_step: 'create_subscription' },
+                    extra: { userId: user.uid, priceId: PREMIUM_MONTHLY_PRICE_ID }
+                });
+                throw new Error(`Failed to connect to payment server: ${apiError.message || 'Network error'}`);
+            }
 
             if (!response.success) {
-                throw new Error(response.error || 'Failed to initialize subscription');
+                const error = new Error(response.error || 'Failed to initialize subscription');
+                const Sentry = await import('@sentry/react-native');
+                Sentry.captureException(error, {
+                    tags: { payment_step: 'subscription_response' },
+                    extra: { response }
+                });
+                throw error;
             }
 
             const { clientSecret, customerId } = response;
 
             if (!clientSecret) {
-                throw new Error('Failed to get payment details');
+                const error = new Error('Failed to get payment details');
+                const Sentry = await import('@sentry/react-native');
+                Sentry.captureException(error, {
+                    tags: { payment_step: 'missing_client_secret' },
+                    extra: { response }
+                });
+                throw error;
             }
 
             // 2. Initialize Payment Sheet
-            const { error: initError } = await initPaymentSheet({
-                paymentIntentClientSecret: clientSecret.startsWith('pi_') ? clientSecret : undefined,
-                setupIntentClientSecret: clientSecret.startsWith('seti_') ? clientSecret : undefined,
-                merchantDisplayName: 'Cause Student AI Planner',
-                customerId: customerId,
-                returnURL: 'causeai://stripe-redirect',
-            });
+            let initError;
+            try {
+                const result = await initPaymentSheet({
+                    paymentIntentClientSecret: clientSecret.startsWith('pi_') ? clientSecret : undefined,
+                    setupIntentClientSecret: clientSecret.startsWith('seti_') ? clientSecret : undefined,
+                    merchantDisplayName: 'Cause Student AI Planner',
+                    customerId: customerId,
+                    returnURL: 'causeai://stripe-redirect',
+                });
+                initError = result.error;
+            } catch (stripeError: any) {
+                console.error('Stripe Init Error:', stripeError);
+                const Sentry = await import('@sentry/react-native');
+                Sentry.captureException(stripeError, {
+                    tags: { payment_step: 'init_payment_sheet' },
+                    extra: { clientSecret: clientSecret.substring(0, 10) + '...' }
+                });
+                throw new Error(`Payment initialization failed: ${stripeError.message || 'Unknown error'}`);
+            }
 
             if (initError) {
+                const Sentry = await import('@sentry/react-native');
+                Sentry.captureMessage('Payment sheet init error', {
+                    level: 'error',
+                    tags: { payment_step: 'init_error' },
+                    extra: { error: initError }
+                });
                 Alert.alert('Error', initError.message);
+                setLoading(false);
                 return;
             }
 
             // 3. Present Payment Sheet
-            const { error: paymentError } = await presentPaymentSheet();
+            let paymentError;
+            try {
+                const result = await presentPaymentSheet();
+                paymentError = result.error;
+            } catch (presentError: any) {
+                console.error('Present Payment Sheet Error:', presentError);
+                const Sentry = await import('@sentry/react-native');
+                Sentry.captureException(presentError, {
+                    tags: { payment_step: 'present_payment_sheet' }
+                });
+                throw new Error(`Failed to show payment screen: ${presentError.message || 'Unknown error'}`);
+            }
 
             if (paymentError) {
                 if (paymentError.code !== 'Canceled') {
+                    const Sentry = await import('@sentry/react-native');
+                    Sentry.captureMessage('Payment error', {
+                        level: 'warning',
+                        tags: { payment_step: 'payment_error', error_code: paymentError.code },
+                        extra: { error: paymentError }
+                    });
                     Alert.alert('Error', paymentError.message);
                 }
             } else {
@@ -96,7 +159,12 @@ export default function PaymentScreen() {
             }
         } catch (error: any) {
             console.error('Payment error:', error);
-            Alert.alert('Error', error.message || 'Something went wrong');
+            const Sentry = await import('@sentry/react-native');
+            Sentry.captureException(error, {
+                tags: { payment_step: 'general_error' },
+                extra: { userId: user?.uid }
+            });
+            Alert.alert('Error', error.message || 'Something went wrong. Please try again.');
         } finally {
             setLoading(false);
         }

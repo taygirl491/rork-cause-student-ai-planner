@@ -14,7 +14,8 @@ import {
   Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Send, Bot, User as UserIcon, Sparkles, BookOpen, FileText, BrainCircuit, ArrowLeft, Paperclip, X } from 'lucide-react-native';
+import { Send, Bot, User as UserIcon, Sparkles, BookOpen, FileText, BrainCircuit, ArrowLeft, Paperclip, X, Clock } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import TextRecognition from '@react-native-ml-kit/text-recognition';
 import * as DocumentPicker from 'expo-document-picker';
@@ -35,6 +36,7 @@ type AIMode = 'homework' | 'summarize' | 'quiz' | null;
 
 export default function AIBuddyScreen() {
   const { user } = useAuth();
+  const router = useRouter();
   const [mode, setMode] = useState<AIMode>(null);
   const [messages, setMessages] = useState<AIMessage[]>([]);
   const [inputText, setInputText] = useState('');
@@ -491,6 +493,16 @@ export default function AIBuddyScreen() {
         <View style={styles.cardTextContainer}>
           <Text style={styles.cardTitle}>Quiz Me</Text>
           <Text style={styles.cardDescription}>Test your knowledge on your current classes and tasks.</Text>
+        </View>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.card} onPress={() => router.push('/syllabus-parser')}>
+        <View style={[styles.cardIcon, { backgroundColor: colors.primaryLight + '30' }]}>
+          <Clock size={32} color={colors.primary} />
+        </View>
+        <View style={styles.cardTextContainer}>
+          <Text style={styles.cardTitle}>Import Syllabus</Text>
+          <Text style={styles.cardDescription}>Automatically add your course schedule from a PDF or image.</Text>
         </View>
       </TouchableOpacity>
     </ScrollView>

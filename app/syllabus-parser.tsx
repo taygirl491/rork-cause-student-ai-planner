@@ -158,6 +158,7 @@ export default function SyllabusParserScreen() {
     const [editingType, setEditingType] = useState<'assignment' | 'exam' | null>(null);
     const [editingIndex, setEditingIndex] = useState<number>(-1);
     const [editForm, setEditForm] = useState({ title: '', date: '', description: '' });
+    const [isSaving, setIsSaving] = useState(false);
 
     const openEditModal = (type: 'assignment' | 'exam', index: number) => {
         if (!parsedData) return;
@@ -203,57 +204,65 @@ export default function SyllabusParserScreen() {
     const handleSave = async () => {
         if (!parsedData || !user?.uid) return;
 
-        let successCount = 0;
+        setIsSaving(true);
+        try {
+            let successCount = 0;
 
-        // Save Assignments as Tasks
-        if (parsedData.assignments) {
-            for (const index of selectedItems) {
-                const assignment = parsedData.assignments[index];
-                try {
-                    await addTask({
-                        description: assignment.title, // Map title to description
-                        className: parsedData.courseInfo?.code || '',
-                        type: 'homework',
-                        dueDate: assignment.dueDate ? assignment.dueDate : new Date().toISOString(),
-                        priority: 'medium',
-                        completed: false,
-                        id: '', // Placeholder, will be generated
-                        alarmEnabled: false,
-                        createdAt: new Date().toISOString()
-                    });
-                    successCount++;
-                } catch (e) {
-                    console.error("Failed to save task", e);
+            // Save Assignments as Tasks
+            if (parsedData.assignments) {
+                for (const index of selectedItems) {
+                    const assignment = parsedData.assignments[index];
+                    try {
+                        await addTask({
+                            description: assignment.title, // Map title to description
+                            className: parsedData.courseInfo?.code || '',
+                            type: 'homework',
+                            dueDate: assignment.dueDate ? assignment.dueDate : new Date().toISOString(),
+                            priority: 'medium',
+                            completed: false,
+                            id: '', // Placeholder, will be generated
+                            alarmEnabled: false,
+                            createdAt: new Date().toISOString()
+                        });
+                        successCount++;
+                    } catch (e) {
+                        console.error("Failed to save task", e);
+                    }
                 }
             }
-        }
 
-        // Save Exams as Tasks (High Priority)
-        if (parsedData.exams) {
-            for (const index of selectedExams) {
-                const exam = parsedData.exams[index];
-                try {
-                    await addTask({
-                        description: `EXAM: ${exam.title}`,
-                        className: parsedData.courseInfo?.code || '',
-                        type: 'exam',
-                        dueDate: exam.date ? exam.date : new Date().toISOString(),
-                        priority: 'high',
-                        completed: false,
-                        id: '', // Placeholder
-                        alarmEnabled: true, // Enable alarm for exams
-                        createdAt: new Date().toISOString()
-                    });
-                    successCount++;
-                } catch (e) {
-                    console.error("Failed to save exam", e);
+            // Save Exams as Tasks (High Priority)
+            if (parsedData.exams) {
+                for (const index of selectedExams) {
+                    const exam = parsedData.exams[index];
+                    try {
+                        await addTask({
+                            description: `EXAM: ${exam.title}`,
+                            className: parsedData.courseInfo?.code || '',
+                            type: 'exam',
+                            dueDate: exam.date ? exam.date : new Date().toISOString(),
+                            priority: 'high',
+                            completed: false,
+                            id: '', // Placeholder
+                            alarmEnabled: true, // Enable alarm for exams
+                            createdAt: new Date().toISOString()
+                        });
+                        successCount++;
+                    } catch (e) {
+                        console.error("Failed to save exam", e);
+                    }
                 }
             }
-        }
 
-        Alert.alert('Success', `Imported ${successCount} items to your planner!`, [
-            { text: 'OK', onPress: () => router.back() }
-        ]);
+            Alert.alert('Success', `Imported ${successCount} items to your planner!`, [
+                { text: 'OK', onPress: () => router.back() }
+            ]);
+        } catch (error) {
+            console.error("Save error:", error);
+            Alert.alert('Error', 'Failed to save items. Please try again.');
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     return (
@@ -388,11 +397,21 @@ export default function SyllabusParserScreen() {
 
             {parsedData && (
                 <View style={styles.footer}>
-                    <TouchableOpacity style={styles.mainSaveButton} onPress={handleSave}>
-                        <Save size={24} color="white" style={{ marginRight: 8 }} />
-                        <Text style={styles.mainSaveButtonText}>
-                            Confirm & Import ({selectedItems.size + selectedExams.size})
-                        </Text>
+                    <TouchableOpacity
+                        style={[styles.mainSaveButton, isSaving && { opacity: 0.7 }]}
+                        onPress={handleSave}
+                        disabled={isSaving}
+                    >
+                        {isSaving ? (
+                            <ActivityIndicator color="white" />
+                        ) : (
+                            <>
+                                <Save size={24} color="white" style={{ marginRight: 8 }} />
+                                <Text style={styles.mainSaveButtonText}>
+                                    Confirm & Import ({selectedItems.size + selectedExams.size})
+                                </Text>
+                            </>
+                        )}
                     </TouchableOpacity>
                 </View>
             )}

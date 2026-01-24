@@ -75,6 +75,14 @@
           "merchantIdentifier": "merchant.com.causeai",
           "enableGooglePay": true
         }
+      ],
+      [
+        "@sentry/react-native/expo",
+        {
+          "url": "https://sentry.io/",
+          "project": "react-native",
+          "organization": "minato-tu"
+        }
       ]
     ],
     "experiments": {
@@ -85,9 +93,9 @@
         "origin": "https://rork.com/"
       },
       "eas": {
-        "projectId": "c2f31aa7-cd96-465f-a379-5f1e04e8048f"
+        "projectId": "3b1f486b-50ab-4d58-90f3-ab34ba4fdcd0"
       }
     },
-    "owner": "luwaiz"
+    "owner": "eluwaiz"
   }
 }

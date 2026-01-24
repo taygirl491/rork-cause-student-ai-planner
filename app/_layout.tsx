@@ -18,9 +18,8 @@ import { StripeProvider } from '@stripe/stripe-react-native';
 
 // Initialize Sentry
 Sentry.init({
-  dsn: process.env.EXPO_PUBLIC_SENTRY_DSN,
-  enableInExpoDevelopment: false,
-  debug: false,
+  dsn: process.env.EXPO_PUBLIC_SENTRY_DSN || 'https://b73520e1b6648db41574a92098b42ec2@o4510577981915136.ingest.us.sentry.io/4510577983356928',
+  debug: true,
   tracesSampleRate: 1.0,
 });
 
@@ -48,6 +47,7 @@ function MenuButton() {
 
   const handleNavigate = (route: string) => {
     setShowMenu(false);
+    if (pathname === route) return;
     router.push(route as any);
   };
 
@@ -96,6 +96,15 @@ function MenuButton() {
   );
 }
 
+function ProfileButton() {
+
+  const router = useRouter();
+  return (
+    <Pressable style={menuStyles.headerCalendar} onPress={() => router.push('/account')}>
+      <User />
+    </Pressable>
+  );
+}
 function CustomHeader() {
   return (
     <View style={menuStyles.header}>
@@ -105,7 +114,12 @@ function CustomHeader() {
       <View style={menuStyles.headerCenter}>
         <LogoButton size={44} />
       </View>
-      <View style={menuStyles.headerRight} />
+      <View>
+        <View>
+          <ProfileButton />
+        </View>
+      </View>
+      {/* <View style={menuStyles.headerRight} /> */}
     </View>
   );
 }
@@ -240,15 +254,19 @@ function RootLayoutNav() {
   );
 }
 
-export default function RootLayout() {
+export default Sentry.wrap(function RootLayout() {
   useEffect(() => {
     SplashScreen.hideAsync();
   }, []);
 
 
+  const stripeKey = process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY || 'pk_live_51PRLrfP0t2AuYFqKyKwaltV3py5wvWtfdPgfadWXFl3k7nbhygi2O8J9XnwuZMWWfLavLKiN7E2A794UozlAOBq2003kcHeHIE';
+  console.log('[Stripe] Initializing with key:', stripeKey ? stripeKey.substring(0, 10) + '...' : 'MISSING');
+
   return (
     <StripeProvider
-      publishableKey={process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY || ''}
+      publishableKey={stripeKey}
+      merchantIdentifier="merchant.com.causeai"
     >
       <QueryClientProvider client={queryClient}>
         <GestureHandlerRootView style={{ flex: 1 }}>
@@ -263,7 +281,7 @@ export default function RootLayout() {
       </QueryClientProvider>
     </StripeProvider>
   );
-}
+});
 
 const menuStyles = StyleSheet.create({
   menuButton: {
@@ -287,6 +305,10 @@ const menuStyles = StyleSheet.create({
   headerCenter: {
     flex: 1,
     alignItems: 'center',
+  },
+  headerCalendar: {
+    width: 80,
+    alignItems: 'flex-end',
   },
   headerRight: {
     width: 80,
