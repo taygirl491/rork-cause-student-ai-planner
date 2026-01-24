@@ -2,9 +2,9 @@ const { google } = require('googleapis');
 const readline = require('readline');
 
 // Replace with your OAuth2 credentials from Google Cloud Console
-const CLIENT_ID = '14220124334-6pl5b834rhso9im55usedkhri6tq7u73.apps.googleusercontent.com';
-const CLIENT_SECRET = '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';
-const REDIRECT_URI = 'http://localhost:3000/oauth2callback';
+const CLIENT_ID = process.env.GMAIL_CLIENT_ID || 'your-client-id-here';
+const CLIENT_SECRET = process.env.GMAIL_CLIENT_SECRET || 'your-client-secret-here';
+const REDIRECT_URI = process.env.GMAIL_REDIRECT_URI || 'http://localhost:3000/oauth2callback';
 
 const oauth2Client = new google.auth.OAuth2(
     CLIENT_ID,

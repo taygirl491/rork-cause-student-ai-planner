@@ -258,14 +258,26 @@ export default function AccountScreen() {
         throw new Error('Invalid payment details received');
       }
 
-      const { error } = await initPaymentSheet({
-        paymentIntentClientSecret: clientSecret.startsWith('pi_') ? clientSecret : undefined,
-        setupIntentClientSecret: clientSecret.startsWith('seti_') ? clientSecret : undefined,
+      const initParams = {
         merchantDisplayName: 'Cause Student AI Planner',
         customerId: customerId,
         returnURL: 'causeai://stripe-redirect',
-        allowsDelayedPaymentMethods: true,
-      });
+      };
+
+      let initOptions;
+      if (clientSecret.startsWith('pi_')) {
+        initOptions = {
+          ...initParams,
+          paymentIntentClientSecret: clientSecret,
+        };
+      } else {
+        initOptions = {
+          ...initParams,
+          setupIntentClientSecret: clientSecret,
+        };
+      }
+
+      const { error } = await initPaymentSheet(initOptions);
 
       if (error) {
         console.error('initPaymentSheet error:', error);

@@ -77,7 +77,6 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        <Button title='Try! it out' onPress={() => { Sentry.captureException(new Error('First error')) }} />
         <View style={styles.heroSection}>
           <Text style={styles.appTitle}>Cause Student AI Planner</Text>
           <Text style={styles.heroSubtitle}>Making a difference, one task at a time</Text>
@@ -325,3 +324,4 @@ const styles = StyleSheet.create({
     color: colors.primary,
   },
 });
+

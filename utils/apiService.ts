@@ -4,7 +4,7 @@ import { Platform } from 'react-native';
 
 const DEV_API_URL = Platform.OS === 'android' ? 'http://10.0.2.2:3000' : 'http://localhost:3000';
 const API_BASE_URL = "https://rork-cause-student-ai-planner.onrender.com";  // Use production server
-const API_KEY = process.env.EXPO_PUBLIC_API_KEY || "a3508322026c02a1af2f5c4b270d7719882085177cb04839fc00b0fd673e473c";
+const API_KEY = process.env.EXPO_PUBLIC_API_KEY || "";
 
 // Timeout helper with better error handling
 const fetchWithTimeout = async (
