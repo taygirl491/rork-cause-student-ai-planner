@@ -27,6 +27,7 @@ import {
 import { useAuth } from "./AuthContext";
 import * as calendarSync from "@/utils/calendarSync";
 import * as NotificationService from "@/utils/notificationService";
+import * as AlarmService from "@/utils/alarmService";
 import apiService from "@/utils/apiService";
 import { tasksAPI, classesAPI, notesAPI, goalsAPI, studyGroupsAPI } from "@/utils/dataAPI";
 import socketService from "@/utils/socketService";
@@ -300,13 +301,20 @@ export const [AppProvider, useApp] = createContextHook(() => {
 			});
 
 			if (newTask) {
+				// (MVP) If alarmEnabled is set, schedule a real alarm via expo-alarm-module (Android only).
+				// This should ring even after reboot and without the app running.
+				if (newTask.alarmEnabled && !newTask.completed) {
+					await AlarmService.cancelTaskAlarm(newTask.id);
+					await AlarmService.scheduleTaskAlarm(newTask);
+				}
+
 				// Schedule notification if reminder is set and task is not completed
 				if (task.reminder && !task.completed) {
 					await NotificationService.scheduleTaskReminder(newTask);
 				}
 
-				// Schedule due date notification if task is not completed
-				if (!task.completed) {
+				// Schedule due date notification if task is not completed AND we're not using real alarms
+				if (!task.completed && !newTask.alarmEnabled) {
 					await NotificationService.scheduleDueDateNotification(newTask);
 				}
 
@@ -335,6 +343,9 @@ export const [AppProvider, useApp] = createContextHook(() => {
 				return;
 			}
 
+			// Cancel existing native alarm for this task (we'll reschedule if needed)
+			await AlarmService.cancelTaskAlarm(id);
+
 			// Cancel existing notifications for this task
 			await NotificationService.cancelAllTaskNotifications(id);
 
@@ -353,13 +364,19 @@ export const [AppProvider, useApp] = createContextHook(() => {
 			if (success) {
 				// Reschedule notification if task is not completed and has reminder
 				const updatedTask = { ...task, ...updates } as Task;
+
+				// If alarmEnabled, schedule a real alarm (Android only)
+				if (updatedTask.alarmEnabled && !updatedTask.completed) {
+					await AlarmService.scheduleTaskAlarm(updatedTask);
+				}
+
 				if (updatedTask.reminder && !updatedTask.completed) {
 					console.log(`[AppContext] Rescheduling reminder for uncrossed task: ${updatedTask.id}`);
 					await NotificationService.scheduleTaskReminder(updatedTask);
 				}
 
-				// Reschedule due date notification if task is not completed
-				if (!updatedTask.completed) {
+				// Reschedule due date notification if task is not completed AND we're not using real alarms
+				if (!updatedTask.completed && !updatedTask.alarmEnabled) {
 					await NotificationService.scheduleDueDateNotification(updatedTask);
 				}
 
@@ -379,6 +396,9 @@ export const [AppProvider, useApp] = createContextHook(() => {
 		try {
 			// Find the task to get its calendar event ID
 			const task = tasks.find((t) => t.id === id);
+
+			// Cancel any native alarm for this task
+			await AlarmService.cancelTaskAlarm(id);
 
 			// Cancel all notifications for this task
 			await NotificationService.cancelAllTaskNotifications(id);

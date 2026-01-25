@@ -29,6 +29,7 @@ import Mascot from '@/components/Mascot';
 import SearchBar from '@/components/SearchBar';
 import StreakCard from '@/components/StreakCard';
 import { useStreak } from '@/contexts/StreakContext';
+import { cancelDebugAlarm, scheduleDebugAlarmInTwoMinutes, stopAnyPlayingAlarm } from '@/utils/alarmService';
 
 export default function TasksScreen() {
   const { sortedTasks, addTask, updateTask, deleteTask, classes, refreshTasks } = useApp();
@@ -53,6 +54,27 @@ export default function TasksScreen() {
   const [customReminderDate, setCustomReminderDate] = useState(new Date());
   const [showCustomReminderPicker, setShowCustomReminderPicker] = useState(false);
   const [alarmEnabled, setAlarmEnabled] = useState(false);
+
+  // Simple manual test hook for expo-alarm-module (Android emulator/device only)
+  const scheduleTestAlarm = async () => {
+    try {
+      await cancelDebugAlarm();
+      await scheduleDebugAlarmInTwoMinutes();
+      Alert.alert('Test alarm scheduled', 'Alarm set for ~2 minutes from now. Lock the screen and wait.');
+    } catch (e: any) {
+      Alert.alert('Failed to schedule alarm', e?.message || String(e));
+    }
+  };
+
+  const stopTestAlarm = async () => {
+    try {
+      await stopAnyPlayingAlarm();
+      await cancelDebugAlarm();
+      Alert.alert('Test alarm stopped', 'Stopped any playing alarm and removed the test alarm.');
+    } catch (e: any) {
+      Alert.alert('Failed to stop alarm', e?.message || String(e));
+    }
+  };
 
   // Search and filter states
   const [searchQuery, setSearchQuery] = useState('');
@@ -113,6 +135,8 @@ export default function TasksScreen() {
       detailScaleAnim.setValue(0);
     }
   }, [showDetailModal, detailScaleAnim]);
+
+  // NOTE: the UI below is huge; we inject a small dev-only test row later near the top of the screen.
 
   const taskTypes: TaskType[] = ['task', 'event', 'exam', 'paper', 'appointment', 'homework', 'work', 'internship'];
   const priorities: Priority[] = ['low', 'medium', 'high'];
@@ -423,6 +447,17 @@ export default function TasksScreen() {
                 <Plus size={24} color={colors.surface} />
               </TouchableOpacity>
             </View>
+
+            {__DEV__ && Platform.OS === 'android' && (
+              <View style={styles.debugAlarmRow}>
+                <TouchableOpacity style={styles.debugAlarmButton} onPress={scheduleTestAlarm}>
+                  <Text style={styles.debugAlarmButtonText}>Test alarm (+2 min)</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.debugAlarmStopButton} onPress={stopTestAlarm}>
+                  <Text style={styles.debugAlarmStopButtonText}>Stop test alarm</Text>
+                </TouchableOpacity>
+              </View>
+            )}
 
             <StreakCard />
 
@@ -1212,6 +1247,39 @@ const styles = StyleSheet.create({
   },
   searchContainer: {
     paddingBottom: 12,
+  },
+  debugAlarmRow: {
+    flexDirection: 'row',
+    gap: 10,
+    paddingVertical: 10,
+  },
+  debugAlarmButton: {
+    flex: 1,
+    backgroundColor: colors.primary,
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+  },
+  debugAlarmButtonText: {
+    color: colors.surface,
+    fontWeight: '700' as const,
+    fontSize: 13,
+  },
+  debugAlarmStopButton: {
+    flex: 1,
+    backgroundColor: colors.background,
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  debugAlarmStopButtonText: {
+    color: colors.text,
+    fontWeight: '700' as const,
+    fontSize: 13,
   },
   filtersContainer: {
     paddingBottom: 12,
