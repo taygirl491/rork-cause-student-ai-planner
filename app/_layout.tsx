@@ -260,25 +260,32 @@ export default Sentry.wrap(function RootLayout() {
   }, []);
 
 
-  const stripeKey = process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY || 'pk_live_51PRLrfP0t2AuYFqKyKwaltV3py5wvWtfdPgfadWXFl3k7nbhygi2O8J9XnwuZMWWfLavLKiN7E2A794UozlAOBq2003kcHeHIE';
-  console.log('[Stripe] Initializing with key:', stripeKey ? stripeKey.substring(0, 10) + '...' : 'MISSING');
+  // Stripe is optional for local/dev builds. Do NOT hardcode live keys in the client.
+  // If no key is provided, the app will run with payments disabled.
+  const stripeKey = process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY;
+  if (!stripeKey) {
+    console.log('[Stripe] Disabled (no EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY set).');
+  }
+
+  const AppTree = (
+    <QueryClientProvider client={queryClient}>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <AuthProvider>
+          <StreakProvider>
+            <AppProvider>
+              <RootLayoutNav />
+            </AppProvider>
+          </StreakProvider>
+        </AuthProvider>
+      </GestureHandlerRootView>
+    </QueryClientProvider>
+  );
+
+  if (!stripeKey) return AppTree;
 
   return (
-    <StripeProvider
-      publishableKey={stripeKey}
-      merchantIdentifier="merchant.com.causeai"
-    >
-      <QueryClientProvider client={queryClient}>
-        <GestureHandlerRootView style={{ flex: 1 }}>
-          <AuthProvider>
-            <StreakProvider>
-              <AppProvider>
-                <RootLayoutNav />
-              </AppProvider>
-            </StreakProvider>
-          </AuthProvider>
-        </GestureHandlerRootView>
-      </QueryClientProvider>
+    <StripeProvider publishableKey={stripeKey} merchantIdentifier="merchant.com.causeai">
+      {AppTree}
     </StripeProvider>
   );
 });
