@@ -51,8 +51,8 @@ export default function CausesScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <View>
-          <Text style={styles.title}>Our Causes</Text>
-          <Text style={styles.subtitle}>Making a difference together</Text>
+          <Text style={styles.title}>Make It Count 🌍</Text>
+          <Text style={styles.subtitle}>Your impact in action</Text>
         </View>
         <View style={styles.heartContainer}>
           <Heart size={32} color={colors.secondary} fill={colors.secondary} />
@@ -61,15 +61,18 @@ export default function CausesScreen() {
 
       <View style={styles.descriptionContainer}>
         <Text style={styles.description}>
-          View your impact, read about causes, and watch student inspirational talks.
+          Check out your impact, explore causes that matter, and vibe with student
+          pep talks, and student essays below 👇
         </Text>
       </View>
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         <View style={styles.impactCard}>
-          <Text style={styles.impactTitle}>Your Impact</Text>
+          <Text style={styles.impactTitle}>Here's the Deal 🤝</Text>
           <Text style={styles.impactText}>
-            Every month, <Text style={styles.impactHighlight}>$1 of your $5 subscription</Text> goes directly to support education, environment, and mental health initiatives.
+            20% of your subscription ($1 out of $5) goes straight
+            to helping students, protecting the environment, and supporting mental
+            health. Every. Single. Month.
           </Text>
           <View style={styles.statsRow}>
             <View style={styles.statBox}>
@@ -122,21 +125,23 @@ export default function CausesScreen() {
         ))}
 
         <View style={styles.missionCard}>
-          <Text style={styles.missionTitle}>Our Mission</Text>
+          <Text style={styles.missionTitle}>Our Mission 🌍</Text>
           <Text style={styles.missionText}>
-            Cause Student AI Planner believes that every student deserves the tools and support to succeed.
-            By using our app, you&rsquo;re not just organizing your academic life—you&rsquo;re contributing to a
-            movement that empowers students everywhere through education, environmental stewardship,
-            and mental health support.
+            We believe every student deserves the tools to absolutely
+            crush it in school. When you use our app, you're not just getting your life
+            together—you're helping students everywhere access education, protect
+            the planet, and get mental health support.
           </Text>
           <Text style={styles.missionText}>
-            Together, we&rsquo;re creating a brighter future for students in the USA and around the world.
+            Basically, you're making the
+            world better while acing your classes. That's what we call a win-win.
           </Text>
         </View>
 
         {((videoConfig as any)?.essay1?.content || (videoConfig as any)?.essay2?.content) && (
           <>
-            <Text style={styles.sectionTitle}>Featured Student Essays</Text>
+            <Text style={styles.sectionTitle}>Worth the Read 📖</Text>
+            <Text style={styles.sectionSubtitle}>Student essay spotlight. Words That Win 📝 - Submit your essay to win.</Text>
 
             {(videoConfig as any)?.essay1?.content ? (
               <View style={styles.essayCard}>

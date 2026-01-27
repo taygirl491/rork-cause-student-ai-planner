@@ -370,18 +370,18 @@ export default function AIBuddyScreen() {
 
   const getModeTitle = (m: AIMode) => {
     switch (m) {
-      case 'homework': return 'Homework Assistant';
-      case 'summarize': return 'Summarize Text';
-      case 'quiz': return 'Quiz Me';
-      default: return 'AI Buddy';
+      case 'homework': return 'Your AI Sidekick 🤖';
+      case 'summarize': return 'Skip to the Good Parts ⏩';
+      case 'quiz': return 'Brain Workout 🧠';
+      default: return 'AI Study Buddy';
     }
   };
 
   const getModeSubtitle = (m: AIMode) => {
     switch (m) {
-      case 'homework': return "Help with assignments and planning";
-      case 'summarize': return "Get quick summaries of topics";
-      case 'quiz': return "Test your knowledge";
+      case 'homework': return "Always here to help. Upload photos of homework or assignments.";
+      case 'summarize': return "Condense any text in seconds";
+      case 'quiz': return "Get quizzed on anything you're studying. Upload your notes.";
       default: return "";
     }
   };
@@ -471,8 +471,8 @@ export default function AIBuddyScreen() {
           <BookOpen size={32} color={colors.primary} />
         </View>
         <View style={styles.cardTextContainer}>
-          <Text style={styles.cardTitle}>Homework Assistant</Text>
-          <Text style={styles.cardDescription}>Get help with your assignments and study planning.</Text>
+          <Text style={styles.cardTitle}>Your AI Sidekick 🤖</Text>
+          <Text style={styles.cardDescription}>Always here to help. Upload photos of homework or assignments.</Text>
         </View>
       </TouchableOpacity>
 
@@ -481,8 +481,8 @@ export default function AIBuddyScreen() {
           <FileText size={32} color="#10b981" />
         </View>
         <View style={styles.cardTextContainer}>
-          <Text style={styles.cardTitle}>Summarize Text</Text>
-          <Text style={styles.cardDescription}>Get concise summaries of any topic or text.</Text>
+          <Text style={styles.cardTitle}>Skip to the Good Parts ⏩</Text>
+          <Text style={styles.cardDescription}>Condense any text in seconds.</Text>
         </View>
       </TouchableOpacity>
 
@@ -491,8 +491,8 @@ export default function AIBuddyScreen() {
           <BrainCircuit size={32} color="#f59e0b" />
         </View>
         <View style={styles.cardTextContainer}>
-          <Text style={styles.cardTitle}>Quiz Me</Text>
-          <Text style={styles.cardDescription}>Test your knowledge on your current classes and tasks.</Text>
+          <Text style={styles.cardTitle}>Brain Workout 🧠</Text>
+          <Text style={styles.cardDescription}>Get quizzed on anything you're studying. Upload your notes.</Text>
         </View>
       </TouchableOpacity>
 

@@ -23,8 +23,10 @@ import colors from "@/constants/colors";
 import { useApp } from "@/contexts/AppContext";
 import SearchBar from "@/components/SearchBar";
 import { Note } from "@/types";
+import { useStreak } from "@/contexts/StreakContext";
 export default function NotesScreen() {
 	const { notes, addNote, updateNote, deleteNote, classes, refreshNotes } = useApp();
+	const { awardPoints } = useStreak();
 	const [showModal, setShowModal] = useState(false);
 	const [showDetailModal, setShowDetailModal] = useState(false);
 	const [showActionSheet, setShowActionSheet] = useState(false);
@@ -123,6 +125,8 @@ export default function NotesScreen() {
 				createdAt: new Date().toISOString(),
 				updatedAt: new Date().toISOString(),
 			});
+			// Award points for creating a note
+			awardPoints(5, 'feature').catch(err => console.error('Error awarding points:', err));
 		}
 
 		refreshNotes();

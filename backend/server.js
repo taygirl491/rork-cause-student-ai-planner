@@ -545,6 +545,7 @@ app.use("/api/goals", authenticate, goalsRoutes);
 app.use("/api/study-groups", authenticate, studyGroupsRoutes);
 app.use("/api/admin", authenticate, adminRoutes);
 app.use("/api/users", authenticate, userRoutes);
+app.use("/api/gamification", authenticate, require("./routes/gamificationRoutes"));
 
 // Stripe Routes
 const stripeRoutes = require("./stripeRoutes");

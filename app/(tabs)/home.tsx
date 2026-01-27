@@ -11,13 +11,15 @@ import {
 import YoutubePlayer from 'react-native-youtube-iframe';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { CheckCircle, Circle, Clock } from 'lucide-react-native';
 import colors from '@/constants/colors';
 import { useApp } from '@/contexts/AppContext';
+import { useStreak } from '@/contexts/StreakContext';
+import { Zap, Flame, Trophy, ListChecks, CheckCircle, Circle, Clock } from 'lucide-react-native';
 import * as Sentry from '@sentry/react-native';
 
 export default function HomeScreen() {
   const { sortedTasks, videoConfig, isLoading, refreshTasks } = useApp();
+  const { streakData, refreshStreak } = useStreak();
   const router = useRouter();
 
   useFocusEffect(
@@ -44,9 +46,19 @@ export default function HomeScreen() {
     return () => clearInterval(interval);
   }, [educationQuotes]);
 
+  // Get today's tasks info
+  const todayTasksInfo = useMemo(() => {
+    const today = new Date().toISOString().split('T')[0];
+    const todayTasks = sortedTasks.filter(task => task.dueDate === today);
+    return {
+      completed: todayTasks.filter(t => t.completed).length,
+      total: todayTasks.length,
+      remaining: todayTasks.filter(t => !t.completed).length
+    };
+  }, [sortedTasks]);
+
   // Get the 3 closest upcoming tasks (not completed)
   const upcomingTasks = useMemo(() => {
-    const now = new Date();
     return sortedTasks
       .filter(task => !task.completed)
       .slice(0, 3);
@@ -80,6 +92,41 @@ export default function HomeScreen() {
         <View style={styles.heroSection}>
           <Text style={styles.appTitle}>Cause Student AI Planner</Text>
           <Text style={styles.heroSubtitle}>Making a difference, one task at a time</Text>
+
+          <View style={styles.statsGrid}>
+            <TouchableOpacity style={styles.statBox} onPress={() => router.push('/(tabs)/tasks')}>
+              <View style={[styles.statIconContainer, { backgroundColor: '#E0F2FE' }]}>
+                <ListChecks size={20} color="#0EA5E9" />
+              </View>
+              <Text style={styles.statValue}>{todayTasksInfo.remaining}</Text>
+              <Text style={styles.statLabel}>Today's Tasks</Text>
+            </TouchableOpacity>
+
+            <View style={styles.statBox}>
+              <View style={[styles.statIconContainer, { backgroundColor: '#FFEDD5' }]}>
+                <Flame size={20} color="#F97316" />
+              </View>
+              <Text style={styles.statValue}>{streakData?.current || 0}</Text>
+              <Text style={styles.statLabel}>Current Streak</Text>
+            </View>
+
+            <View style={styles.statBox}>
+              <View style={[styles.statIconContainer, { backgroundColor: '#F0F9FF' }]}>
+                <Zap size={20} color="#06B6D4" />
+              </View>
+              <Text style={styles.statValue}>{streakData?.points || 0}</Text>
+              <Text style={styles.statLabel}>Total Points</Text>
+            </View>
+
+            <View style={styles.statBox}>
+              <View style={[styles.statIconContainer, { backgroundColor: '#F5F3FF' }]}>
+                <Trophy size={20} color="#8B5CF6" />
+              </View>
+              <Text style={styles.statValue}>{streakData?.level || 1}</Text>
+              <Text style={styles.statLabel}>Levels</Text>
+            </View>
+          </View>
+
           <TouchableOpacity
             style={styles.importButton}
             onPress={() => router.push('/syllabus-parser')}
@@ -96,7 +143,7 @@ export default function HomeScreen() {
         {upcomingTasks.length > 0 && (
           <View style={styles.tasksSection}>
             <View style={styles.tasksSectionHeader}>
-              <Text style={styles.sectionTitle}>Upcoming Tasks</Text>
+              <Text style={styles.sectionTitle}> Don't let deadlines sneak up on you!</Text>
               <TouchableOpacity onPress={() => router.push('/(tabs)/tasks')}>
                 <Text style={styles.viewAllText}>View All</Text>
               </TouchableOpacity>
@@ -145,7 +192,8 @@ export default function HomeScreen() {
         )}
 
         <View style={styles.videoSection}>
-          <Text style={styles.sectionTitle}>Student Inspirational Talk</Text>
+          <Text style={styles.sectionTitle}>Pep Talk  - Motivation from students like you</Text>
+          <Text style={styles.videoSubtitle}>Lights, Camera, Win!  - Submit your vid for prizes</Text>
           <View style={styles.videoContainer}>
             <YoutubePlayer
               height={190}
@@ -164,6 +212,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
+    // paddingBottom: 50,
   },
   loadingContainer: {
     justifyContent: 'center',
@@ -189,22 +238,59 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textSecondary,
     textAlign: 'center',
-    marginBottom: 0,
+    marginBottom: 20,
+  },
+  statsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    width: '100%',
+    gap: 10,
+  },
+  statBox: {
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    padding: 12,
+    alignItems: 'center',
+    width: '48%', // Approx 2 columns
+    shadowColor: colors.cardShadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+    marginBottom: 10,
+  },
+  statIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  statValue: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 2,
   },
   tasksSection: {
     paddingHorizontal: 20,
     marginBottom: 20,
   },
   tasksSectionHeader: {
-    flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
     marginBottom: 12,
   },
   viewAllText: {
     fontSize: 14,
     fontWeight: '600' as const,
     color: colors.primary,
+    textAlign: "right",
   },
   taskCard: {
     backgroundColor: colors.surface,
@@ -296,7 +382,14 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '700' as const,
     color: colors.text,
+    marginBottom: 4,
+    textAlign: "center",
+  },
+  videoSubtitle: {
+    fontSize: 14,
+    color: colors.textSecondary,
     marginBottom: 12,
+    textAlign: "center",
   },
   videoContainer: {
     borderRadius: 12,

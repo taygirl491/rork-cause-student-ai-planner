@@ -44,7 +44,7 @@ async function updateStreak(userId) {
         const yesterday = getYesterday(today);
 
         // Initialize streak data if it doesn't exist
-        let streakData = user.streak || {
+        const streakData = user.streak || {
             current: 0,
             longest: 0,
             lastCompletionDate: null,
@@ -55,27 +55,31 @@ async function updateStreak(userId) {
         const lastDate = streakData.lastCompletionDate;
         let increased = false;
         let milestone = false;
+        let pointsToAward = 0;
 
         // Check if already completed today
         if (lastDate === today) {
             // Just increment total tasks, don't change streak
             streakData.totalTasksCompleted++;
+            pointsToAward = 1; // 1 point for sub-sequent tasks today
         } else if (lastDate === yesterday) {
             // Streak continues!
             streakData.current++;
             streakData.totalTasksCompleted++;
             streakData.lastCompletionDate = today;
             increased = true;
+            pointsToAward = 1; // 1 point for the task
 
             // Update longest streak if needed
             if (streakData.current > streakData.longest) {
                 streakData.longest = streakData.current;
             }
 
-            // Check for milestones
+            // Check for milestones (2 points for milestone)
             const milestones = [3, 7, 14, 30, 50, 100];
             if (milestones.includes(streakData.current)) {
                 milestone = streakData.current;
+                pointsToAward += 2;
             }
         } else {
             // Streak broken or first task ever
@@ -83,6 +87,13 @@ async function updateStreak(userId) {
             streakData.totalTasksCompleted++;
             streakData.lastCompletionDate = today;
             increased = true;
+            pointsToAward = 1; // 1 point for the task
+        }
+
+        // Award points if any
+        if (pointsToAward > 0) {
+            const gamificationService = require('./gamificationService');
+            await gamificationService.awardPoints(userId, pointsToAward, 'task');
         }
 
         // Update MongoDB

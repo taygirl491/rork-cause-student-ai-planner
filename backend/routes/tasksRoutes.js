@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const Task = require('../models/Task');
+const { updateStreak } = require('../streakService');
 
 /**
  * GET /api/tasks/:userId
@@ -93,15 +94,12 @@ router.put('/:taskId', async (req, res) => {
         }
 
         // Emit WebSocket event
-        const io = req.app.get('io');
-        if (io) {
-            io.emit('task-updated', {
-                userId: task.userId,
-                task: {
-                    ...task.toObject(),
-                    id: task._id
-                }
-            });
+        if (updates.completed === true && !task.completed) {
+            try {
+                await updateStreak(task.userId);
+            } catch (streakError) {
+                console.error('Error updating streak after task completion:', streakError);
+            }
         }
 
         res.json({
