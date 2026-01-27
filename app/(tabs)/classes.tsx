@@ -290,7 +290,7 @@ export default function ClassesScreen() {
           <>
             <View style={styles.header}>
               <View>
-                <Text style={styles.title}>Classes</Text>
+                <Text style={styles.title}>My Classes 🏫</Text>
                 <Text style={styles.subtitle}>Manage your classes</Text>
               </View>
               <TouchableOpacity style={styles.addButton} onPress={() => setShowClassModal(true)}>

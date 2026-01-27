@@ -91,6 +91,31 @@ router.put('/:goalId', async (req, res) => {
             });
         }
 
+        // Award points for goal completion
+        if (updates.completed === true && !goal.completed) {
+            try {
+                const gamificationService = require('../gamificationService');
+                await gamificationService.awardPoints(goal.userId, 10, 'goal');
+            } catch (err) {
+                console.error('Error awarding points for goal:', err);
+            }
+        }
+
+        // Award points for habit completion
+        if (updates.habits && Array.isArray(updates.habits)) {
+            const completedHabitsCount = updates.habits.filter(h => h.completed).length;
+            const previousCompletedHabitsCount = goal.habits.filter(h => h.completed).length;
+
+            if (completedHabitsCount > previousCompletedHabitsCount) {
+                try {
+                    const gamificationService = require('../gamificationService');
+                    await gamificationService.awardPoints(goal.userId, (completedHabitsCount - previousCompletedHabitsCount), 'habit');
+                } catch (err) {
+                    console.error('Error awarding points for habits:', err);
+                }
+            }
+        }
+
         // Emit WebSocket event
         const io = req.app.get('io');
         if (io) {

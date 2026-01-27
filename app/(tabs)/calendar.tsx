@@ -344,7 +344,7 @@ export default function CalendarScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <Text style={styles.title}>Calendar</Text>
+        <Text style={styles.title}>Your Week at a Glance 🗓️</Text>
         <View style={styles.syncContainer}>
           <Text style={styles.calendarSyncText}>Sync Calendar</Text>
           <Switch
@@ -469,7 +469,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   header: {
-    flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
@@ -479,11 +478,13 @@ const styles = StyleSheet.create({
     fontSize: 32,
     fontWeight: '800' as const,
     color: colors.text,
+    marginBottom: 16,
   },
   syncContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    alignSelf:"flex-end"
   },
   calendarSyncText: {
     fontSize: 14,

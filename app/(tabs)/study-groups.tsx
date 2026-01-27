@@ -43,6 +43,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { StudyGroup } from "@/types";
 import { schedulePushNotification } from "@/functions/Notify";
 import SearchBar from "@/components/SearchBar";
+import { useStreak } from "@/contexts/StreakContext";
 
 export default function StudyGroupsScreen() {
 	const router = useRouter();
@@ -54,6 +55,7 @@ export default function StudyGroupsScreen() {
 		deleteStudyGroup,
 		refreshStudyGroups,
 	} = useApp();
+	const { awardPoints } = useStreak();
 	const [refreshing, setRefreshing] = useState(false);
 	const { user } = useAuth();
 	const [showCreateGroupModal, setShowCreateGroupModal] = useState(false);
@@ -266,8 +268,8 @@ export default function StudyGroupsScreen() {
 		<SafeAreaView style={styles.container} edges={["bottom"]}>
 			<View style={styles.header}>
 				<View>
-					<Text style={styles.title}>Study Groups</Text>
-					<Text style={styles.subtitle}>Collaborate with classmates</Text>
+					<Text style={styles.title}>Study Squad 🤝</Text>
+					<Text style={styles.subtitle}>Learning is better together</Text>
 				</View>
 			</View>
 

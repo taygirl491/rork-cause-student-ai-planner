@@ -9,6 +9,8 @@ interface StreakData {
     totalTasksCompleted: number;
     lastCompletionDate: string | null;
     streakFreezes: number;
+    points: number;
+    level: number;
 }
 
 interface StreakContextType {
@@ -16,6 +18,7 @@ interface StreakContextType {
     isLoading: boolean;
     updateStreak: () => Promise<{ increased: boolean; milestone: number | false }>;
     refreshStreak: () => Promise<void>;
+    awardPoints: (points: number, activityType: 'task' | 'streak' | 'goal' | 'habit' | 'feature') => Promise<{ points: number; level: number; leveledUp: boolean } | null>;
 }
 
 const StreakContext = createContext<StreakContextType | undefined>(undefined);
@@ -49,11 +52,20 @@ export function StreakProvider({ children }: { children: ReactNode }) {
 
             // Fetch fresh data from backend
             if (user?.uid) {
-                const response = await apiService.get(`/api/streak/${user.uid}`);
-                if (response.success) {
-                    setStreakData(response.streak);
+                const [streakRes, statsRes] = await Promise.all([
+                    apiService.get(`/api/streak/${user.uid}`),
+                    apiService.get(`/api/gamification/stats/${user.uid}`)
+                ]);
+
+                if (streakRes.success && statsRes) {
+                    const combinedData = {
+                        ...streakRes.streak,
+                        points: statsRes.points || 0,
+                        level: statsRes.level || 1,
+                    };
+                    setStreakData(combinedData);
                     // Update cache
-                    await AsyncStorage.setItem(STREAK_CACHE_KEY, JSON.stringify(response.streak));
+                    await AsyncStorage.setItem(STREAK_CACHE_KEY, JSON.stringify(combinedData));
                 }
             }
         } catch (error) {
@@ -95,8 +107,33 @@ export function StreakProvider({ children }: { children: ReactNode }) {
         await loadStreakData();
     };
 
+    const awardPoints = async (points: number, activityType: 'task' | 'streak' | 'goal' | 'habit' | 'feature') => {
+        try {
+            if (!user?.uid) return null;
+
+            const response = await apiService.post('/api/gamification/award', {
+                userId: user.uid,
+                points,
+                activityType
+            });
+
+            if (response && response.points !== undefined) {
+                setStreakData(prev => prev ? {
+                    ...prev,
+                    points: response.points,
+                    level: response.level
+                } : null);
+                return response;
+            }
+            return null;
+        } catch (error) {
+            console.error('Error awarding points:', error);
+            return null;
+        }
+    };
+
     return (
-        <StreakContext.Provider value={{ streakData, isLoading, updateStreak, refreshStreak }}>
+        <StreakContext.Provider value={{ streakData, isLoading, updateStreak, refreshStreak, awardPoints }}>
             {children}
         </StreakContext.Provider>
     );

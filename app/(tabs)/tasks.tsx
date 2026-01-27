@@ -416,7 +416,7 @@ export default function TasksScreen() {
           <>
             <View style={styles.header}>
               <View>
-                <Text style={styles.title}>Upcoming Tasks</Text>
+                <Text style={styles.title}>🚀 Don't let deadlines sneak up on you!</Text>
                 <Text style={styles.subtitle}>You have {filteredTasks.filter(t => !t.completed).length} tasks pending</Text>
               </View>
               <TouchableOpacity style={styles.addButton} onPress={() => setShowModal(true)}>
@@ -936,9 +936,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   header: {
-    flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
     // paddingHorizontal: 20,
     paddingTop: 20,
     paddingBottom: 16,
@@ -947,6 +945,8 @@ const styles = StyleSheet.create({
     fontSize: 32,
     fontWeight: '800' as const,
     color: colors.text,
+    marginBottom: 16,
+    alignSelf:"center"
   },
   subtitle: {
     fontSize: 14,
@@ -965,6 +965,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 8,
+    alignSelf:"flex-end"
   },
   scrollView: {
     flex: 1,

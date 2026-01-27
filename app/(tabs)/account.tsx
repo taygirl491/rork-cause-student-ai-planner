@@ -499,7 +499,7 @@ export default function AccountScreen() {
             <View style={styles.impactCard}>
               <Heart size={16} color={colors.secondary} fill={colors.secondary} />
               <Text style={styles.impactText}>
-                You&apos;re supporting education, environment, and mental health causes!
+                You're making the world better while acing your classes. That's a win-win! 🏆
               </Text>
             </View>
           )}
@@ -624,7 +624,7 @@ export default function AccountScreen() {
 
         <View style={styles.footer}>
           <Text style={styles.footerText}>Cause Student AI Planner v1.0.0</Text>
-          <Text style={styles.footerSubtext}>Making a difference, one task at a time</Text>
+          <Text style={styles.footerSubtext}>Making the world better while acing your classes 🌍</Text>
         </View>
       </ScrollView>
 
@@ -763,8 +763,8 @@ export default function AccountScreen() {
               <View style={styles.causeInfo}>
                 <Heart size={20} color={colors.secondary} fill={colors.secondary} />
                 <Text style={styles.causeInfoText}>
-                  Your subscription supports school supplies, scholarships, Teach for America, and
-                  more!
+                  Your subscription helps students crush it, protects the planet, and
+                  supports mental health for everyone!
                 </Text>
               </View>
             </ScrollView>

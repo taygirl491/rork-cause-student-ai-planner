@@ -162,7 +162,7 @@ function RootLayoutNav() {
 
   useEffect(() => {
     if (!isLoading && onboardingComplete !== null) {
-      const inAuthGroup = segments === '/login' || segments === '/register' || segments === '/onboarding';
+      const inAuthGroup = segments === '/login' || segments === '/register' || segments === '/onboarding' || segments === '/intro-survey';
       const isInvite = segments?.startsWith('/invite');
 
       if (isAuthenticated && auth.currentUser?.email === 'minatoventuresinc@gmail.com' && !segments?.startsWith('/admin')) {
@@ -219,6 +219,12 @@ function RootLayoutNav() {
       />
       <Stack.Screen
         name="register"
+        options={{
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="intro-survey"
         options={{
           headerShown: false,
         }}

@@ -61,6 +61,19 @@ const userSchema = new mongoose.Schema({
         type: String,
         default: null,
     },
+    points: {
+        type: Number,
+        default: 0,
+    },
+    level: {
+        type: Number,
+        default: 1,
+    },
+    gamification: {
+        habitsCompleted: { type: Number, default: 0 },
+        featuresUsed: { type: Number, default: 0 },
+        goalsCompleted: { type: Number, default: 0 },
+    }
 }, {
     timestamps: false,
     _id: false,
