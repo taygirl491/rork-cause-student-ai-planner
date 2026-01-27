@@ -213,27 +213,10 @@ export default function TasksScreen() {
   };
 
   const toggleTaskComplete = async (task: Task) => {
-    const wasCompleted = task.completed;
     updateTask(task.id, { completed: !task.completed });
 
-    // Update streak when marking task as complete (not when uncompleting)
-    if (!wasCompleted) {
-      try {
-        const result = await updateStreak();
-        if (result.milestone) {
-          Alert.alert(
-            '🎉 Milestone Reached!',
-            `Amazing! You've reached a ${result.milestone}-day streak!`,
-            [{ text: 'Awesome!', style: 'default' }]
-          );
-        }
-      } catch (error) {
-        console.error('Error updating streak:', error);
-      }
-    }
-
-    // Refresh to update sorted list
-    refreshTasks();
+    // Streak update is now handled automatically by the backend
+    // and state updates are handled optimistically by AppContext
   };
 
   const handleLongPress = (task: Task) => {
@@ -946,7 +929,7 @@ const styles = StyleSheet.create({
     fontWeight: '800' as const,
     color: colors.text,
     marginBottom: 16,
-    alignSelf:"center"
+    alignSelf: "center"
   },
   subtitle: {
     fontSize: 14,
@@ -965,7 +948,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 8,
-    alignSelf:"flex-end"
+    alignSelf: "flex-end"
   },
   scrollView: {
     flex: 1,

@@ -347,26 +347,17 @@ export const [AppProvider, useApp] = createContextHook(() => {
 				);
 			}
 
+			// Update local state immediately (Optimistic Update)
+			setTasks((prev) =>
+				prev.map((t) => (t.id === id ? { ...t, ...updates } : t))
+			);
+
 			// Update via API
 			const success = await tasksAPI.updateTask(id, updates);
 
-			if (success) {
-				// Reschedule notification if task is not completed and has reminder
-				const updatedTask = { ...task, ...updates } as Task;
-				if (updatedTask.reminder && !updatedTask.completed) {
-					console.log(`[AppContext] Rescheduling reminder for uncrossed task: ${updatedTask.id}`);
-					await NotificationService.scheduleTaskReminder(updatedTask);
-				}
-
-				// Reschedule due date notification if task is not completed
-				if (!updatedTask.completed) {
-					await NotificationService.scheduleDueDateNotification(updatedTask);
-				}
-
-				// Update local state immediately
-				setTasks((prev) =>
-					prev.map((t) => (t.id === id ? { ...t, ...updates } : t))
-				);
+			if (!success) {
+				// Rollback on failure (optional, but good practice)
+				refreshTasks();
 			}
 		} catch (error) {
 			console.error("Error updating task:", error);
