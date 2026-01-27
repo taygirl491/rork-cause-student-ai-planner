@@ -94,12 +94,11 @@ router.put('/:taskId', async (req, res) => {
         }
 
         // Emit WebSocket event
+        // Trigger streak update if task is marked as completed (asynchronously)
         if (updates.completed === true && !task.completed) {
-            try {
-                await updateStreak(task.userId);
-            } catch (streakError) {
+            updateStreak(task.userId).catch(streakError => {
                 console.error('Error updating streak after task completion:', streakError);
-            }
+            });
         }
 
         res.json({

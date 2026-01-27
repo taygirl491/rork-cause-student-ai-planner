@@ -94,32 +94,32 @@ export default function HomeScreen() {
           <Text style={styles.heroSubtitle}>Making a difference, one task at a time</Text>
 
           <View style={styles.statsGrid}>
-            <TouchableOpacity style={styles.statBox} onPress={() => router.push('/(tabs)/tasks')}>
-              <View style={[styles.statIconContainer, { backgroundColor: '#E0F2FE' }]}>
+            <View style={[styles.statBox, { backgroundColor: '#E0F2FE' }]}>
+              <View style={[styles.statIconContainer, { backgroundColor:'white' }]}>
                 <ListChecks size={20} color="#0EA5E9" />
               </View>
               <Text style={styles.statValue}>{todayTasksInfo.remaining}</Text>
               <Text style={styles.statLabel}>Today's Tasks</Text>
-            </TouchableOpacity>
+            </View>
 
-            <View style={styles.statBox}>
-              <View style={[styles.statIconContainer, { backgroundColor: '#FFEDD5' }]}>
+            <View style={[styles.statBox, { backgroundColor: '#FFEDD5' }]}>
+              <View style={[styles.statIconContainer, { backgroundColor:'white' }]}>
                 <Flame size={20} color="#F97316" />
               </View>
               <Text style={styles.statValue}>{streakData?.current || 0}</Text>
               <Text style={styles.statLabel}>Current Streak</Text>
             </View>
 
-            <View style={styles.statBox}>
-              <View style={[styles.statIconContainer, { backgroundColor: '#F0F9FF' }]}>
+            <View style={[styles.statBox, { backgroundColor: '#F0F9FF' }]}>
+              <View style={[styles.statIconContainer, { backgroundColor:'white' }]}>
                 <Zap size={20} color="#06B6D4" />
               </View>
               <Text style={styles.statValue}>{streakData?.points || 0}</Text>
               <Text style={styles.statLabel}>Total Points</Text>
             </View>
 
-            <View style={styles.statBox}>
-              <View style={[styles.statIconContainer, { backgroundColor: '#F5F3FF' }]}>
+            <View style={[styles.statBox, { backgroundColor: '#F5F3FF' }]}>
+              <View style={[styles.statIconContainer, { backgroundColor:'white' }]}>
                 <Trophy size={20} color="#8B5CF6" />
               </View>
               <Text style={styles.statValue}>{streakData?.level || 1}</Text>
