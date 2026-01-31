@@ -73,6 +73,10 @@ const userSchema = new mongoose.Schema({
         habitsCompleted: { type: Number, default: 0 },
         featuresUsed: { type: Number, default: 0 },
         goalsCompleted: { type: Number, default: 0 },
+    },
+    purpose: {
+        type: mongoose.Schema.Types.Mixed,
+        default: null
     }
 }, {
     timestamps: false,

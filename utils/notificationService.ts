@@ -1,6 +1,7 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import { Task, ReminderTime, Goal } from '@/types';
+import { scheduleAlarm, removeAlarm } from 'expo-alarm-module';
 
 // Configure notification handler
 Notifications.setNotificationHandler({
@@ -212,6 +213,9 @@ export async function scheduleTaskReminder(task: Task): Promise<string | null> {
     // Calculate seconds until trigger time
     const secondsUntilTrigger = Math.floor((triggerDate.getTime() - Date.now()) / 1000);
     
+    const channelId = task.alarmEnabled ? 'task-alarms' : 'task-reminders-v3';
+    const sound = task.alarmEnabled ? 'alarm_clock_90867.wav' : 'default';
+
     const notificationId = await Notifications.scheduleNotificationAsync({
       content: {
         title: `Reminder: ${task.type.toUpperCase()}`,
@@ -221,12 +225,12 @@ export async function scheduleTaskReminder(task: Task): Promise<string | null> {
           type: 'task_reminder',
           className: task.className,
         },
-        sound: 'default', // Always play notification sound
+        sound: sound,
         badge: 1,
         color: '#6366F1',
         // @ts-ignore
-        channelId: 'task-reminders-v3',
-      } as Notifications.NotificationContentInput, // Cast to any to allow channelId on Android if needed, though usually part of content
+        channelId: channelId,
+      } as Notifications.NotificationContentInput,
       trigger: {
         type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
         seconds: secondsUntilTrigger > 0 ? secondsUntilTrigger : 1,
@@ -235,6 +239,28 @@ export async function scheduleTaskReminder(task: Task): Promise<string | null> {
     });
 
     console.log(`Scheduled notification ${notificationId} for task ${task.id} at ${triggerDate.toLocaleString()}`);
+
+    // Schedule persistent alarm for reminder if enabled
+    if (task.alarmEnabled) {
+      try {
+        await scheduleAlarm({
+          uid: `alarm_rem_${task.id}`,
+          day: triggerDate,
+          title: `Reminder: ${task.type.toUpperCase()}`,
+          description: task.description,
+          showDismiss: true,
+          showSnooze: true,
+          snoozeInterval: 5,
+          repeating: false,
+          active: true,
+          sound: 'default'
+        });
+        console.log(`Scheduled persistent reminder alarm for task ${task.id}`);
+      } catch (alarmError) {
+        console.error('Error scheduling persistent reminder alarm:', alarmError);
+      }
+    }
+
     return notificationId;
   } catch (error) {
     console.error('Error scheduling task reminder:', error);
@@ -306,6 +332,27 @@ export async function scheduleDueDateNotification(task: Task): Promise<string | 
     });
 
     console.log(`Scheduled due date notification ${notificationId} for task ${task.id} at ${dueDate.toLocaleString()}`);
+    
+    // Schedule persistent alarm if enabled
+    if (task.alarmEnabled) {
+      try {
+        await scheduleAlarm({
+          uid: `alarm_${task.id}`,
+          day: dueDate,
+          title: `Task Due: ${task.type.toUpperCase()}`,
+          description: task.description,
+          showDismiss: true,
+          showSnooze: true,
+          snoozeInterval: 5,
+          repeating: false,
+          active: true,
+          sound: 'default' // Now patched to use Alarm sound in native
+        });
+        console.log(`Scheduled persistent alarm for task ${task.id}`);
+      } catch (alarmError) {
+        console.error('Error scheduling persistent alarm:', alarmError);
+      }
+    }
 
     // Schedule missed task notification (5 minutes after due date)
     await scheduleMissedTaskNotification(task);
@@ -403,6 +450,15 @@ export async function cancelAllTaskNotifications(taskId: string): Promise<void> 
         await Notifications.cancelScheduledNotificationAsync(notification.identifier);
         console.log(`Cancelled notification ${notification.identifier} for task ${taskId}`);
       }
+    }
+
+    // Also cancel any persistent alarms
+    try {
+      await removeAlarm(`alarm_${taskId}`);
+      await removeAlarm(`alarm_rem_${taskId}`);
+      console.log(`Cancelled persistent alarms (due and reminder) for task ${taskId}`);
+    } catch (alarmError) {
+      console.error('Error cancelling persistent alarms:', alarmError);
     }
   } catch (error) {
     console.error('Error cancelling task notifications:', error);

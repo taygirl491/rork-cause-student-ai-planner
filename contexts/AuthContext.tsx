@@ -10,7 +10,6 @@ import {
   updateProfile,
   User as FirebaseUser,
   initializeAuth,
-  getReactNativePersistence,
   sendPasswordResetEmail,
   updatePassword,
   reauthenticateWithCredential,
@@ -64,6 +63,8 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
           },
           isAuthenticated: true,
         });
+        // Sync survey answers if they exist
+        syncPurposeStatement(firebaseUser.uid);
       } else {
         setAuthData({
           user: null,
@@ -135,6 +136,28 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
 
   const logout = async () => {
     return logoutMutation.mutateAsync();
+  };
+
+  const syncPurposeStatement = async (userId: string) => {
+    try {
+      const savedAnswers = await AsyncStorage.getItem('@survey_answers');
+      if (savedAnswers) {
+        const purpose = JSON.parse(savedAnswers);
+        const apiService = (await import('@/utils/apiService')).default;
+
+        const response = await apiService.patch('/users/purpose', {
+          userId,
+          purpose
+        });
+
+        if (response.success) {
+          console.log('[AuthContext] Purpose statement synced successfully');
+          await AsyncStorage.removeItem('@survey_answers');
+        }
+      }
+    } catch (error) {
+      console.error('[AuthContext] Error syncing purpose statement:', error);
+    }
   };
 
   return {

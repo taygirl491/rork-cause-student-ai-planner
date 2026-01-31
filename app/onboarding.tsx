@@ -67,7 +67,7 @@ export default function OnboardingScreen() {
 
     const handleSkip = async () => {
         await AsyncStorage.setItem(ONBOARDING_COMPLETE_KEY, 'true');
-        router.replace('/intro-survey');
+        router.replace('/login');
     };
 
     const handleNext = () => {
@@ -78,7 +78,7 @@ export default function OnboardingScreen() {
 
     const handleGetStarted = async () => {
         await AsyncStorage.setItem(ONBOARDING_COMPLETE_KEY, 'true');
-        router.replace('/intro-survey');
+        router.replace('/login');
     };
 
     return (

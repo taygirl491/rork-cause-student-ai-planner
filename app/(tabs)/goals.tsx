@@ -21,6 +21,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Plus, X, Target, CheckCircle, Circle, Trash2, Edit2, Bell, BellOff } from 'lucide-react-native';
 import colors from '@/constants/colors';
 import { useApp } from '@/contexts/AppContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { Goal } from '@/types';
 import { cancelNotification, scheduleGoalNotification, scheduleHabitReminder } from '@/utils/notificationService';
 
@@ -34,6 +35,9 @@ export default function GoalsScreen() {
   const [dueTime, setDueTime] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
+  const [purpose, setPurpose] = useState<any>(null);
+  const [purposeLoading, setPurposeLoading] = useState(true);
+  const { user } = useAuth();
 
   // Edit/Delete state
   const [showActionSheet, setShowActionSheet] = useState(false);
@@ -52,10 +56,26 @@ export default function GoalsScreen() {
 
   const scaleAnim = React.useRef(new Animated.Value(0)).current;
 
+  const fetchPurpose = async () => {
+    if (!user?.uid) return;
+    try {
+      const apiService = (await import('@/utils/apiService')).default;
+      const response = await apiService.get(`/users/${user.uid}/purpose`);
+      if (response.success) {
+        setPurpose(response.purpose);
+      }
+    } catch (error) {
+      console.error('Error fetching purpose:', error);
+    } finally {
+      setPurposeLoading(false);
+    }
+  };
+
   useFocusEffect(
     useCallback(() => {
       refreshGoals();
-    }, [])
+      fetchPurpose();
+    }, [user?.uid])
   );
 
   React.useEffect(() => {
@@ -249,7 +269,7 @@ export default function GoalsScreen() {
   // Pull-to-refresh handler
   const onRefresh = async () => {
     setRefreshing(true);
-    await refreshGoals();
+    await Promise.all([refreshGoals(), fetchPurpose()]);
     setRefreshing(false);
   };
 
@@ -278,6 +298,54 @@ export default function GoalsScreen() {
           />
         }
       >
+        {purpose && (
+          <View style={styles.purposeSection}>
+            <View style={styles.purposeCard}>
+              <View style={styles.purposeHeader}>
+                <View style={styles.purposeIconContainer}>
+                  <Target size={24} color={colors.primary} />
+                </View>
+                <View>
+                  <Text style={styles.purposeTitle}>My Purpose Statement</Text>
+                  <Text style={styles.purposeSubtitle}>From your introductory survey</Text>
+                </View>
+              </View>
+              <View style={styles.purposeContent}>
+                {purpose[1] && (
+                  <View style={styles.purposeItem}>
+                    <Text style={styles.purposeLabel}>My Vibe:</Text>
+                    <Text style={styles.purposeText}>{purpose[1].join(', ')}</Text>
+                  </View>
+                )}
+                {purpose[2] && (
+                  <View style={styles.purposeItem}>
+                    <Text style={styles.purposeLabel}>School Means:</Text>
+                    <Text style={styles.purposeText}>{purpose[2].join(', ')}</Text>
+                  </View>
+                )}
+                {purpose[3] && (
+                  <View style={styles.purposeItem}>
+                    <Text style={styles.purposeLabel}>Education Matters Because:</Text>
+                    <Text style={styles.purposeText}>{purpose[3].join(', ')}</Text>
+                  </View>
+                )}
+                {purpose[4] && (
+                  <View style={styles.purposeItem}>
+                    <Text style={styles.purposeLabel}>I Wanna Be:</Text>
+                    <Text style={styles.purposeText}>{purpose[4].join(', ')}</Text>
+                  </View>
+                )}
+                {purpose[5] && (
+                  <View style={styles.purposeItem}>
+                    <Text style={styles.purposeLabel}>I Stand For:</Text>
+                    <Text style={styles.purposeText}>{purpose[5].join(', ')}</Text>
+                  </View>
+                )}
+              </View>
+            </View>
+          </View>
+        )}
+
         {goals.length === 0 ? (
           <View style={styles.emptyState}>
             <Target size={64} color={colors.textLight} />
@@ -875,6 +943,68 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.text,
     marginLeft: 12,
+  },
+  purposeSection: {
+    paddingHorizontal: 20,
+    marginBottom: 24,
+  },
+  purposeCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 24,
+    padding: 20,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: colors.primary + '20',
+  },
+  purposeHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    marginBottom: 20,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  purposeIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: colors.primary + '10',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  purposeTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: colors.text,
+  },
+  purposeSubtitle: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  purposeContent: {
+    gap: 16,
+  },
+  purposeItem: {
+    gap: 4,
+  },
+  purposeLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.primary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  purposeText: {
+    fontSize: 15,
+    color: colors.text,
+    lineHeight: 22,
+    fontWeight: '500',
   },
   actionDivider: {
     height: 1,

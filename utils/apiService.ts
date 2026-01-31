@@ -409,6 +409,40 @@ class ApiService {
 	}
 
 	/**
+	 * Generic PATCH method
+	 */
+	async patch(endpoint: string, data: any) {
+		try {
+			console.log(`[API] PATCH ${API_BASE_URL}${endpoint}`);
+			const response = await fetchWithTimeout(
+				`${API_BASE_URL}${endpoint}`,
+				{
+					method: "PATCH",
+					headers: {
+						"Content-Type": "application/json",
+						"x-api-key": API_KEY,
+					},
+					body: JSON.stringify(data),
+				},
+				30000
+			);
+
+			if (!response.ok) {
+				const error = await response.json();
+				console.log("[API] PATCH error:", error);
+				return { success: false, error: error.error || "Request failed" };
+			}
+
+			const result = await response.json();
+			console.log("[API] PATCH result:", result);
+			return result;
+		} catch (error: any) {
+			console.error("[API] PATCH error:", error.message || error);
+			throw error;
+		}
+	}
+
+	/**
 	 * Create Stripe subscription
 	 */
 	async createSubscription(userId: string, priceId: string) {

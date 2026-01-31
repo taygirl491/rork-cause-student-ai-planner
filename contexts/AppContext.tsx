@@ -25,6 +25,7 @@ import {
 	getDocs,
 } from "firebase/firestore";
 import { useAuth } from "./AuthContext";
+import { useStreak } from "./StreakContext";
 import * as calendarSync from "@/utils/calendarSync";
 import * as NotificationService from "@/utils/notificationService";
 import apiService from "@/utils/apiService";
@@ -44,6 +45,7 @@ const STORAGE_KEYS = {
 
 export const [AppProvider, useApp] = createContextHook(() => {
 	const { user } = useAuth(); // Must be first to maintain hook order
+	const { refreshStreak } = useStreak();
 	const queryClient = useQueryClient();
 	const [tasks, setTasks] = useState<Task[]>([]);
 	const [classes, setClasses] = useState<Class[]>([]);
@@ -355,7 +357,19 @@ export const [AppProvider, useApp] = createContextHook(() => {
 			// Update via API
 			const success = await tasksAPI.updateTask(id, updates);
 
-			if (!success) {
+			if (success) {
+				const updatedTask = { ...task, ...updates } as Task;
+				// Reschedule if not completed
+				if (!updatedTask.completed) {
+					if (updatedTask.reminder) {
+						await NotificationService.scheduleTaskReminder(updatedTask);
+					}
+					await NotificationService.scheduleDueDateNotification(updatedTask);
+				} else {
+					// If completed, refresh streaks to update the UI
+					refreshStreak();
+				}
+			} else {
 				// Rollback on failure (optional, but good practice)
 				refreshTasks();
 			}

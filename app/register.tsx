@@ -46,7 +46,7 @@ export default function RegisterScreen() {
       if (user && token) {
         await savePushToken(user.uid, token, email.trim(), name.trim());
       }
-      router.replace('/home');
+      router.replace('/intro-survey');
     } catch {
       Alert.alert('Registration Failed', registerError?.message || 'An error occurred');
     }

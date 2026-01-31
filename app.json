@@ -69,6 +69,7 @@
           ]
         }
       ],
+      "expo-alarm-module",
       [
         "@stripe/stripe-react-native",
         {
