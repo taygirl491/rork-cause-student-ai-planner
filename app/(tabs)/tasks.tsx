@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useFocusEffect, useRouter } from 'expo-router';
 import {
   View,
@@ -60,6 +60,7 @@ export default function TasksScreen() {
 
   const scaleAnim = React.useRef(new Animated.Value(0)).current;
   const detailScaleAnim = React.useRef(new Animated.Value(0)).current;
+
 
   // Helper to check if a task is missed (not completed and > 10 mins past due)
   const isTaskMissed = (task: Task) => {
@@ -406,7 +407,6 @@ export default function TasksScreen() {
                 <Plus size={24} color={colors.surface} />
               </TouchableOpacity>
             </View>
-
             <StreakCard />
 
             <View style={styles.searchContainer}>

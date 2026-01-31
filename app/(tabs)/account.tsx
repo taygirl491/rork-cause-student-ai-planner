@@ -30,6 +30,7 @@ import {
   Lock,
   HelpCircle,
   Mail,
+  AlertTriangle,
 } from 'lucide-react-native';
 import colors from '@/constants/colors';
 import LogoButton from '@/components/LogoButton';
@@ -80,6 +81,8 @@ export default function AccountScreen() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deletePassword, setDeletePassword] = useState('');
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const [deleteStep, setDeleteStep] = useState(1);
+  const [deleteReason, setDeleteReason] = useState('');
 
   const clearErrors = () => {
     setCurrPassError('');
@@ -315,20 +318,10 @@ export default function AccountScreen() {
   };
 
   const handleDeleteAccount = () => {
-    Alert.alert(
-      'Delete Account',
-      'Are you sure you want to delete your account? This action cannot be undone and all your data will be permanently deleted.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => {
-            setShowDeleteModal(true);
-          },
-        },
-      ]
-    );
+    setDeleteStep(1);
+    setDeleteReason('');
+    setDeletePassword('');
+    setShowDeleteModal(true);
   };
 
   const confirmDeleteAccount = async () => {
@@ -376,6 +369,8 @@ export default function AccountScreen() {
       // Close modal and reset state
       setShowDeleteModal(false);
       setDeletePassword('');
+      setDeleteReason('');
+      setDeleteStep(1);
       setIsDeletingAccount(false);
 
       // Navigate to login immediately to prevent auth state change from restarting app
@@ -942,55 +937,130 @@ export default function AccountScreen() {
             >
               <View style={styles.modalContent}>
                 <View style={styles.modalHeader}>
-                  <Text style={styles.modalTitle}>Confirm Deletion</Text>
+                  <Text style={styles.modalTitle}>
+                    {deleteStep === 1 ? 'Why are you leaving?' :
+                      deleteStep === 2 ? 'Think twice' :
+                        'Confirm Deletion'}
+                  </Text>
                   <TouchableOpacity onPress={() => {
                     setShowDeleteModal(false);
                     setDeletePassword('');
+                    setDeleteStep(1);
                   }}>
                     <Text style={styles.modalClose}>✕</Text>
                   </TouchableOpacity>
                 </View>
 
-                <Text style={styles.deleteWarning}>
-                  Please enter your password to permanently delete your account and all associated data.
-                </Text>
+                {deleteStep === 1 && (
+                  <View>
+                    <Text style={styles.deleteWarning}>
+                      We're sorry to see you go! Please let us know why you're deleting your account so we can improve.
+                    </Text>
+                    {[
+                      'Found a better app',
+                      'Too expensive',
+                      'Missing features',
+                      'Privacy concerns',
+                      'Technical issues',
+                      'Other'
+                    ].map((reason) => (
+                      <TouchableOpacity
+                        key={reason}
+                        style={[
+                          styles.reasonItem,
+                          deleteReason === reason && styles.reasonItemActive
+                        ]}
+                        onPress={() => setDeleteReason(reason)}
+                      >
+                        <Text style={[
+                          styles.reasonItemText,
+                          deleteReason === reason && styles.reasonItemTextActive
+                        ]}>
+                          {reason}
+                        </Text>
+                        {deleteReason === reason && (
+                          <CheckCircle2 size={20} color={colors.primary} />
+                        )}
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
 
-                <View style={styles.inputGroup}>
-                  <TextInput
-                    style={styles.modalInput}
-                    placeholder="Enter your password"
-                    placeholderTextColor={colors.textSecondary}
-                    value={deletePassword}
-                    onChangeText={setDeletePassword}
-                    secureTextEntry
-                    autoFocus
-                  />
-                </View>
+                {deleteStep === 2 && (
+                  <View>
+                    <View style={styles.warningBox}>
+                      <AlertTriangle size={32} color="#FF9500" />
+                      <Text style={styles.warningBoxTitle}>Warning: Permanent Action</Text>
+                    </View>
+                    <Text style={styles.deleteWarning}>
+                      Deleting your account is permanent and cannot be undone. You will lose access to:
+                    </Text>
+                    <View style={styles.lossList}>
+                      <Text style={styles.lossItem}>• All your saved tasks and classes</Text>
+                      <Text style={styles.lossItem}>• Your AI Buddy chat history</Text>
+                      <Text style={styles.lossItem}>• Your points, levels and streak history</Text>
+                      <Text style={styles.lossItem}>• Active subscription benefits</Text>
+                    </View>
+                  </View>
+                )}
+
+                {deleteStep === 3 && (
+                  <View>
+                    <Text style={styles.deleteWarning}>
+                      To finalize this action, please enter your password for verification.
+                    </Text>
+
+                    <View style={styles.inputGroup}>
+                      <TextInput
+                        style={styles.modalInput}
+                        placeholder="Enter your password"
+                        placeholderTextColor={colors.textSecondary}
+                        value={deletePassword}
+                        onChangeText={setDeletePassword}
+                        secureTextEntry
+                        autoFocus
+                      />
+                    </View>
+                  </View>
+                )}
 
                 <View style={styles.modalButtons}>
-                  <TouchableOpacity
-                    style={[styles.modalButton, styles.modalButtonCancel]}
-                    onPress={() => {
-                      setShowDeleteModal(false);
-                      setDeletePassword('');
-                    }}
-                  >
-                    <Text style={styles.modalButtonText}>Cancel</Text>
-                  </TouchableOpacity>
+                  {deleteStep > 1 && (
+                    <TouchableOpacity
+                      style={[styles.modalButton, styles.modalButtonCancel]}
+                      onPress={() => setDeleteStep(prev => prev - 1)}
+                    >
+                      <Text style={styles.modalButtonText}>Back</Text>
+                    </TouchableOpacity>
+                  )}
 
-                  <TouchableOpacity
-                    style={[
-                      styles.modalButton,
-                      styles.modalButtonDelete,
-                      isDeletingAccount && styles.modalButtonDisabled
-                    ]}
-                    onPress={confirmDeleteAccount}
-                    disabled={isDeletingAccount}
-                  >
-                    <Text style={styles.modalButtonTextDelete}>
-                      {isDeletingAccount ? 'Deleting...' : 'Delete Account'}
-                    </Text>
-                  </TouchableOpacity>
+                  {deleteStep < 3 ? (
+                    <TouchableOpacity
+                      style={[
+                        styles.modalButton,
+                        styles.modalButtonNext,
+                        !deleteReason && deleteStep === 1 && styles.modalButtonDisabled
+                      ]}
+                      onPress={() => setDeleteStep(prev => prev + 1)}
+                      disabled={!deleteReason && deleteStep === 1}
+                    >
+                      <Text style={styles.modalButtonTextNext}>Continue</Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <TouchableOpacity
+                      style={[
+                        styles.modalButton,
+                        styles.modalButtonDelete,
+                        (isDeletingAccount || !deletePassword) && styles.modalButtonDisabled
+                      ]}
+                      onPress={confirmDeleteAccount}
+                      disabled={isDeletingAccount || !deletePassword}
+                    >
+                      <Text style={styles.modalButtonTextDelete}>
+                        {isDeletingAccount ? 'Deleting...' : 'Delete Permanently'}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
               </View>
             </TouchableOpacity>
@@ -1381,5 +1451,65 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600' as const,
     color: '#fff',
+  },
+  modalButtonNext: {
+    backgroundColor: colors.primary,
+  },
+  modalButtonTextNext: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    color: '#fff',
+  },
+  reasonItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.background,
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  reasonItemActive: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primary + '08',
+  },
+  reasonItemText: {
+    fontSize: 15,
+    color: colors.text,
+    fontWeight: '500',
+  },
+  reasonItemTextActive: {
+    color: colors.primary,
+    fontWeight: '700',
+  },
+  warningBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#FF950010',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#FF950020',
+  },
+  warningBoxTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FF9500',
+  },
+  lossList: {
+    backgroundColor: colors.background,
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 24,
+  },
+  lossItem: {
+    fontSize: 14,
+    color: colors.text,
+    marginBottom: 8,
+    lineHeight: 20,
   },
 });

@@ -14,6 +14,8 @@ import { useRouter } from 'expo-router';
 import { Check, ChevronRight } from 'lucide-react-native';
 import colors from '@/constants/colors';
 import { LinearGradient } from 'expo-linear-gradient';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useAuth } from '@/contexts/AuthContext';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -35,25 +37,10 @@ const QUESTIONS: SurveyQuestion[] = [
             "School = friend time! That's where my people are",
             "My teachers are actually pretty cool",
             "My guidance counselor gets me",
-            "Honestly? School is just where I belong",
             "Learning how to adult and be a good human",
             "Becoming an expert at something I actually care about",
-            "Getting my life together, one day at a time",
             "Keeps me busy and away from drama",
             "Not gonna lie, I actually like learning things",
-            "I love a good challenge or debate",
-            "Writing, creating, expressing myself—that's my thing",
-            "Solving problems makes my brain happy",
-            "Sports and gym class? Yes please!",
-            "Band/orchestra/chorus is my jam",
-            "Clubs and activities are where it's at",
-            "Lunchtime hits different 😋",
-            "I've got goals, and school is how I reach them",
-            "Trying to secure the bag (make that money!) one day",
-            "College prep mode activated",
-            "I want options when I'm older—real freedom",
-            "Building the life I want to live",
-            "My family would literally lose it if I didn't go",
             "It's kinda mandatory, so... here I am",
             "Better than sitting at home doing nothing",
         ]
@@ -102,78 +89,71 @@ const QUESTIONS: SurveyQuestion[] = [
             {
                 category: "Tech & Science Stuff 💻🔬",
                 items: [
-                    "App Developer/Coder (making the next viral app?)",
-                    "Engineer (building cool stuff that works)",
-                    "Data Wizard/Analyst",
-                    "Architect (designing buildings people actually use!)",
-                    "Astronaut (because space is dope)",
-                    "Doctor/Nurse/Healthcare Hero",
+                    "Engineer",
+                    "Architect",
+                    "Doctor",
+                    "Scientist",
+                    "Tech Specialist",
                 ]
             },
             {
                 category: "Money Moves 💰",
                 items: [
-                    "Start my own business/be my own boss",
-                    "Work in finance (investment banking, etc.)",
-                    "Project Manager (the person who makes things happen)",
-                    "HR Professional (helping people find their place)",
-                    "Marketing Guru (making brands go viral)",
+                    "Start my own business",
+                    "Work in finance",
+                    "Marketing Guru",
+                    "Entrepreneur",
                 ]
             },
             {
                 category: "Creative Stuff 🎨🎬",
                 items: [
-                    "Writer/Author (the next bestseller?)",
-                    "Graphic/UX Designer (making things look fire)",
-                    "Fashion Designer (drip creator)",
-                    "Filmmaker/Director (lights, camera, action!)",
-                    "Influencer/Content Creator (building my brand)",
-                    "Musician/Producer (making those hits)",
-                    "Actor/Performer (main character energy)",
+                    "Writer",
+                    "Graphic Designer",
+                    "Filmmaker",
+                    "Musician",
+                    "Influencer",
                 ]
             },
             {
                 category: "Teaching & Helping People 📚❤️",
                 items: [
-                    "Teacher/Professor (shaping the next generation)",
-                    "Therapist/Counselor (helping people heal)",
-                    "Social Worker (making real change)",
-                    "Nonprofit Leader (doing good in the world)",
+                    "Teacher",
+                    "Therapist",
+                    "Social Worker",
+                    "Nonprofit Leader",
                 ]
             },
             {
                 category: "Hands-On Work 🛠️✂️",
                 items: [
-                    "Barber/Hair Stylist (making people look fresh)",
-                    "Nail Tech (that nail art tho!)",
-                    "Massage Therapist (helping people relax)",
-                    "Chef (cooking up something special)",
-                    "Electrician/Plumber/HVAC Tech (stuff always breaks—job security!)",
+                    "Barber",
+                    "Nail Tech",
+                    "Massage Therapist",
+                    "Construction",
                 ]
             },
             {
                 category: "Protecting & Serving 🚨⚖️",
                 items: [
-                    "Lawyer (fighting for what's right)",
-                    "Police Officer/Detective",
-                    "Firefighter (literal hero status)",
-                    "Military (serving my country)",
-                    "Politician/Public Official (making the rules)",
-                    "Urban Planner (designing better cities)",
+                    "Lawyer",
+                    "Police Officer",
+                    "Military",
+                    "Politician",
                 ]
             },
             {
                 category: "Sports & Arts 🏀🎭",
                 items: [
-                    "Professional Athlete/Coach (living the dream)",
-                    "Artist (painting, sculpting, creating)",
-                    "Photographer/Videographer (capturing moments)",
-                    "Interior Designer (making spaces beautiful)",
+                    "Professional Athlete/Coach",
+                    "Artist",
+                    "Photographer",
+                    "Interior Designer",
                 ]
             },
             {
-                category: "Honestly? Still figuring it out! (And that's totally fine!) 🤷",
-                items: ["Honestly? Still figuring it out! 🤷"]
+                category: "Honestly? Still figuring it out! 🤷",
+                items: ["Still figuring it out! (And that's totally fine!)"]
             }
         ]
     },
@@ -186,39 +166,33 @@ const QUESTIONS: SurveyQuestion[] = [
             {
                 category: "Making Things Fair ⚖️",
                 items: [
-                    "Everyone deserves equal chances (DEI for real)",
-                    "Human rights aren't negotiable",
-                    "Civil rights and justice for all",
-                    "Fighting for what's fair",
+                    "DEI",
+                    "Human Rights",
+                    "Civil Rights",
                 ]
             },
             {
                 category: "How We Treat People 🤝",
                 items: [
-                    "Being kind isn't weakness—it's everything",
-                    "Respecting everyone, no exceptions",
-                    "Treat people how you want to be treated (golden rule!)",
-                    "We're better together than apart",
+                    "Being kind",
+                    "Respecting everyone",
+                    "Golden Rule: Treat people how you want to be treated",
                 ]
             },
             {
                 category: "Personal Code 🎯",
                 items: [
-                    "Keeping it 100—honesty and integrity",
-                    "Being open-minded and accepting differences",
-                    "Bouncing back when life gets hard (resilience!)",
-                    "Always growing, always learning",
-                    "Thinking outside the box (creativity!)",
-                    "Grinding and working hard for what I want",
+                    "Keeping it 100 - Honesty and Integrity",
+                    "Always growing",
                 ]
             },
             {
-                category: "Protecting our planet 🌍",
-                items: ["Protecting our planet 🌍"]
-            },
-            {
-                category: "Helping others and giving back",
-                items: ["Helping others and giving back"]
+                category: "Protecting Vulnerable Things & Populations",
+                items: [
+                    "Climate Change",
+                    "Mental Health",
+                    "Animal Rights",
+                ]
             }
         ]
     }
@@ -228,6 +202,7 @@ export default function IntroSurveyScreen() {
     const router = useRouter();
     const [currentStep, setCurrentStep] = useState(0);
     const [answers, setAnswers] = useState<Record<number, string[]>>({});
+    const { user } = useAuth();
     const horizontalScrollRef = useRef<ScrollView>(null);
 
     const toggleOption = (id: number, type: string, option: string) => {
@@ -245,7 +220,7 @@ export default function IntroSurveyScreen() {
         });
     };
 
-    const handleNext = () => {
+    const handleNext = async () => {
         if (currentStep < QUESTIONS.length - 1) {
             const nextStep = currentStep + 1;
             setCurrentStep(nextStep);
@@ -254,8 +229,22 @@ export default function IntroSurveyScreen() {
                 animated: true,
             });
         } else {
-            // Finish survey
-            router.replace('/login');
+            // Finish survey - sync directly if authenticated, otherwise save for later
+            try {
+                if (user?.uid) {
+                    const apiService = (await import('@/utils/apiService')).default;
+                    await apiService.patch('/users/purpose', {
+                        userId: user.uid,
+                        purpose: answers
+                    });
+                    console.log('[IntroSurvey] Purpose statement synced directly');
+                } else {
+                    await AsyncStorage.setItem('@survey_answers', JSON.stringify(answers));
+                }
+            } catch (error) {
+                console.error('Error handling survey completion:', error);
+            }
+            router.replace('/home');
         }
     };
 

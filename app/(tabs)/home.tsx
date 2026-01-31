@@ -95,7 +95,7 @@ export default function HomeScreen() {
 
           <View style={styles.statsGrid}>
             <View style={[styles.statBox, { backgroundColor: '#E0F2FE' }]}>
-              <View style={[styles.statIconContainer, { backgroundColor:'white' }]}>
+              <View style={[styles.statIconContainer, { backgroundColor: 'white' }]}>
                 <ListChecks size={20} color="#0EA5E9" />
               </View>
               <Text style={styles.statValue}>{todayTasksInfo.remaining}</Text>
@@ -103,7 +103,7 @@ export default function HomeScreen() {
             </View>
 
             <View style={[styles.statBox, { backgroundColor: '#FFEDD5' }]}>
-              <View style={[styles.statIconContainer, { backgroundColor:'white' }]}>
+              <View style={[styles.statIconContainer, { backgroundColor: 'white' }]}>
                 <Flame size={20} color="#F97316" />
               </View>
               <Text style={styles.statValue}>{streakData?.current || 0}</Text>
@@ -111,7 +111,7 @@ export default function HomeScreen() {
             </View>
 
             <View style={[styles.statBox, { backgroundColor: '#F0F9FF' }]}>
-              <View style={[styles.statIconContainer, { backgroundColor:'white' }]}>
+              <View style={[styles.statIconContainer, { backgroundColor: 'white' }]}>
                 <Zap size={20} color="#06B6D4" />
               </View>
               <Text style={styles.statValue}>{streakData?.points || 0}</Text>
@@ -119,7 +119,7 @@ export default function HomeScreen() {
             </View>
 
             <View style={[styles.statBox, { backgroundColor: '#F5F3FF' }]}>
-              <View style={[styles.statIconContainer, { backgroundColor:'white' }]}>
+              <View style={[styles.statIconContainer, { backgroundColor: 'white' }]}>
                 <Trophy size={20} color="#8B5CF6" />
               </View>
               <Text style={styles.statValue}>{streakData?.level || 1}</Text>
@@ -250,7 +250,7 @@ const styles = StyleSheet.create({
   statBox: {
     backgroundColor: colors.surface,
     borderRadius: 16,
-    padding: 12,
+    padding: 16,
     alignItems: 'center',
     width: '48%', // Approx 2 columns
     shadowColor: colors.cardShadow,
@@ -261,16 +261,16 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   statIconContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 8,
   },
   statValue: {
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: 24,
+    fontWeight: '800',
     color: colors.text,
   },
   statLabel: {

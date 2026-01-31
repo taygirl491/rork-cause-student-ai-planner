@@ -42,7 +42,6 @@ function MenuButton() {
     { label: 'Notes', icon: FileText, route: '/notes' },
     { label: 'AI Buddy', icon: Sparkles, route: '/ai-buddy' },
     { label: 'Causes', icon: Heart, route: '/causes' },
-    { label: 'Account', icon: User, route: '/account' },
   ];
 
   const handleNavigate = (route: string) => {
