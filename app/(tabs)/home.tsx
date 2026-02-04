@@ -87,7 +87,7 @@ export default function HomeScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <SafeAreaView style={styles.container}>
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         <View style={styles.heroSection}>
           <Text style={styles.appTitle}>Cause Student AI Planner</Text>

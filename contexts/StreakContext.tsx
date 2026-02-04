@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiService from '@/utils/apiService';
 import { useAuth } from './AuthContext';
+import StreakFireAnimation from '@/components/StreakFireAnimation';
 
 interface StreakData {
     current: number;
@@ -19,6 +20,7 @@ interface StreakContextType {
     updateStreak: () => Promise<{ increased: boolean; milestone: number | false }>;
     refreshStreak: () => Promise<void>;
     awardPoints: (points: number, activityType: 'task' | 'streak' | 'goal' | 'habit' | 'feature') => Promise<{ points: number; level: number; leveledUp: boolean } | null>;
+    triggerAnimation: (streakNumber?: number) => void;
 }
 
 const StreakContext = createContext<StreakContextType | undefined>(undefined);
@@ -29,6 +31,10 @@ export function StreakProvider({ children }: { children: ReactNode }) {
     const { user } = useAuth();
     const [streakData, setStreakData] = useState<StreakData | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+
+    // Animation state
+    const [showAnimation, setShowAnimation] = useState(false);
+    const [animStreakNumber, setAnimStreakNumber] = useState(0);
 
     // Load streak data on mount and when user changes
     useEffect(() => {
@@ -75,6 +81,11 @@ export function StreakProvider({ children }: { children: ReactNode }) {
         }
     };
 
+    const triggerAnimation = (streakNumber?: number) => {
+        setAnimStreakNumber(streakNumber || streakData?.current || 0);
+        setShowAnimation(true);
+    };
+
     const updateStreak = async (): Promise<{ increased: boolean; milestone: number | false }> => {
         try {
             if (!user?.uid) {
@@ -86,9 +97,20 @@ export function StreakProvider({ children }: { children: ReactNode }) {
             });
 
             if (response.success) {
-                setStreakData(response.streak);
+                const newStreakData = {
+                    ...streakData,
+                    ...response.streak,
+                    // If points were awarded in the same backend call, they might not be here
+                    // but we'll fetch stats soon anyway
+                } as StreakData;
+
+                setStreakData(newStreakData);
                 // Update cache
-                await AsyncStorage.setItem(STREAK_CACHE_KEY, JSON.stringify(response.streak));
+                await AsyncStorage.setItem(STREAK_CACHE_KEY, JSON.stringify(newStreakData));
+
+                if (response.increased) {
+                    triggerAnimation(response.streak.current);
+                }
 
                 return {
                     increased: response.increased,
@@ -104,7 +126,19 @@ export function StreakProvider({ children }: { children: ReactNode }) {
     };
 
     const refreshStreak = async () => {
+        const oldStreak = streakData?.current || 0;
         await loadStreakData();
+
+        // After loading fresh data, check if streak increased
+        // We do this here as well to capture increases that might happen 
+        // silently (e.g. from background tasks or sync)
+        setStreakData(current => {
+            if (current && current.current > oldStreak) {
+                // Trigger animation if it increased
+                triggerAnimation(current.current);
+            }
+            return current;
+        });
     };
 
     const awardPoints = async (points: number, activityType: 'task' | 'streak' | 'goal' | 'habit' | 'feature') => {
@@ -133,8 +167,13 @@ export function StreakProvider({ children }: { children: ReactNode }) {
     };
 
     return (
-        <StreakContext.Provider value={{ streakData, isLoading, updateStreak, refreshStreak, awardPoints }}>
+        <StreakContext.Provider value={{ streakData, isLoading, updateStreak, refreshStreak, awardPoints, triggerAnimation }}>
             {children}
+            <StreakFireAnimation
+                visible={showAnimation}
+                streakNumber={animStreakNumber}
+                onFinish={() => setShowAnimation(false)}
+            />
         </StreakContext.Provider>
     );
 }

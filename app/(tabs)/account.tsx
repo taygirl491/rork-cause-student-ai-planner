@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -15,7 +15,7 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   User,
   CreditCard,
@@ -35,7 +35,8 @@ import {
 import colors from '@/constants/colors';
 import LogoButton from '@/components/LogoButton';
 import { useAuth } from '@/contexts/AuthContext';
-import { useRouter } from 'expo-router';
+import { SubscriptionTier } from '@/constants/permissions';
+import { useRouter, useFocusEffect } from 'expo-router';
 import apiService from '@/utils/apiService';
 // TextInput is imported from react-native above
 import { TERMS_AND_CONDITIONS, PRIVACY_POLICY } from '@/constants/LegalText';
@@ -50,16 +51,17 @@ const SUBSCRIPTION_PLANS = {
   unlimitedYearly: 'price_1Sl6sFP0t2AuYFqK2JYnhp6N',
 };
 
-type SubscriptionTier = 'free' | 'standard' | 'premium' | 'unlimited';
+// type SubscriptionTier = 'free' | 'standard' | 'premium' | 'unlimited';
 
 export default function AccountScreen() {
   const [currentSubscription, setCurrentSubscription] = useState<SubscriptionTier>('free');
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [activeSubscription, setActiveSubscription] = useState<any>(null);
   const [loadingSubscription, setLoadingSubscription] = useState(true);
-  const { user, logout, changePassword } = useAuth();
+  const { user, logout, changePassword, setMockTier } = useAuth();
   const router = useRouter();
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
+  const insets = useSafeAreaInsets();
 
   // Change Password State
   const [showPasswordModal, setShowPasswordModal] = useState(false);
@@ -142,12 +144,14 @@ export default function AccountScreen() {
     }
   };
 
-  // Fetch user's subscription on mount
-  useEffect(() => {
-    if (user?.uid) {
-      fetchSubscription();
-    }
-  }, [user?.uid]);
+  // Fetch user's subscription on focus
+  useFocusEffect(
+    useCallback(() => {
+      if (user?.uid) {
+        fetchSubscription();
+      }
+    }, [user?.uid])
+  );
 
   const fetchSubscription = async () => {
     if (!user?.uid) return;
@@ -583,6 +587,39 @@ export default function AccountScreen() {
         </View>
 
         <View style={styles.section}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+            <AlertTriangle size={20} color={colors.warning} style={{ marginRight: 8 }} />
+            <Text style={styles.sectionTitle}>Mock Subscription (Dev Only)</Text>
+          </View>
+
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+            {(['free', 'standard', 'premium', 'unlimited'] as SubscriptionTier[]).map((tier) => (
+              <TouchableOpacity
+                key={tier}
+                style={[
+                  styles.mockButton,
+                  user?.tier === tier && styles.mockButtonActive
+                ]}
+                onPress={() => {
+                  if (setMockTier) {
+                    setMockTier(tier);
+                    Alert.alert('Mock Tier Updated', `Switched to ${tier} tier`);
+                  }
+                }}
+              >
+                <Text style={[
+                  styles.mockButtonText,
+                  user?.tier === tier && styles.mockButtonTextActive
+                ]}>{tier}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <Text style={{ fontSize: 12, color: colors.textLight, marginTop: 8 }}>
+            This overrides your actual subscription for testing purposes.
+          </Text>
+        </View>
+
+        <View style={styles.section}>
           <Text style={styles.sectionTitle}>Account Actions</Text>
 
 
@@ -935,7 +972,7 @@ export default function AccountScreen() {
                 Keyboard.dismiss();
               }}
             >
-              <View style={styles.modalContent}>
+              <View style={[styles.modalContent, { paddingBottom: Math.max(insets.bottom + 24, 24) }]}>
                 <View style={styles.modalHeader}>
                   <Text style={styles.modalTitle}>
                     {deleteStep === 1 ? 'Why are you leaving?' :
@@ -1511,5 +1548,26 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginBottom: 8,
     lineHeight: 20,
+  },
+  mockButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  mockButtonActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  mockButtonText: {
+    fontSize: 12,
+    color: colors.text,
+    textTransform: 'capitalize',
+  },
+  mockButtonTextActive: {
+    color: colors.surface,
+    fontWeight: 'bold',
   },
 });

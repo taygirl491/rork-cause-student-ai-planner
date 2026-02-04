@@ -16,6 +16,7 @@ import {
   EmailAuthProvider
 } from 'firebase/auth';
 import { auth } from '@/firebaseConfig';
+import { SubscriptionTier, PERMISSIONS, Features } from '@/constants/permissions';
 
 // Initialize auth persistence if not already initialized
 // Note: In a real app, you might want to do this in a separate initialization file
@@ -33,6 +34,7 @@ export type User = {
   name: string;
   uid: string;
   photoURL?: string;
+  tier: SubscriptionTier;
 };
 
 type AuthData = {
@@ -48,10 +50,12 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
   });
   const [isLoading, setIsLoading] = useState(true);
 
+  // Mock Tier State (for testing permissions)
+  // In a real app, this would be derived from the user's subscription status
+  const [mockTier, setMockTier] = useState<SubscriptionTier | null>(null);
+
   // Listen for auth state changes
   useEffect(() => {
-    // Persistence is handled in firebaseConfig.ts
-
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       if (firebaseUser) {
         setAuthData({
@@ -60,10 +64,10 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
             name: firebaseUser.displayName || 'User',
             uid: firebaseUser.uid,
             photoURL: firebaseUser.photoURL || undefined,
+            tier: mockTier || 'free',
           },
           isAuthenticated: true,
         });
-        // Sync survey answers if they exist
         syncPurposeStatement(firebaseUser.uid);
       } else {
         setAuthData({
@@ -76,6 +80,19 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
 
     return () => unsubscribe();
   }, []);
+
+  // Sync authData.user.tier when mockTier changes
+  useEffect(() => {
+    if (authData.user) {
+      setAuthData(prev => ({
+        ...prev,
+        user: prev.user ? {
+          ...prev.user,
+          tier: mockTier || 'free'
+        } : null
+      }));
+    }
+  }, [mockTier]);
 
   const loginMutation = useMutation({
     mutationFn: async (credentials: { email: string; password: string }) => {
@@ -135,6 +152,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
   };
 
   const logout = async () => {
+    setMockTier(null); // Reset mock tier on logout
     return logoutMutation.mutateAsync();
   };
 
@@ -145,7 +163,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         const purpose = JSON.parse(savedAnswers);
         const apiService = (await import('@/utils/apiService')).default;
 
-        const response = await apiService.patch('/users/purpose', {
+        const response = await apiService.patch('/api/users/purpose', {
           userId,
           purpose
         });
@@ -158,6 +176,21 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     } catch (error) {
       console.error('[AuthContext] Error syncing purpose statement:', error);
     }
+  };
+
+  // Permission Helper
+  const checkPermission = (permission: keyof Features) => {
+    if (!authData.user) return false;
+    const tier = authData.user.tier;
+    const features = PERMISSIONS[tier];
+    return features[permission];
+  };
+
+  const getFeatureLimit = (feature: keyof Features) => {
+    if (!authData.user) return 0;
+    const tier = authData.user.tier;
+    const features = PERMISSIONS[tier];
+    return features[feature];
   };
 
   return {
@@ -182,5 +215,9 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     registerError: registerMutation.error,
     isLoggingIn: loginMutation.isPending,
     isRegistering: registerMutation.isPending,
+    setMockTier, // Expose for testing
+    checkPermission,
+    getFeatureLimit,
+    currentTier: authData.user?.tier || 'free',
   };
 });

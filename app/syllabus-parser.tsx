@@ -18,6 +18,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, Upload, FileText, CheckCircle, Circle, Save, Trash2, Pencil, X, File as FileIcon } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
+import UpgradeModal from '../components/UpgradeModal';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { useApp } from '@/contexts/AppContext';
@@ -55,7 +56,7 @@ interface SelectedFile {
 
 export default function SyllabusParserScreen() {
     const router = useRouter();
-    const { user } = useAuth();
+    const { user, checkPermission } = useAuth();
     const { addTask } = useApp();
 
     const [selectedFile, setSelectedFile] = useState<SelectedFile | null>(null);
@@ -63,6 +64,7 @@ export default function SyllabusParserScreen() {
     const [parsedData, setParsedData] = useState<ParsedData | null>(null);
     const [selectedItems, setSelectedItems] = useState<Set<number>>(new Set());
     const [selectedExams, setSelectedExams] = useState<Set<number>>(new Set());
+    const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
     const pickImage = async () => {
         try {
@@ -109,6 +111,11 @@ export default function SyllabusParserScreen() {
     };
 
     const handleAnalyze = async () => {
+        if (checkPermission && !checkPermission('canSyncSyllabus')) {
+            setShowUpgradeModal(true);
+            return;
+        }
+
         if (!selectedFile || !user?.uid) return;
 
         setIsAnalyzing(true);
@@ -472,7 +479,13 @@ export default function SyllabusParserScreen() {
                     </View>
                 </KeyboardAvoidingView>
             </Modal>
-        </SafeAreaView>
+
+
+            <UpgradeModal
+                visible={showUpgradeModal}
+                onClose={() => setShowUpgradeModal(false)}
+            />
+        </SafeAreaView >
     );
 }
 
