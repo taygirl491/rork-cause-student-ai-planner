@@ -26,6 +26,7 @@ import { sendMessage, generateMessageId, analyzeImage, getUsageStats } from '@/u
 import { AIMessage } from '@/types';
 import Markdown from 'react-native-markdown-display';
 import { Image } from 'react-native';
+import UpgradeModal from '@/components/UpgradeModal';
 
 const STORAGE_KEY_PREFIX = 'ai-buddy-conversation-';
 const SHARED_MEMORY_KEY = 'ai-buddy-shared-memory';
@@ -35,7 +36,7 @@ const MAX_SHARED_MESSAGES = 100; // Store more in shared memory for cross-mode c
 type AIMode = 'homework' | 'summarize' | 'quiz' | null;
 
 export default function AIBuddyScreen() {
-  const { user } = useAuth();
+  const { user, getFeatureLimit, checkPermission } = useAuth();
   const router = useRouter();
   const [mode, setMode] = useState<AIMode>(null);
   const [messages, setMessages] = useState<AIMessage[]>([]);
@@ -46,7 +47,8 @@ export default function AIBuddyScreen() {
   const [selectedFile, setSelectedFile] = useState<{ uri: string; type: 'image' | 'document'; name: string } | null>(null);
   const [typingMessageId, setTypingMessageId] = useState<string | null>(null);
   const [displayedContent, setDisplayedContent] = useState<Record<string, string>>({});
-  const [usageStats, setUsageStats] = useState<{ remaining: number; limit: number } | null>(null);
+  const [usageStats, setUsageStats] = useState<{ remaining: number | string; limit: number | string } | null>(null);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
 
   // Load usage stats
@@ -60,7 +62,23 @@ export default function AIBuddyScreen() {
     if (!user?.uid) return;
     try {
       const stats = await getUsageStats(user.uid);
-      setUsageStats({ remaining: stats.visionRemaining, limit: stats.visionLimit });
+      const limit = getFeatureLimit ? getFeatureLimit('aiInquiryLimit') : 5;
+
+      let displayLimit: number | string = 5;
+      let displayRemaining: number | string = 5;
+
+      if (limit === 'unlimited') {
+        displayLimit = 'Unlimited';
+        displayRemaining = 'Unlimited';
+      } else {
+        displayLimit = limit as number;
+        // Mock calculation: assume stats.visionUsed is valid, apply to new limit
+        // In a real scenario, usage would reset if tier changes, or persist.
+        // Here we just subtract used from the new limit
+        displayRemaining = Math.max(0, (limit as number) - stats.visionUsed);
+      }
+
+      setUsageStats({ remaining: displayRemaining, limit: displayLimit });
     } catch (error) {
       console.error('Error loading usage stats:', error);
     }
@@ -180,6 +198,15 @@ export default function AIBuddyScreen() {
   const handleSend = async () => {
     if (!inputText.trim() || !user?.uid || !mode) return;
 
+    // Check usage limits
+    if (usageStats && usageStats.limit !== 'Unlimited') {
+      const remaining = usageStats.remaining as number;
+      if (remaining <= 0) {
+        setShowUpgradeModal(true);
+        return;
+      }
+    }
+
     const userMessage: AIMessage = {
       id: generateMessageId(),
       role: 'user',
@@ -269,6 +296,18 @@ export default function AIBuddyScreen() {
       setTypingMessageId(assistantMessage.id);
       await animateTyping(assistantMessage.id, response.reply);
       setTypingMessageId(null);
+
+      // Locally update usage stats for immediate feedback
+      if (usageStats && usageStats.limit !== 'Unlimited') {
+        setUsageStats(prev => {
+          if (!prev) return null;
+          const currentRemaining = prev.remaining as number;
+          return {
+            ...prev,
+            remaining: Math.max(0, currentRemaining - 1)
+          };
+        });
+      }
 
       await saveConversationHistory(finalMessages, mode);
     } catch (error: any) {
@@ -466,7 +505,13 @@ export default function AIBuddyScreen() {
         <Text style={styles.dashboardSubtitle}>Choose a mode to get started</Text>
       </View>
 
-      <TouchableOpacity style={styles.card} onPress={() => setMode('homework')}>
+      <TouchableOpacity style={styles.card} onPress={() => {
+        if (getFeatureLimit && getFeatureLimit('aiInquiryLimit') === 0) {
+          setShowUpgradeModal(true);
+          return;
+        }
+        setMode('homework');
+      }}>
         <View style={[styles.cardIcon, { backgroundColor: colors.primaryLight + '30' }]}>
           <BookOpen size={32} color={colors.primary} />
         </View>
@@ -476,7 +521,13 @@ export default function AIBuddyScreen() {
         </View>
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.card} onPress={() => setMode('summarize')}>
+      <TouchableOpacity style={styles.card} onPress={() => {
+        if (getFeatureLimit && getFeatureLimit('aiInquiryLimit') === 0) {
+          setShowUpgradeModal(true);
+          return;
+        }
+        setMode('summarize');
+      }}>
         <View style={[styles.cardIcon, { backgroundColor: '#10b98130' }]}>
           <FileText size={32} color="#10b981" />
         </View>
@@ -486,7 +537,13 @@ export default function AIBuddyScreen() {
         </View>
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.card} onPress={() => setMode('quiz')}>
+      <TouchableOpacity style={styles.card} onPress={() => {
+        if (getFeatureLimit && getFeatureLimit('aiInquiryLimit') === 0) {
+          setShowUpgradeModal(true);
+          return;
+        }
+        setMode('quiz');
+      }}>
         <View style={[styles.cardIcon, { backgroundColor: '#f59e0b30' }]}>
           <BrainCircuit size={32} color="#f59e0b" />
         </View>
@@ -626,8 +683,14 @@ export default function AIBuddyScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <SafeAreaView style={styles.container}>
       {mode ? renderChat() : renderDashboard()}
+      <UpgradeModal
+        visible={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        featureName="AI Buddy"
+        message="You've reached your daily AI inquiry limit. Upgrade to Standard or Premium for more!"
+      />
     </SafeAreaView>
   );
 }

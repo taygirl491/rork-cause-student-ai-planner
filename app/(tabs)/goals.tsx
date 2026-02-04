@@ -24,10 +24,13 @@ import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Goal } from '@/types';
 import { cancelNotification, scheduleGoalNotification, scheduleHabitReminder } from '@/utils/notificationService';
+import UpgradeModal from '@/components/UpgradeModal';
 
 export default function GoalsScreen() {
   const { goals, addGoal, updateGoal, deleteGoal, refreshGoals } = useApp();
+  const { user, checkPermission } = useAuth();
   const [showModal, setShowModal] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -37,7 +40,6 @@ export default function GoalsScreen() {
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [purpose, setPurpose] = useState<any>(null);
   const [purposeLoading, setPurposeLoading] = useState(true);
-  const { user } = useAuth();
 
   // Edit/Delete state
   const [showActionSheet, setShowActionSheet] = useState(false);
@@ -56,16 +58,43 @@ export default function GoalsScreen() {
 
   const scaleAnim = React.useRef(new Animated.Value(0)).current;
 
+  // Feature Check
+  const checkAccess = () => {
+    if (checkPermission && !checkPermission('canAccessGoals')) {
+      setShowUpgradeModal(true);
+      return false;
+    }
+    return true;
+  };
+
   const fetchPurpose = async () => {
-    if (!user?.uid) return;
+    if (!user?.uid) {
+      console.log('[Goals] No user ID, skipping purpose fetch');
+      setPurposeLoading(false);
+      return;
+    }
+
+    console.log('[Goals] Fetching purpose statement for user:', user.uid);
     try {
       const apiService = (await import('@/utils/apiService')).default;
-      const response = await apiService.get(`/users/${user.uid}/purpose`);
+      const response = await apiService.get(`/api/users/${user.uid}/purpose`);
+      console.log('[Goals] Purpose fetch response:', response);
+
       if (response.success) {
-        setPurpose(response.purpose);
+        if (response.purpose) {
+          console.log('[Goals] Purpose data received:', Object.keys(response.purpose));
+          setPurpose(response.purpose);
+        } else {
+          console.log('[Goals] No purpose data found for user');
+          setPurpose(null);
+        }
+      } else {
+        console.error('[Goals] Purpose fetch failed:', response);
+        setPurpose(null);
       }
     } catch (error) {
-      console.error('Error fetching purpose:', error);
+      console.error('[Goals] Error fetching purpose:', error);
+      setPurpose(null);
     } finally {
       setPurposeLoading(false);
     }
@@ -92,6 +121,7 @@ export default function GoalsScreen() {
   }, [showModal, scaleAnim]);
 
   const handleAddGoal = async () => {
+    if (!checkAccess()) return;
     if (!title.trim()) {
       Alert.alert('Required Field', 'Please enter a title for your goal.');
       return;
@@ -101,7 +131,7 @@ export default function GoalsScreen() {
       Alert.alert('Required Field', 'Please select a due date.');
       return;
     }
-
+    // ... rest of function
     const formattedDate = dueDate.toISOString().split('T')[0];
     const formattedTime = dueTime.toTimeString().split(' ')[0].substring(0, 5);
 
@@ -141,7 +171,7 @@ export default function GoalsScreen() {
         ...updatedGoal,
       } as Goal);
       if (notificationId) {
-        updateGoal(selectedGoal.id, { notificationId });
+        await updateGoal(selectedGoal.id, { notificationId });
       }
     } else {
       const tempGoal: Goal = {
@@ -163,10 +193,10 @@ export default function GoalsScreen() {
         notificationId: notificationId || undefined,
       };
 
-      addGoal(newGoal);
+      await addGoal(newGoal);
     }
 
-    refreshGoals();
+    await refreshGoals();
     resetForm();
     setShowModal(false);
     setIsEditing(false);
@@ -184,11 +214,13 @@ export default function GoalsScreen() {
   };
 
   const handleLongPress = (goal: Goal) => {
+    // Optional: gate long press too, or just actions inside
     setSelectedGoal(goal);
     setShowActionSheet(true);
   };
 
   const handleEdit = () => {
+    if (!checkAccess()) return;
     if (!selectedGoal) return;
 
     setTitle(selectedGoal.title);
@@ -203,6 +235,7 @@ export default function GoalsScreen() {
   };
 
   const handleDelete = async () => {
+    if (!checkAccess()) return;
     if (!selectedGoal) return;
 
     // Cancel notification if exists
@@ -219,13 +252,14 @@ export default function GoalsScreen() {
       }
     }
 
-    deleteGoal(selectedGoal.id);
-    refreshGoals();
+    await deleteGoal(selectedGoal.id);
+    await refreshGoals();
     setShowActionSheet(false);
     setSelectedGoal(null);
   };
 
   const toggleGoalComplete = (goal: Goal) => {
+    if (!checkAccess()) return;
     updateGoal(goal.id, { completed: !goal.completed });
   };
 
@@ -251,6 +285,7 @@ export default function GoalsScreen() {
   };
 
   const toggleHabit = (goal: Goal, habitIndex: number) => {
+    if (!checkAccess()) return;
     if (!goal.habits) return;
     const updatedHabits = [...goal.habits];
     updatedHabits[habitIndex] = {
@@ -275,13 +310,21 @@ export default function GoalsScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
+      <UpgradeModal
+        visible={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        featureName="Goals"
+        message="Upgrade to the Standard plan to set unlimited goals and track your habits."
+      />
       {/* ... previous header logic unchanged ... */}
       <View style={styles.header}>
         <View>
           <Text style={styles.title}>Goals & Purpose</Text>
           <Text style={styles.subtitle}>Track your personal goals</Text>
         </View>
-        <TouchableOpacity style={styles.addButton} onPress={() => setShowModal(true)}>
+        <TouchableOpacity style={styles.addButton} onPress={() => {
+          if (checkAccess()) setShowModal(true);
+        }}>
           <Plus size={24} color={colors.surface} />
         </TouchableOpacity>
       </View>

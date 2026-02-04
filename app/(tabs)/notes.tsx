@@ -24,12 +24,17 @@ import { useApp } from "@/contexts/AppContext";
 import SearchBar from "@/components/SearchBar";
 import { Note } from "@/types";
 import { useStreak } from "@/contexts/StreakContext";
+import { useAuth } from "@/contexts/AuthContext";
+import UpgradeModal from "@/components/UpgradeModal";
+
 export default function NotesScreen() {
 	const { notes, addNote, updateNote, deleteNote, classes, refreshNotes } = useApp();
+	const { checkPermission } = useAuth();
 	const { awardPoints } = useStreak();
 	const [showModal, setShowModal] = useState(false);
 	const [showDetailModal, setShowDetailModal] = useState(false);
 	const [showActionSheet, setShowActionSheet] = useState(false);
+	const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 	const [refreshing, setRefreshing] = useState(false);
 	const [searchQuery, setSearchQuery] = useState("");
 	const [filterClass, setFilterClass] = useState("All");
@@ -74,13 +79,21 @@ export default function NotesScreen() {
 		}
 	}, [showDetailModal, detailScaleAnim]);
 
+	const checkAccess = () => {
+		if (checkPermission && !checkPermission('canAccessNotes')) {
+			setShowUpgradeModal(true);
+			return false;
+		}
+		return true;
+	};
+
 	const handleLongPress = (note: Note) => {
 		setSelectedNote(note);
 		setShowActionSheet(true);
 	};
 
 	const handleEdit = () => {
-		if (!selectedNote) return;
+		if (!selectedNote || !checkAccess()) return;
 
 		setTitle(selectedNote.title);
 		setSelectedClass(selectedNote.className || "");
@@ -90,7 +103,7 @@ export default function NotesScreen() {
 	};
 
 	const handleDelete = () => {
-		if (!selectedNote) return;
+		if (!selectedNote || !checkAccess()) return;
 
 		Alert.alert("Delete Note", "Are you sure you want to delete this note?", [
 			{ text: "Cancel", style: "cancel" },
@@ -109,6 +122,8 @@ export default function NotesScreen() {
 
 	const handleCreateNote = () => {
 		if (!title) return;
+		// Check access before creating/updating
+		if (!checkAccess()) return;
 
 		if (isEditing && selectedNote) {
 			updateNote(selectedNote.id, {
@@ -143,6 +158,8 @@ export default function NotesScreen() {
 
 	const handleUpdateNote = () => {
 		if (selectedNote) {
+			// Check access before saving updates
+			if (!checkAccess()) return;
 			updateNote(selectedNote.id, {
 				content: editContent,
 			});
@@ -151,6 +168,7 @@ export default function NotesScreen() {
 
 	const handleDeleteNote = () => {
 		if (selectedNote) {
+			if (!checkAccess()) return;
 			deleteNote(selectedNote.id);
 			setShowDetailModal(false);
 			setSelectedNote(null);
@@ -202,6 +220,12 @@ export default function NotesScreen() {
 
 	return (
 		<SafeAreaView style={styles.container} edges={["top"]}>
+			<UpgradeModal
+				visible={showUpgradeModal}
+				onClose={() => setShowUpgradeModal(false)}
+				featureName="Notes"
+				message="Upgrade to the Standard plan to create, edit, and organize unlimited notes."
+			/>
 			<View style={styles.header}>
 				<View>
 					<Text style={styles.title}>Notes</Text>
@@ -209,7 +233,11 @@ export default function NotesScreen() {
 				</View>
 				<TouchableOpacity
 					style={styles.addButton}
-					onPress={() => setShowModal(true)}
+					onPress={() => {
+						if (checkAccess()) {
+							setShowModal(true);
+						}
+					}}
 				>
 					<Plus size={24} color={colors.surface} />
 				</TouchableOpacity>

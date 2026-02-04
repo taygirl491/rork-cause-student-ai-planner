@@ -27,12 +27,11 @@ import { useApp } from '@/contexts/AppContext';
 import { Task, TaskType, Priority, ReminderTime } from '@/types';
 import Mascot from '@/components/Mascot';
 import SearchBar from '@/components/SearchBar';
-import StreakCard from '@/components/StreakCard';
-import { useStreak } from '@/contexts/StreakContext';
+
 
 export default function TasksScreen() {
   const { sortedTasks, addTask, updateTask, deleteTask, classes, refreshTasks } = useApp();
-  const { updateStreak } = useStreak();
+
   const router = useRouter();
   const [showModal, setShowModal] = useState(false);
   const [showActionSheet, setShowActionSheet] = useState(false);
@@ -156,7 +155,7 @@ export default function TasksScreen() {
     return filtered;
   }, [sortedTasks, searchQuery, activeFilter]);
 
-  const handleAddTask = () => {
+  const handleAddTask = async () => {
     if (!description) return;
 
     const formattedDate = dueDate.toISOString().split('T')[0];
@@ -164,7 +163,7 @@ export default function TasksScreen() {
 
     if (isEditing && selectedTask) {
       // Update existing task
-      updateTask(selectedTask.id, {
+      await updateTask(selectedTask.id, {
         description,
         type: taskType,
         className: selectedClass,
@@ -191,10 +190,10 @@ export default function TasksScreen() {
         completed: false,
         createdAt: new Date().toISOString(),
       };
-      addTask(newTask);
+      await addTask(newTask);
     }
 
-    refreshTasks();
+    await refreshTasks();
     resetForm();
     setShowModal(false);
     setIsEditing(false);
@@ -255,9 +254,9 @@ export default function TasksScreen() {
         {
           text: 'Delete',
           style: 'destructive',
-          onPress: () => {
-            deleteTask(selectedTask.id);
-            refreshTasks();
+          onPress: async () => {
+            await deleteTask(selectedTask.id);
+            await refreshTasks();
             setShowActionSheet(false);
             setSelectedTask(null);
           },
@@ -382,7 +381,7 @@ export default function TasksScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <SafeAreaView style={styles.container}>
       <FlatList
         data={filteredTasks}
         renderItem={renderTaskItem}
@@ -407,7 +406,7 @@ export default function TasksScreen() {
                 <Plus size={24} color={colors.surface} />
               </TouchableOpacity>
             </View>
-            <StreakCard />
+
 
             <View style={styles.searchContainer}>
               <SearchBar
@@ -920,7 +919,6 @@ const styles = StyleSheet.create({
   },
   header: {
     justifyContent: 'space-between',
-    // paddingHorizontal: 20,
     paddingTop: 20,
     paddingBottom: 16,
   },

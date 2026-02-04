@@ -1,6 +1,7 @@
 import { Tabs } from "expo-router";
 import React from "react";
 import { View, StyleSheet, Platform } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   Home,
   Calendar,
@@ -11,11 +12,17 @@ import {
 import colors from "@/constants/colors";
 
 export default function TabLayout() {
+  const insets = useSafeAreaInsets();
+
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarStyle: styles.tabBar,
+        tabBarStyle: {
+          ...styles.tabBar,
+          height: Platform.OS === 'ios' ? 70 + insets.bottom : 65 + insets.bottom,
+          paddingBottom: Math.max(insets.bottom, Platform.OS === 'ios' ? 10 : 8),
+        },
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textLight,
         tabBarShowLabel: true,
@@ -95,12 +102,10 @@ export default function TabLayout() {
 }
 
 const styles = StyleSheet.create({
-  tabBar: {
+tabBar: {
     backgroundColor: '#FFFFFF',
     borderTopColor: '#F0F0F0',
     borderTopWidth: 1,
-    height: Platform.OS === 'ios' ? 95 : 75,
-    paddingBottom: Platform.OS === 'ios' ? 25 : 10,
     paddingTop: 10,
   },
   tabLabel: {

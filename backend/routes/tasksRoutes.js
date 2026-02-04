@@ -80,25 +80,31 @@ router.put('/:taskId', async (req, res) => {
         const { taskId } = req.params;
         const updates = req.body;
 
-        const task = await Task.findByIdAndUpdate(
-            taskId,
-            updates,
-            { new: true, runValidators: true }
-        );
+        const existingTask = await Task.findById(taskId);
 
-        if (!task) {
+        if (!existingTask) {
             return res.status(404).json({
                 success: false,
                 error: 'Task not found',
             });
         }
 
+        const wasCompleted = existingTask.completed;
+
+        const task = await Task.findByIdAndUpdate(
+            taskId,
+            updates,
+            { new: true, runValidators: true }
+        );
+
         // Emit WebSocket event
-        // Trigger streak update if task is marked as completed (asynchronously)
-        if (updates.completed === true && !task.completed) {
-            updateStreak(task.userId).catch(streakError => {
+        // Trigger streak update if task is marked as completed
+        if (updates.completed === true && !wasCompleted) {
+            try {
+                await updateStreak(task.userId);
+            } catch (streakError) {
                 console.error('Error updating streak after task completion:', streakError);
-            });
+            }
         }
 
         res.json({

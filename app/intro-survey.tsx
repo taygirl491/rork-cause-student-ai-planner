@@ -202,6 +202,7 @@ export default function IntroSurveyScreen() {
     const router = useRouter();
     const [currentStep, setCurrentStep] = useState(0);
     const [answers, setAnswers] = useState<Record<number, string[]>>({});
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const { user } = useAuth();
     const horizontalScrollRef = useRef<ScrollView>(null);
 
@@ -230,21 +231,51 @@ export default function IntroSurveyScreen() {
             });
         } else {
             // Finish survey - sync directly if authenticated, otherwise save for later
+            if (isSubmitting) return; // Prevent double-tap
+
+            setIsSubmitting(true);
+            console.log('[IntroSurvey] Starting survey completion...');
+
             try {
                 if (user?.uid) {
+                    console.log('[IntroSurvey] Syncing purpose statement to backend...');
                     const apiService = (await import('@/utils/apiService')).default;
-                    await apiService.patch('/users/purpose', {
+                    const response = await apiService.patch('/api/users/purpose', {
                         userId: user.uid,
                         purpose: answers
                     });
-                    console.log('[IntroSurvey] Purpose statement synced directly');
+                    console.log('[IntroSurvey] Purpose statement synced successfully:', response);
                 } else {
+                    console.log('[IntroSurvey] No user authenticated, saving to AsyncStorage');
                     await AsyncStorage.setItem('@survey_answers', JSON.stringify(answers));
+                    console.log('[IntroSurvey] Saved to AsyncStorage');
                 }
             } catch (error) {
-                console.error('Error handling survey completion:', error);
+                console.error('[IntroSurvey] Error handling survey completion:', error);
+
+                // Fallback: Save locally if sync fails
+                try {
+                    await AsyncStorage.setItem('@survey_answers', JSON.stringify(answers));
+                    console.log('[IntroSurvey] Saved to AsyncStorage (fallback)');
+                } catch (storageError) {
+                    console.error('[IntroSurvey] Failed to save local backup:', storageError);
+                }
+
+                // Show error to user but still navigate
+                const Alert = (await import('react-native')).Alert;
+                Alert.alert(
+                    'Sync Warning',
+                    'Your answers were saved locally but could not sync to the server. They will sync when you have a connection.',
+                    [{ text: 'OK' }]
+                );
+            } finally {
+                console.log('[IntroSurvey] Navigating to home screen...');
+                setIsSubmitting(false);
+                // Use a small delay to ensure state updates complete
+                setTimeout(() => {
+                    router.replace('/home');
+                }, 100);
             }
-            router.replace('/home');
         }
     };
 
@@ -373,15 +404,15 @@ export default function IntroSurveyScreen() {
                     <TouchableOpacity
                         style={[
                             styles.nextButton,
-                            !(answers[QUESTIONS[currentStep].id]?.length > 0) && styles.nextButtonDisabled
+                            (!(answers[QUESTIONS[currentStep].id]?.length > 0) || isSubmitting) && styles.nextButtonDisabled
                         ]}
                         onPress={handleNext}
-                        disabled={!(answers[QUESTIONS[currentStep].id]?.length > 0)}
+                        disabled={!(answers[QUESTIONS[currentStep].id]?.length > 0) || isSubmitting}
                     >
                         <Text style={styles.nextButtonText}>
-                            {currentStep === QUESTIONS.length - 1 ? "Finish" : "Next"}
+                            {isSubmitting ? "Saving..." : (currentStep === QUESTIONS.length - 1 ? "Finish" : "Next")}
                         </Text>
-                        <ChevronRight size={20} color="#fff" />
+                        {!isSubmitting && <ChevronRight size={20} color="#fff" />}
                     </TouchableOpacity>
                 </View>
             </SafeAreaView>

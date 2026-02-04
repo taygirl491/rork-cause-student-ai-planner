@@ -2,9 +2,17 @@ import { readAsStringAsync } from "expo-file-system/legacy";
 
 import { Platform } from 'react-native';
 
-const DEV_API_URL = Platform.OS === 'android' ? 'http://10.0.2.2:3000' : 'http://localhost:3000';
-const API_BASE_URL = "https://rork-cause-student-ai-planner.onrender.com";  // Use production server
+// Use environment variable or fallback to production URL
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || "https://rork-cause-student-ai-planner.onrender.com";
 const API_KEY = process.env.EXPO_PUBLIC_API_KEY || "";
+
+// Log API configuration on module load
+console.log('[API] ========== API Service Configuration ==========');
+console.log('[API] API URL:', API_BASE_URL);
+console.log('[API] API Key present:', !!API_KEY);
+console.log('[API] Platform:', Platform.OS);
+console.log('[API] Environment:', __DEV__ ? 'Development' : 'Production');
+console.log('[API] ================================================');
 
 // Timeout helper with better error handling
 const fetchWithTimeout = async (
@@ -251,6 +259,11 @@ class ApiService {
 			return result;
 		} catch (error: any) {
 			console.error("[API] POST error:", error.message || error);
+			// Check if it's a network error
+			if (error.message?.includes('Network request failed') || error.message?.includes('timeout')) {
+				console.error('[API] NETWORK ERROR: Cannot reach backend. Check internet connection and backend URL.');
+				console.error('[API] Backend URL:', API_BASE_URL);
+			}
 			throw error;
 		}
 	}
@@ -261,23 +274,46 @@ class ApiService {
 	async postFormData(endpoint: string, formData: FormData) {
 		try {
 			console.log(`[API] POST (FormData) ${API_BASE_URL}${endpoint}`);
+			
+			// Detailed logging for debugging
+			if (__DEV__) {
+				console.log('[API] FormData details:');
+				// @ts-ignore - _parts is internal used by RN FormData
+				if (formData._parts) {
+					// @ts-ignore
+					formData._parts.forEach((part: any) => {
+						console.log(`  - ${part[0]}:`, typeof part[1] === 'object' ? JSON.stringify(part[1]) : part[1]);
+					});
+				}
+			}
+
 			const response = await fetchWithTimeout(
 				`${API_BASE_URL}${endpoint}`,
 				{
 					method: "POST",
 					headers: {
 						"x-api-key": API_KEY,
-						// Don't set Content-Type for FormData - browser will set it with boundary
+						// IMPORTANT: Do NOT set Content-Type for FormData!
+						// React Native's fetch will set it correctly with the boundary
 					},
 					body: formData,
 				},
-				60000 // Longer timeout for file uploads
+				120000 // Increased timeout to 120s for large files/cold starts
 			);
 
 			if (!response.ok) {
-				const error = await response.json();
-				console.log("[API] POST FormData error:", error);
-				return { success: false, error: error.error || error.message || "Request failed" };
+				const errorText = await response.text();
+				console.log("[API] POST FormData error status:", response.status);
+				console.log("[API] POST FormData error body:", errorText);
+				
+				let errorData;
+				try {
+					errorData = JSON.parse(errorText);
+				} catch (e) {
+					errorData = { message: errorText || "Request failed" };
+				}
+				
+				return { success: false, error: errorData.error || errorData.message || "Request failed" };
 			}
 
 			const result = await response.json();
@@ -285,6 +321,14 @@ class ApiService {
 			return result;
 		} catch (error: any) {
 			console.error("[API] POST FormData error:", error.message || error);
+			// Check for network failure specifics
+			if (error.message === 'Network request failed') {
+				console.error('[API] Possible causes for Network request failed:');
+				console.error('1. Backend server is down or unreachable');
+				console.error('2. SSL certificate issues (if HTTPS)');
+				console.error('3. File size exceeds client/server limits');
+				console.error('4. Malformed URI in FormData');
+			}
 			throw error;
 		}
 	}
@@ -337,6 +381,11 @@ class ApiService {
 			return result;
 		} catch (error: any) {
 			console.error("[API] GET error:", error.message || error);
+			// Check if it's a network error
+			if (error.message?.includes('Network request failed') || error.message?.includes('timeout')) {
+				console.error('[API] NETWORK ERROR: Cannot reach backend. Check internet connection and backend URL.');
+				console.error('[API] Backend URL:', API_BASE_URL);
+			}
 			throw error;
 		}
 	}
@@ -481,11 +530,20 @@ class ApiService {
 	 */
 	async parseSyllabus(uri: string, userId: string, fileType?: string) {
 		try {
-			console.log(`[API] Parsing syllabus for user ${userId}`);
-			const formData = new FormData();
+			console.log(`[API] Parsing syllabus logic started for user ${userId}`);
 			
-			const filename = uri.split('/').pop() || 'syllabus.jpg';
-			let type = fileType || 'image/jpeg';
+			// Normalize URI for React Native FormData
+			let normalizedUri = Platform.OS === 'android' ? uri : uri.replace('file://', '');
+			
+			// On Android if using DocumentPicker, uri might be content:// which fetch handles well.
+			// But if it's file://, standard fetch with FormData sometimes prefers it as is.
+			// Let's keep the full URI but log it clearly.
+			console.log('[API] Original URI:', uri);
+			console.log('[API] Normalized URI:', normalizedUri);
+
+			const formData = new FormData();
+			const filename = uri.split('/').pop() || 'syllabus.file';
+			let type = fileType || 'application/octet-stream';
 			
 			if (!fileType) {
 				const match = /\.(\w+)$/.exec(filename);
@@ -493,17 +551,20 @@ class ApiService {
 					const ext = match[1].toLowerCase();
 					if (ext === 'pdf') {
 						type = 'application/pdf';
-					} else {
-						type = `image/${ext}`;
+					} else if (['jpg', 'jpeg', 'png'].includes(ext)) {
+						type = `image/${ext === 'jpg' ? 'jpeg' : ext}`;
 					}
 				}
 			}
 			
+			console.log(`[API] File name: ${filename}, Type: ${type}`);
+
+			// @ts-ignore
 			formData.append('file', {
-				uri,
+				uri: Platform.OS === 'android' ? uri : uri.replace('file://', ''),
 				type,
 				name: filename,
-			} as any);
+			});
 			
 			formData.append('userId', userId);
 

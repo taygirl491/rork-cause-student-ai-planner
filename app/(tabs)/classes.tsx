@@ -122,7 +122,7 @@ export default function ClassesScreen() {
     setSelectedColor(CLASS_COLORS[0]);
   };
 
-  const handleAddClass = () => {
+  const handleAddClass = async () => {
     if (!name.trim()) {
       Alert.alert('Required Field', 'Please enter a name for the class.');
       return;
@@ -143,7 +143,7 @@ export default function ClassesScreen() {
 
     if (isEditing && selectedClass) {
       // Update existing class
-      updateClass(selectedClass.id, {
+      await updateClass(selectedClass.id, {
         name,
         section,
         daysOfWeek: selectedDays,
@@ -167,10 +167,10 @@ export default function ClassesScreen() {
         color: selectedColor,
         createdAt: new Date().toISOString(),
       };
-      addClass(newClass);
+      await addClass(newClass);
     }
 
-    refreshClasses();
+    await refreshClasses();
     resetClassForm();
     setShowClassModal(false);
     setIsEditing(false);
@@ -216,9 +216,9 @@ export default function ClassesScreen() {
         {
           text: 'Delete',
           style: 'destructive',
-          onPress: () => {
-            deleteClass(selectedClass.id);
-            refreshClasses();
+          onPress: async () => {
+            await deleteClass(selectedClass.id);
+            await refreshClasses();
             setShowActionSheet(false);
             setSelectedClass(null);
           },
@@ -272,7 +272,7 @@ export default function ClassesScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <SafeAreaView style={styles.container}>
       <FlatList
         data={filteredClasses}
         renderItem={renderClassItem}
@@ -290,7 +290,7 @@ export default function ClassesScreen() {
           <>
             <View style={styles.header}>
               <View>
-                <Text style={styles.title}>My Classes 🏫</Text>
+                <Text style={styles.title}>My Classes 📚</Text>
                 <Text style={styles.subtitle}>Manage your classes</Text>
               </View>
               <TouchableOpacity style={styles.addButton} onPress={() => setShowClassModal(true)}>

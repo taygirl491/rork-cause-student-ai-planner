@@ -90,8 +90,37 @@ export const [AppProvider, useApp] = createContextHook(() => {
 			refreshTasks();
 			// Register for push notifications
 			registerPushToken();
+			// Attempt to sync any locally saved survey answers
+			syncStoredSurveyAnswers();
 		}
 	}, [user?.uid]);
+
+	const syncStoredSurveyAnswers = async () => {
+		if (!user?.uid) return;
+		try {
+			const storedAnswers = await AsyncStorage.getItem('@survey_answers');
+			if (storedAnswers) {
+				console.log('[AppContext] Found locally saved survey answers. Attempting to sync...');
+				const answers = JSON.parse(storedAnswers);
+
+				const response = await apiService.patch('/api/users/purpose', {
+					userId: user.uid,
+					purpose: answers
+				});
+
+				if (response.success || response.message === 'Purpose statement updated successfully') {
+					console.log('[AppContext] Successfully synced local survey answers.');
+					await AsyncStorage.removeItem('@survey_answers');
+					// Refresh goals if possible to maybe trigger updates, though purpose is fetched separately
+					refreshGoals();
+				} else {
+					console.error('[AppContext] Failed to sync local survey answers:', response.error);
+				}
+			}
+		} catch (error) {
+			console.error('[AppContext] Error syncing local survey answers:', error);
+		}
+	};
 
 	const registerPushToken = async () => {
 		try {
@@ -937,7 +966,7 @@ export const [AppProvider, useApp] = createContextHook(() => {
 	const createStudyGroup = async (
 		group: Omit<
 			StudyGroup,
-			"id" | "code" | "members" | "messages" | "createdAt"
+			"id" | "code" | "members" | "messages" | "createdAt" | "creatorId" | "admins" | "pendingMembers"
 		>
 	) => {
 		if (!user?.uid || !user?.email) return null;

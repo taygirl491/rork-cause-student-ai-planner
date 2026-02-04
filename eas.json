@@ -9,7 +9,12 @@
       "distribution": "internal"
     },
     "preview": {
-      "distribution": "internal"
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://rork-cause-student-ai-planner.onrender.com",
+        "EXPO_PUBLIC_API_KEY": "dc39c149d5c2e920d3663af3910240c0dabbd71f10096d11fc1f24e001c12bfd",
+        "EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY": "pk_live_51PRLrfP0t2AuYFqKyKwaltV3py5wvWtfdPgfadWXFl3k7nbhygi2O8J9XnwuZMWWfLavLKiN7E2A794UozlAOBq2003kcHeHIE"
+      }
     },
     "production": {
       "autoIncrement": true

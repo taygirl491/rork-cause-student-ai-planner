@@ -47,8 +47,22 @@ export default function RegisterScreen() {
         await savePushToken(user.uid, token, email.trim(), name.trim());
       }
       router.replace('/intro-survey');
-    } catch {
-      Alert.alert('Registration Failed', registerError?.message || 'An error occurred');
+    } catch (error: any) {
+      let errorMessage = 'An error occurred during registration. Please try again.';
+
+      if (error.code === 'auth/email-already-in-use') {
+        errorMessage = 'This email address is already in use. Please use a different email or try logging in.';
+      } else if (error.code === 'auth/invalid-email') {
+        errorMessage = 'The email address is invalid.';
+      } else if (error.code === 'auth/weak-password') {
+        errorMessage = 'The password is too weak. Please use a stronger password.';
+      } else if (error.code === 'auth/network-request-failed') {
+        errorMessage = 'Network error. Please check your internet connection.';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
+      Alert.alert('Registration Failed', errorMessage);
     }
   };
 
