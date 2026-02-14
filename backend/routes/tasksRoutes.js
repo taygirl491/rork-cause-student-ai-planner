@@ -98,13 +98,9 @@ router.put('/:taskId', async (req, res) => {
         );
 
         // Emit WebSocket event
-        // Trigger streak update if task is marked as completed
+        // Streak update removed from here - now handled on daily app launch
         if (updates.completed === true && !wasCompleted) {
-            try {
-                await updateStreak(task.userId);
-            } catch (streakError) {
-                console.error('Error updating streak after task completion:', streakError);
-            }
+            // Task completed logic (optional: award points for task completion here if not already handled)
         }
 
         res.json({

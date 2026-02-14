@@ -15,6 +15,7 @@ import colors from "@/constants/colors";
 import { auth } from "@/firebaseConfig";
 import * as Sentry from '@sentry/react-native';
 import { StripeProvider } from '@stripe/stripe-react-native';
+import * as Analytics from "@/utils/analytics";
 
 // Initialize Sentry
 Sentry.init({
@@ -131,17 +132,29 @@ function RootLayoutNav() {
   const router = useRouter();
   const [onboardingComplete, setOnboardingComplete] = useState<boolean | null>(null);
 
-  // Set Sentry user context when user changes
+  // Set Sentry and Analytics user context when user changes
   useEffect(() => {
     if (user) {
       Sentry.setUser({
         id: user.uid,
         email: user.email || undefined,
       });
+      Analytics.setUserId(user.uid);
+      if (user.email) {
+        Analytics.setUserProperties({ email: user.email });
+      }
     } else {
       Sentry.setUser(null);
+      Analytics.setUserId(null);
     }
   }, [user]);
+
+  // Track screen views
+  useEffect(() => {
+    if (segments) {
+      Analytics.logScreenView(segments);
+    }
+  }, [segments]);
 
   useEffect(() => {
     checkOnboarding();

@@ -1275,6 +1275,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 12,
     gap: 8,
+    paddingHorizontal: 10
   },
   toggleButton: {
     backgroundColor: colors.primary,

@@ -66,10 +66,14 @@ const FAQ_DATA = [
             "Long-press on any task, note, or item to reveal options, then select 'Delete'. You can also delete items from their detail view.",
     },
     {
-        id: '8',
-        question: 'How do I submit a video or essay to be featured on Cause Student for a prize?',
+        id: '9',
+        question: 'How does the gamification and leveling system work?',
         answer:
-            "You can email minatoventuresinc@gmail.com with a link to your Youtube video, or send an essay as an attachment.",
+            "Our gamification system rewards your consistency and hard work:\n\n" +
+            "1. Earn Points: You earn points for daily check-ins (+2 points for starting/restarting, +5 points for maintaining), creating notes (+5 points), and completing tasks.\n" +
+            "2. Build Streaks: Keep the flame alive by opening the app every day. You'll get bonus Milestone points at 3, 7, 14, 30, 50, and 100 days!\n" +
+            "3. Level Up: As you accumulate points, you'll increase your level. The maximum level is 10, showing you've reached peak productivity!\n" +
+            "4. Track Progress: View your current streak, level, and total points right on the Home screen dashboard.",
     },
 ];
 

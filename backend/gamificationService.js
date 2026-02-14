@@ -27,6 +27,7 @@ function calculateLevel(points) {
             break;
         }
     }
+    // Final check: Never exceed max level 10
     return Math.min(currentLevel, 10);
 }
 
