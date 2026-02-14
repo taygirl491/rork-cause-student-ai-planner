@@ -66,6 +66,12 @@ export default function SyllabusParserScreen() {
     const [selectedExams, setSelectedExams] = useState<Set<number>>(new Set());
     const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
+    React.useEffect(() => {
+        if (checkPermission && !checkPermission('canSyncSyllabus')) {
+            router.back();
+        }
+    }, [checkPermission]);
+
     const pickImage = async () => {
         try {
             const result = await ImagePicker.launchImageLibraryAsync({
@@ -484,6 +490,8 @@ export default function SyllabusParserScreen() {
             <UpgradeModal
                 visible={showUpgradeModal}
                 onClose={() => setShowUpgradeModal(false)}
+                featureName="Syllabus Parser"
+                message="Automatically import your assignments and exams from your syllabus with the premium plan!"
             />
         </SafeAreaView >
     );

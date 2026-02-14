@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiService from '@/utils/apiService';
 import { useAuth } from './AuthContext';
 import StreakFireAnimation from '@/components/StreakFireAnimation';
+import DailyStreakModal from '@/components/DailyStreakModal';
 
 interface StreakData {
     current: number;
@@ -36,15 +37,39 @@ export function StreakProvider({ children }: { children: ReactNode }) {
     const [showAnimation, setShowAnimation] = useState(false);
     const [animStreakNumber, setAnimStreakNumber] = useState(0);
 
+    // Modal state for daily streak
+    const [showDailyModal, setShowDailyModal] = useState(false);
+    const [sessionChecked, setSessionChecked] = useState(false);
+
     // Load streak data on mount and when user changes
     useEffect(() => {
         if (user?.uid) {
-            loadStreakData();
+            loadStreakData().then(() => {
+                if (!sessionChecked) {
+                    performDailyCheckIn();
+                }
+            });
         } else {
             setStreakData(null);
             setIsLoading(false);
+            setSessionChecked(false);
         }
     }, [user?.uid]);
+
+    const performDailyCheckIn = async () => {
+        if (!user?.uid || sessionChecked) return;
+
+        try {
+            const result = await updateStreak();
+            setSessionChecked(true);
+
+            if (result.increased) {
+                setShowDailyModal(true);
+            }
+        } catch (error) {
+            console.error('Error in daily check-in:', error);
+        }
+    };
 
     const loadStreakData = async () => {
         try {
@@ -173,6 +198,11 @@ export function StreakProvider({ children }: { children: ReactNode }) {
                 visible={showAnimation}
                 streakNumber={animStreakNumber}
                 onFinish={() => setShowAnimation(false)}
+            />
+            <DailyStreakModal
+                visible={showDailyModal}
+                streakCount={streakData?.current || 0}
+                onClose={() => setShowDailyModal(false)}
             />
         </StreakContext.Provider>
     );

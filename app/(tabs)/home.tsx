@@ -14,12 +14,14 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import colors from '@/constants/colors';
 import { useApp } from '@/contexts/AppContext';
 import { useStreak } from '@/contexts/StreakContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { Zap, Flame, Trophy, ListChecks, CheckCircle, Circle, Clock } from 'lucide-react-native';
 import * as Sentry from '@sentry/react-native';
 
 export default function HomeScreen() {
   const { sortedTasks, videoConfig, isLoading, refreshTasks } = useApp();
   const { streakData, refreshStreak } = useStreak();
+  const { user, checkPermission } = useAuth();
   const router = useRouter();
 
   useFocusEffect(
@@ -48,8 +50,13 @@ export default function HomeScreen() {
 
   // Get today's tasks info
   const todayTasksInfo = useMemo(() => {
-    const today = new Date().toISOString().split('T')[0];
-    const todayTasks = sortedTasks.filter(task => task.dueDate === today);
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    const todayStr = `${year}-${month}-${day}`;
+
+    const todayTasks = sortedTasks.filter(task => task.dueDate === todayStr);
     return {
       completed: todayTasks.filter(t => t.completed).length,
       total: todayTasks.length,
@@ -127,13 +134,16 @@ export default function HomeScreen() {
             </View>
           </View>
 
-          <TouchableOpacity
-            style={styles.importButton}
-            onPress={() => router.push('/syllabus-parser')}
-          >
-            <Clock size={20} color={colors.primary} />
-            <Text style={styles.importButtonText}>Import Syllabus</Text>
-          </TouchableOpacity>
+
+          {checkPermission && checkPermission('canSyncSyllabus') && (
+            <TouchableOpacity
+              style={styles.importButton}
+              onPress={() => router.push('/syllabus-parser')}
+            >
+              <Clock size={20} color={colors.primary} />
+              <Text style={styles.importButtonText}>Import Syllabus</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         <View style={styles.quoteSection}>

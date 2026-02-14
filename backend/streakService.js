@@ -18,7 +18,7 @@ function getToday() {
 }
 
 /**
- * Update user's streak when they complete a task
+ * Update user's streak when they open the app
  * @param {string} userId - User ID
  * @returns {Promise<Object>} Updated streak data
  */
@@ -57,43 +57,49 @@ async function updateStreak(userId) {
         let milestone = false;
         let pointsToAward = 0;
 
-        // Check if already completed today
+        // Check if already checked in today
         if (lastDate === today) {
-            // Just increment total tasks, don't change streak
-            streakData.totalTasksCompleted++;
-            pointsToAward = 1; // 1 point for sub-sequent tasks today
+            // Already checked in today, no change
+            return {
+                success: true,
+                streak: {
+                    current: streakData.current,
+                    longest: streakData.longest,
+                    totalTasksCompleted: streakData.totalTasksCompleted,
+                },
+                increased: false,
+                milestone: false,
+            };
         } else if (lastDate === yesterday) {
             // Streak continues!
             streakData.current++;
-            streakData.totalTasksCompleted++;
             streakData.lastCompletionDate = today;
             increased = true;
-            pointsToAward = 1; // 1 point for the task
+            pointsToAward = 5; // 5 points for maintaining streak
 
             // Update longest streak if needed
             if (streakData.current > streakData.longest) {
                 streakData.longest = streakData.current;
             }
 
-            // Check for milestones (2 points for milestone)
+            // Check for milestones (10 points for milestone)
             const milestones = [3, 7, 14, 30, 50, 100];
             if (milestones.includes(streakData.current)) {
                 milestone = streakData.current;
-                pointsToAward += 2;
+                pointsToAward += 10;
             }
         } else {
-            // Streak broken or first task ever
+            // Streak broken or first check-in ever
             streakData.current = 1;
-            streakData.totalTasksCompleted++;
             streakData.lastCompletionDate = today;
             increased = true;
-            pointsToAward = 1; // 1 point for the task
+            pointsToAward = 2; // 2 points for starting/restarting streak
         }
 
         // Award points if any
         if (pointsToAward > 0) {
             const gamificationService = require('./gamificationService');
-            await gamificationService.awardPoints(userId, pointsToAward, 'task');
+            await gamificationService.awardPoints(userId, pointsToAward, 'streak');
         }
 
         // Update MongoDB
