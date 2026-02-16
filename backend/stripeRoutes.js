@@ -8,6 +8,7 @@ const {
     getPaymentMethods,
     getPaymentIntent,
     getSubscription,
+    createEphemeralKey,
 } = require('./stripeService');
 const User = require('./models/User');
 const Subscription = require('./models/Subscription');
@@ -150,11 +151,15 @@ router.post('/create-subscription', async (req, res) => {
             createdAt: new Date(),
         });
 
+        // Create ephemeral key for the customer
+        const ephemeralKey = await createEphemeralKey(customerId);
+
         res.json({
             success: true,
             clientSecret,
             subscriptionId,
             customerId,
+            ephemeralKey: ephemeralKey.secret,
         });
     } catch (error) {
         console.error('Error creating subscription:', error);

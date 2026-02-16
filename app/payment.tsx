@@ -103,6 +103,7 @@ export default function PaymentScreen() {
                     setupIntentClientSecret: clientSecret.startsWith('seti_') ? clientSecret : undefined,
                     merchantDisplayName: 'Cause Student AI Planner',
                     customerId: customerId,
+                    customerEphemeralKeySecret: response.ephemeralKey,
                     returnURL: 'causeai://stripe-redirect',
                 });
                 initError = result.error;

@@ -268,6 +268,7 @@ export default function AccountScreen() {
       const initParams = {
         merchantDisplayName: 'Cause Student AI Planner',
         customerId: customerId,
+        customerEphemeralKeySecret: response.ephemeralKey,
         returnURL: 'causeai://stripe-redirect',
       };
 
