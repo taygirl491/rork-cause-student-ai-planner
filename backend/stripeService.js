@@ -131,13 +131,14 @@ async function createSubscription(customerId, priceIdOrProductId, metadata = {})
             payment_behavior: 'default_incomplete',
             payment_settings: {
                 save_default_payment_method: 'on_subscription',
-                payment_method_types: ['card']
             },
             expand: ['latest_invoice.payment_intent', 'pending_setup_intent'],
             metadata,
         });
 
-        console.log(`[Stripe] Subscription created: ${subscription.id}, Status: ${subscription.status}`);
+        console.log(`[Stripe] Subscription created: ${subscription.id}`);
+        console.log(`[Stripe] Status: ${subscription.status}`);
+        console.log(`[Stripe] Latest Invoice present: ${!!subscription.latest_invoice}`);
 
         // Robust handling of latest_invoice
         let clientSecret = null;
@@ -239,6 +240,8 @@ async function createSubscription(customerId, priceIdOrProductId, metadata = {})
                 throw new Error('Failed to initialize payment method setup');
             }
         }
+
+        console.log(`[Stripe] Resolved clientSecret: ${clientSecret ? clientSecret.substring(0, 10) + '...' : 'NULL'}`);
 
         return {
             subscriptionId: subscription.id,
