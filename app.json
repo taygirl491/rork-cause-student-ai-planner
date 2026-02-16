@@ -87,9 +87,7 @@
           "project": "react-native",
           "organization": "minato-tu"
         }
-      ],
-      "@react-native-firebase/app",
-      "@react-native-firebase/analytics"
+      ]
     ],
     "experiments": {
       "typedRoutes": true

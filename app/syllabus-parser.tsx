@@ -66,11 +66,7 @@ export default function SyllabusParserScreen() {
     const [selectedExams, setSelectedExams] = useState<Set<number>>(new Set());
     const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
-    React.useEffect(() => {
-        if (checkPermission && !checkPermission('canSyncSyllabus')) {
-            router.back();
-        }
-    }, [checkPermission]);
+
 
     const pickImage = async () => {
         try {

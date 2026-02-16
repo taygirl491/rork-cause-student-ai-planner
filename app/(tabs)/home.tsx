@@ -17,10 +17,12 @@ import { useStreak } from '@/contexts/StreakContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Zap, Flame, Trophy, ListChecks, CheckCircle, Circle, Clock } from 'lucide-react-native';
 import * as Sentry from '@sentry/react-native';
+import UpgradeModal from '@/components/UpgradeModal';
+import DailyStreakModal from '@/components/DailyStreakModal';
 
 export default function HomeScreen() {
   const { sortedTasks, videoConfig, isLoading, refreshTasks } = useApp();
-  const { streakData, refreshStreak } = useStreak();
+  const { streakData, refreshStreak, showDailyModal, setShowDailyModal } = useStreak();
   const { user, checkPermission } = useAuth();
   const router = useRouter();
 
@@ -40,6 +42,7 @@ export default function HomeScreen() {
   ], []);
 
   const [currentQuote, setCurrentQuote] = useState(educationQuotes[0]);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -135,15 +138,19 @@ export default function HomeScreen() {
           </View>
 
 
-          {checkPermission && checkPermission('canSyncSyllabus') && (
-            <TouchableOpacity
-              style={styles.importButton}
-              onPress={() => router.push('/syllabus-parser')}
-            >
-              <Clock size={20} color={colors.primary} />
-              <Text style={styles.importButtonText}>Import Syllabus</Text>
-            </TouchableOpacity>
-          )}
+          <TouchableOpacity
+            style={styles.importButton}
+            onPress={() => {
+              if (checkPermission && checkPermission('canSyncSyllabus')) {
+                router.push('/syllabus-parser');
+              } else {
+                setShowUpgradeModal(true);
+              }
+            }}
+          >
+            <Clock size={20} color={colors.primary} />
+            <Text style={styles.importButtonText}>Import Syllabus</Text>
+          </TouchableOpacity>
         </View>
 
         <View style={styles.quoteSection}>
@@ -214,7 +221,20 @@ export default function HomeScreen() {
           </View>
         </View>
       </ScrollView>
-    </SafeAreaView>
+
+      <UpgradeModal
+        visible={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        featureName="Syllabus Parser"
+        message="Automatically import your assignments and exams from your syllabus with the premium plan!"
+      />
+
+      <DailyStreakModal
+        visible={showDailyModal}
+        streakCount={streakData?.current || 0}
+        onClose={() => setShowDailyModal(false)}
+      />
+    </SafeAreaView >
   );
 }
 

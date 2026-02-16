@@ -554,17 +554,21 @@ export default function AIBuddyScreen() {
       </TouchableOpacity>
 
 
-      {checkPermission && checkPermission('canSyncSyllabus') && (
-        <TouchableOpacity style={styles.card} onPress={() => router.push('/syllabus-parser')}>
-          <View style={[styles.cardIcon, { backgroundColor: colors.primaryLight + '30' }]}>
-            <Clock size={32} color={colors.primary} />
-          </View>
-          <View style={styles.cardTextContainer}>
-            <Text style={styles.cardTitle}>Import Syllabus</Text>
-            <Text style={styles.cardDescription}>Automatically add your course schedule from a PDF or image.</Text>
-          </View>
-        </TouchableOpacity>
-      )}
+      <TouchableOpacity style={styles.card} onPress={() => {
+        if (checkPermission && checkPermission('canSyncSyllabus')) {
+          router.push('/syllabus-parser');
+        } else {
+          setShowUpgradeModal(true);
+        }
+      }}>
+        <View style={[styles.cardIcon, { backgroundColor: colors.primaryLight + '30' }]}>
+          <Clock size={32} color={colors.primary} />
+        </View>
+        <View style={styles.cardTextContainer}>
+          <Text style={styles.cardTitle}>Import Syllabus</Text>
+          <Text style={styles.cardDescription}>Automatically add your course schedule from a PDF or image.</Text>
+        </View>
+      </TouchableOpacity>
     </ScrollView>
   );
 
