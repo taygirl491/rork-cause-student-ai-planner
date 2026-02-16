@@ -3,6 +3,7 @@ const router = express.Router();
 const { db } = require("./firebase");
 const { generateChatResponse, analyzeImage } = require("./openaiService");
 const multer = require('multer');
+const User = require("./models/User");
 
 // Configure multer for memory storage
 const upload = multer({
@@ -21,7 +22,54 @@ const upload = multer({
 });
 
 // Daily usage limits for free users
-const DAILY_VISION_LIMIT = 5;
+// Daily usage limits mapping
+const TIER_LIMITS = {
+    free: 5,
+    standard: 50,
+    premium: 500,
+    unlimited: 10000 // Effectively "Unlimited" for mobile use
+};
+
+/**
+ * Check and increment usage for a user
+ * @param {string} userId
+ * @returns {Promise<{currentUsage: number, usageRemaining: number, limitReached: boolean, limit: number}>}
+ */
+async function trackUsage(userId) {
+    // Get user tier from MongoDB
+    const user = await User.findById(userId);
+    const tier = user?.tier || 'free';
+    const limit = TIER_LIMITS[tier];
+
+    const today = new Date().toISOString().split('T')[0];
+    const usageKey = `ai_usage_${userId}_${today}`;
+    const usageDoc = await db.collection('ai_usage').doc(usageKey).get();
+    const currentUsage = usageDoc.exists ? usageDoc.data().count : 0;
+
+    if (currentUsage >= limit) {
+        return {
+            currentUsage,
+            usageRemaining: 0,
+            limitReached: true,
+            limit
+        };
+    }
+
+    const newUsage = currentUsage + 1;
+    await db.collection('ai_usage').doc(usageKey).set({
+        userId,
+        date: today,
+        count: newUsage,
+        lastUsed: new Date().toISOString(),
+    }, { merge: true });
+
+    return {
+        currentUsage: newUsage,
+        usageRemaining: limit - newUsage,
+        limitReached: false,
+        limit
+    };
+}
 
 /**
  * POST /api/ai/analyze-image
@@ -43,18 +91,14 @@ router.post("/analyze-image", upload.single('file'), async (req, res) => {
             });
         }
 
-        // Check daily usage limit
-        const today = new Date().toISOString().split('T')[0];
-        const usageKey = `vision_usage_${userId}_${today}`;
+        // Check and track usage
+        const { usageRemaining, limitReached, currentUsage, limit } = await trackUsage(userId);
 
-        const usageDoc = await db.collection('ai_usage').doc(usageKey).get();
-        const currentUsage = usageDoc.exists ? usageDoc.data().count : 0;
-
-        if (currentUsage >= DAILY_VISION_LIMIT) {
+        if (limitReached) {
             return res.status(429).json({
-                error: "Daily vision analysis limit reached",
-                message: `You've reached your daily limit of ${DAILY_VISION_LIMIT} image analyses. Try again tomorrow!`,
-                limit: DAILY_VISION_LIMIT,
+                error: "Daily AI inquiry limit reached",
+                message: `You've reached your daily limit of ${limit} inquiries. Try again tomorrow!`,
+                limit: limit,
                 used: currentUsage,
             });
         }
@@ -68,19 +112,11 @@ router.post("/analyze-image", upload.single('file'), async (req, res) => {
         // Analyze image
         const analysis = await analyzeImage(imageBase64, prompt, userContext);
 
-        // Update usage count
-        await db.collection('ai_usage').doc(usageKey).set({
-            userId,
-            date: today,
-            count: currentUsage + 1,
-            lastUsed: new Date().toISOString(),
-        }, { merge: true }); // Use merge to update existing document without overwriting other fields
-
         res.json({
             success: true,
             analysis,
             timestamp: new Date().toISOString(),
-            usageRemaining: DAILY_VISION_LIMIT - (currentUsage + 1),
+            usageRemaining,
         });
     } catch (error) {
         console.error("Error in image analysis:", error);
@@ -159,16 +195,22 @@ router.get("/usage/:userId", async (req, res) => {
     try {
         const { userId } = req.params;
         const today = new Date().toISOString().split('T')[0];
-        const usageKey = `vision_usage_${userId}_${today}`;
+        const usageKey = `ai_usage_${userId}_${today}`;
 
         const usageDoc = await db.collection('ai_usage').doc(usageKey).get();
         const currentUsage = usageDoc.exists ? usageDoc.data().count : 0;
 
+        // Get user tier for limit
+        const user = await User.findById(userId);
+        const tier = user?.tier || 'free';
+        const limit = TIER_LIMITS[tier];
+
         res.json({
             success: true,
-            visionLimit: DAILY_VISION_LIMIT,
+            visionLimit: limit,
             visionUsed: currentUsage,
-            visionRemaining: DAILY_VISION_LIMIT - currentUsage,
+            visionRemaining: limit - currentUsage,
+            tier: tier
         });
     } catch (error) {
         console.error("Error fetching usage:", error);
@@ -201,6 +243,18 @@ router.post("/chat", async (req, res) => {
             });
         }
 
+        // Check and track usage
+        const { usageRemaining, limitReached, currentUsage, limit } = await trackUsage(userId);
+
+        if (limitReached) {
+            return res.status(429).json({
+                error: "Daily AI inquiry limit reached",
+                message: `You've reached your daily limit of ${limit} inquiries. Try again tomorrow!`,
+                limit: limit,
+                used: currentUsage,
+            });
+        }
+
         // Fetch user context from Firestore
         const userContext = await fetchUserContext(userId);
 
@@ -218,6 +272,7 @@ router.post("/chat", async (req, res) => {
             success: true,
             reply: aiResponse,
             timestamp: new Date().toISOString(),
+            usageRemaining,
         });
     } catch (error) {
         console.error("Error in AI chat:", error);

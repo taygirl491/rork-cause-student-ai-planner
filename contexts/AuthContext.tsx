@@ -50,9 +50,6 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
   });
   const [isLoading, setIsLoading] = useState(true);
 
-  // Mock Tier State (for testing permissions)
-  // In a real app, this would be derived from the user's subscription status
-  const [mockTier, setMockTier] = useState<SubscriptionTier | null>(null);
 
   // Listen for auth state changes
   useEffect(() => {
@@ -64,7 +61,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
             name: firebaseUser.displayName || 'User',
             uid: firebaseUser.uid,
             photoURL: firebaseUser.photoURL || undefined,
-            tier: mockTier || 'free',
+            tier: 'free',
           },
           isAuthenticated: true,
         });
@@ -81,18 +78,6 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     return () => unsubscribe();
   }, []);
 
-  // Sync authData.user.tier when mockTier changes
-  useEffect(() => {
-    if (authData.user) {
-      setAuthData(prev => ({
-        ...prev,
-        user: prev.user ? {
-          ...prev.user,
-          tier: mockTier || 'free'
-        } : null
-      }));
-    }
-  }, [mockTier]);
 
   const loginMutation = useMutation({
     mutationFn: async (credentials: { email: string; password: string }) => {
@@ -164,7 +149,6 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
   };
 
   const logout = async () => {
-    setMockTier(null); // Reset mock tier on logout
     return logoutMutation.mutateAsync();
   };
 
@@ -227,7 +211,6 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     registerError: registerMutation.error,
     isLoggingIn: loginMutation.isPending,
     isRegistering: registerMutation.isPending,
-    setMockTier, // Expose for testing
     checkPermission,
     getFeatureLimit,
     currentTier: authData.user?.tier || 'free',

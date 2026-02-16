@@ -323,7 +323,20 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
             case 'customer.subscription.created':
             case 'customer.subscription.updated':
                 const subscription = event.data.object;
-                await Subscription.findByIdAndUpdate(
+                const priceId = subscription.items.data[0]?.price?.id;
+
+                // Map Price ID to tier
+                let tier = 'free';
+                const standardPrices = ['price_1ShIc8P0t2AuYFqK2waTumLy', 'price_1Sl6k0P0t2AuYFqKrlQXkYUq'];
+                const premiumPrices = ['price_1Sl6opP0t2AuYFqKRMdGp5kO', 'price_1Sl6piP0t2AuYFqKnKhrNQRg'];
+                const unlimitedPrices = ['price_1Sl6rWP0t2AuYFqKshMpasoI', 'price_1Sl6sFP0t2AuYFqK2JYnhp6N'];
+
+                if (standardPrices.includes(priceId)) tier = 'standard';
+                else if (premiumPrices.includes(priceId)) tier = 'premium';
+                else if (unlimitedPrices.includes(priceId)) tier = 'unlimited';
+
+                // Update Subscription in MongoDB
+                const updatedSub = await Subscription.findByIdAndUpdate(
                     subscription.id,
                     {
                         _id: subscription.id,
@@ -331,10 +344,19 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
                         status: subscription.status,
                         currentPeriodStart: new Date(subscription.current_period_start * 1000),
                         currentPeriodEnd: new Date(subscription.current_period_end * 1000),
-                        priceId: subscription.items.data[0]?.price?.id,
+                        priceId: priceId,
                     },
                     { upsert: true, new: true }
                 );
+
+                // Update User Tier in MongoDB
+                if (updatedSub && tier !== 'free') {
+                    await User.findOneAndUpdate(
+                        { stripeCustomerId: subscription.customer },
+                        { tier: tier, subscriptionStatus: subscription.status }
+                    );
+                    console.log(`[Stripe Webhook] Updated user tier to ${tier} for customer ${subscription.customer}`);
+                }
                 break;
 
             case 'customer.subscription.deleted':
@@ -343,6 +365,13 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
                     status: 'canceled',
                     cancelAtPeriodEnd: true,
                 });
+
+                // Reset user tier to free
+                await User.findOneAndUpdate(
+                    { stripeCustomerId: deletedSub.customer },
+                    { tier: 'free', subscriptionStatus: 'none' }
+                );
+                console.log(`[Stripe Webhook] Reset user tier to free for customer ${deletedSub.customer}`);
                 break;
 
             default:

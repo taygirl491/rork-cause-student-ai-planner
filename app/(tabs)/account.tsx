@@ -587,39 +587,6 @@ export default function AccountScreen() {
         </View>
 
         <View style={styles.section}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
-            <AlertTriangle size={20} color={colors.warning} style={{ marginRight: 8 }} />
-            <Text style={styles.sectionTitle}>Mock Subscription (Dev Only)</Text>
-          </View>
-
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-            {(['free', 'standard', 'premium', 'unlimited'] as SubscriptionTier[]).map((tier) => (
-              <TouchableOpacity
-                key={tier}
-                style={[
-                  styles.mockButton,
-                  user?.tier === tier && styles.mockButtonActive
-                ]}
-                onPress={() => {
-                  if (setMockTier) {
-                    setMockTier(tier);
-                    Alert.alert('Mock Tier Updated', `Switched to ${tier} tier`);
-                  }
-                }}
-              >
-                <Text style={[
-                  styles.mockButtonText,
-                  user?.tier === tier && styles.mockButtonTextActive
-                ]}>{tier}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-          <Text style={{ fontSize: 12, color: colors.textLight, marginTop: 8 }}>
-            This overrides your actual subscription for testing purposes.
-          </Text>
-        </View>
-
-        <View style={styles.section}>
           <Text style={styles.sectionTitle}>Account Actions</Text>
 
 
@@ -694,7 +661,7 @@ export default function AccountScreen() {
                   <View style={styles.pricingDivider} />
                   <Text style={styles.pricingFeatureText}>• Tasks, Calendar, Classes</Text>
                   <Text style={styles.pricingFeatureText}>• Study Groups & Causes</Text>
-                  <Text style={styles.pricingFeatureText}>• 150 AI inquiries/month</Text>
+                  <Text style={styles.pricingFeatureText}>• 50 AI inquiries/day</Text>
                 </TouchableOpacity>
 
                 {/* Standard Yearly */}
@@ -714,7 +681,7 @@ export default function AccountScreen() {
                   <View style={styles.pricingDivider} />
                   <Text style={styles.pricingFeatureText}>• Tasks, Calendar, Classes</Text>
                   <Text style={styles.pricingFeatureText}>• Study Groups & Causes</Text>
-                  <Text style={styles.pricingFeatureText}>• 150 AI inquiries/month</Text>
+                  <Text style={styles.pricingFeatureText}>• 50 AI inquiries/day</Text>
                 </TouchableOpacity>
 
                 {/* Premium Monthly */}
@@ -731,7 +698,7 @@ export default function AccountScreen() {
                   <View style={styles.pricingDivider} />
                   <Text style={styles.pricingFeatureText}>• Everything in Standard</Text>
                   <Text style={styles.pricingFeatureText}>• Sync Syllabus with Calendar</Text>
-                  <Text style={styles.pricingFeatureText}>• 400 AI inquiries/month</Text>
+                  <Text style={styles.pricingFeatureText}>• 500 AI inquiries/day</Text>
                 </TouchableOpacity>
 
                 {/* Premium Yearly */}
@@ -751,7 +718,7 @@ export default function AccountScreen() {
                   <View style={styles.pricingDivider} />
                   <Text style={styles.pricingFeatureText}>• Everything in Standard</Text>
                   <Text style={styles.pricingFeatureText}>• Sync Syllabus with Calendar</Text>
-                  <Text style={styles.pricingFeatureText}>• 400 AI inquiries/month</Text>
+                  <Text style={styles.pricingFeatureText}>• 500 AI inquiries/day</Text>
                 </TouchableOpacity>
 
                 {/* Unlimited Monthly */}

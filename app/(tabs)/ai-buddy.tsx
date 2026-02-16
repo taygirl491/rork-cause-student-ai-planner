@@ -17,7 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Send, Bot, User as UserIcon, Sparkles, BookOpen, FileText, BrainCircuit, ArrowLeft, Paperclip, X, Clock } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
-import TextRecognition from '@react-native-ml-kit/text-recognition';
+// import TextRecognition from '@react-native-ml-kit/text-recognition';
 import * as DocumentPicker from 'expo-document-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import colors from '@/constants/colors';
@@ -196,7 +196,8 @@ export default function AIBuddyScreen() {
   };
 
   const handleSend = async () => {
-    if (!inputText.trim() || !user?.uid || !mode) return;
+    if (!inputText.trim() && !selectedFile) return;
+    if (!user?.uid || !mode) return;
 
     // Check usage limits
     if (usageStats && usageStats.limit !== 'Unlimited') {
@@ -222,64 +223,51 @@ export default function AIBuddyScreen() {
     setIsLoading(true);
 
     try {
-      // Load shared memory for cross-mode context
-      const sharedMemory = await loadSharedMemory();
+      let response: { reply: string; timestamp: string };
 
-      // Get relevant context from other modes (last 10 messages from each mode)
-      const otherModesContext = sharedMemory
-        .filter(msg => msg.mode !== mode)
-        .slice(-10);
+      if (selectedFile && selectedFile.type === 'image') {
+        // Use server-side vision analysis for images
+        console.log("Analyzing image with backend:", selectedFile.uri);
+        const result = await analyzeImage(selectedFile.uri, inputText.trim(), user.uid);
 
-      // Combine current conversation with cross-mode context
-      const contextMessages = [...otherModesContext.map(({ mode: _, ...msg }) => msg), ...messages];
+        response = {
+          reply: result.analysis,
+          timestamp: result.timestamp
+        };
 
-      // Send message to backend with mode and enhanced context
-      let response;
-
-      if (selectedFile) {
-        let extractedText = "";
-
-        if (selectedFile.type === 'image') {
-          // Perform On-Device OCR
-          try {
-            console.log("Starting OCR on:", selectedFile.uri);
-            const result = await TextRecognition.recognize(selectedFile.uri);
-            extractedText = result.text;
-            console.log("OCR Result:", extractedText.substring(0, 100) + "...");
-          } catch (ocrError) {
-            console.error("OCR Error:", ocrError);
-            Alert.alert("OCR Error", "Failed to extract text from image.");
-          }
+        // Update usage stats from backend response (accurate source of truth)
+        if (usageStats && usageStats.limit !== 'Unlimited') {
+          setUsageStats(prev => prev ? ({ ...prev, remaining: result.usageRemaining }) : null);
         }
-
-        // Construct message with extracted text or attached file info
-        const messageContent = selectedFile.type === 'image' && extractedText
-          ? `[Attached Image Text]:\n${extractedText}\n\n[User Question]:\n${inputText.trim()}`
-          : `[Attached ${selectedFile.type}: ${selectedFile.name}]\n\n${inputText.trim()}`;
-
-        // Update user message content in local state for display context if needed
-        // But we already added it to state above. We might want to update the displayed message or just send the enhanced prompt.
-        // Actually, 'userMessage' above (line 180) holds the display content. 
-        // We should send the ENHANCED content to the AI, but maybe keep the display simple?
-        // For now, let's send the enhanced content as the prompt.
-
-        response = await sendMessage(
-          messageContent,
-          user.uid,
-          contextMessages,
-          mode
-        );
 
         // Clear selection
         setSelectedFile(null);
       } else {
-        // Regular text message
+        // Regular text message or document placeholder
+        // Load shared memory for cross-mode context
+        const sharedMemory = await loadSharedMemory();
+
+        // Get relevant context from other modes (last 10 messages from each mode)
+        const otherModesContext = sharedMemory
+          .filter(msg => msg.mode !== mode)
+          .slice(-10);
+
+        // Combine current conversation with cross-mode context
+        const contextMessages = [...otherModesContext.map(({ mode: _, ...msg }) => msg), ...messages];
+
         response = await sendMessage(
           userMessage.content,
           user.uid,
           contextMessages,
           mode
         );
+
+        // Update usage stats from backend response (accurate source of truth)
+        if (usageStats && usageStats.limit !== 'Unlimited') {
+          setUsageStats(prev => prev ? ({ ...prev, remaining: response.usageRemaining }) : null);
+        }
+
+        if (selectedFile) setSelectedFile(null);
       }
 
       const assistantMessage: AIMessage = {
@@ -297,28 +285,21 @@ export default function AIBuddyScreen() {
       await animateTyping(assistantMessage.id, response.reply);
       setTypingMessageId(null);
 
-      // Locally update usage stats for immediate feedback
-      if (usageStats && usageStats.limit !== 'Unlimited') {
-        setUsageStats(prev => {
-          if (!prev) return null;
-          const currentRemaining = prev.remaining as number;
-          return {
-            ...prev,
-            remaining: Math.max(0, currentRemaining - 1)
-          };
-        });
-      }
-
       await saveConversationHistory(finalMessages, mode);
     } catch (error: any) {
       console.error('Error sending message:', error);
 
       // Check for specific error messages
-      if (error.message.includes('busy') || error.message.includes('capacity') || error.message.includes('credits')) {
-        Alert.alert(
-          ' AI Buddy is Busy',
-          'The AI service is currently experiencing high demand. Please try again in a little while.',
-        );
+      if (error.message.includes('busy') || error.message.includes('capacity') || error.message.includes('credits') || error.message.includes('limit')) {
+        let alertTitle = 'AI Buddy is Busy';
+        let alertMsg = 'The AI service is currently experiencing high demand. Please try again in a little while.';
+
+        if (error.message.includes('limit')) {
+          alertTitle = 'Limit Reached';
+          alertMsg = error.message;
+        }
+
+        Alert.alert(alertTitle, alertMsg);
       } else {
         Alert.alert('Error', error.message || 'Failed to get response from AI Buddy');
       }
@@ -587,7 +568,7 @@ export default function AIBuddyScreen() {
           <Text style={styles.chatSubtitle}>{getModeSubtitle(mode)}</Text>
           {usageStats && usageStats.limit !== 'Unlimited' && (
             <Text style={styles.usageText}>
-              Vision Analysis: {usageStats.remaining}/{usageStats.limit} left today
+              AI Inquiries: {usageStats.remaining}/{usageStats.limit} left today
             </Text>
           )}
         </View>

@@ -19,10 +19,11 @@ import { Zap, Flame, Trophy, ListChecks, CheckCircle, Circle, Clock } from 'luci
 import * as Sentry from '@sentry/react-native';
 import UpgradeModal from '@/components/UpgradeModal';
 import DailyStreakModal from '@/components/DailyStreakModal';
+import StreakFireAnimation from '@/components/StreakFireAnimation';
 
 export default function HomeScreen() {
   const { sortedTasks, videoConfig, isLoading, refreshTasks } = useApp();
-  const { streakData, refreshStreak, showDailyModal, setShowDailyModal } = useStreak();
+  const { streakData, refreshStreak, showDailyModal, setShowDailyModal, showAnimation, setShowAnimation, animStreakNumber } = useStreak();
   const { user, checkPermission } = useAuth();
   const router = useRouter();
 
@@ -227,6 +228,12 @@ export default function HomeScreen() {
         onClose={() => setShowUpgradeModal(false)}
         featureName="Syllabus Parser"
         message="Automatically import your assignments and exams from your syllabus with the premium plan!"
+      />
+
+      <StreakFireAnimation
+        visible={showAnimation}
+        streakNumber={animStreakNumber}
+        onFinish={() => setShowAnimation(false)}
       />
 
       <DailyStreakModal

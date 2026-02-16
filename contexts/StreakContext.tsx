@@ -2,7 +2,6 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiService from '@/utils/apiService';
 import { useAuth } from './AuthContext';
-import StreakFireAnimation from '@/components/StreakFireAnimation';
 
 interface StreakData {
     current: number;
@@ -23,6 +22,9 @@ interface StreakContextType {
     triggerAnimation: (streakNumber?: number) => void;
     showDailyModal: boolean;
     setShowDailyModal: (show: boolean) => void;
+    showAnimation: boolean;
+    setShowAnimation: (show: boolean) => void;
+    animStreakNumber: number;
 }
 
 const StreakContext = createContext<StreakContextType | undefined>(undefined);
@@ -201,14 +203,12 @@ export function StreakProvider({ children }: { children: ReactNode }) {
             awardPoints,
             triggerAnimation,
             showDailyModal,
-            setShowDailyModal
+            setShowDailyModal,
+            showAnimation,
+            setShowAnimation,
+            animStreakNumber
         }}>
             {children}
-            <StreakFireAnimation
-                visible={showAnimation}
-                streakNumber={animStreakNumber}
-                onFinish={() => setShowAnimation(false)}
-            />
         </StreakContext.Provider>
     );
 }
