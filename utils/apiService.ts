@@ -552,7 +552,11 @@ class ApiService {
 			if (!response.ok) {
 				const error = await response.json();
 				console.log("[API] Subscription creation error:", error);
-				return { success: false, error: error.error || "Failed to create subscription" };
+				return { 
+					success: false, 
+					error: error.error || "Failed to create subscription",
+					details: error.details
+				};
 			}
 
 			const result = await response.json();

@@ -251,9 +251,10 @@ export default function AccountScreen() {
       }
 
       response = await apiService.createSubscription(user.uid, priceId);
+      console.log('[Stripe] Subscription response:', response);
 
       if (!response.success) {
-        throw new Error(response.error || 'Failed to initialize subscription');
+        throw new Error(response.details || response.error || 'Failed to initialize subscription');
       }
 
       clientSecret = response.clientSecret;
@@ -262,7 +263,8 @@ export default function AccountScreen() {
       setLoadingSubscription(false);
 
       if (!clientSecret || typeof clientSecret !== 'string') {
-        throw new Error('Invalid payment details received');
+        console.error('[Stripe] Invalid clientSecret:', clientSecret);
+        throw new Error('Invalid payment details received from server');
       }
 
       const initParams = {
