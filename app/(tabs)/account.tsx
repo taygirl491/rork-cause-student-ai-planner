@@ -300,15 +300,24 @@ export default function AccountScreen() {
       }
       console.log('[Stripe] initPaymentSheet success');
 
+      console.log('[Stripe] initPaymentSheet success');
+
+      // Close modal before presenting - essential for Android reliability
+      setShowPaymentModal(false);
+
+      // Small delay to allow modal to clear before presenting native sheet
+      await new Promise(resolve => setTimeout(resolve, 500));
+
       const { error: paymentError } = await presentPaymentSheet();
 
       if (paymentError) {
+        console.error('[Stripe] presentPaymentSheet error:', paymentError);
         Alert.alert('Error', paymentError.message);
       } else {
+        console.log('[Stripe] Payment success');
         Alert.alert('Success', 'Thank you for subscribing!');
         setCurrentSubscription(tier);
         fetchSubscription();
-        setShowPaymentModal(false);
       }
     } catch (error: any) {
       setLoadingSubscription(false);
