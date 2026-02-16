@@ -19,7 +19,7 @@ export async function sendMessage(
   userId: string,
   conversationHistory: AIMessage[] = [],
   mode: 'homework' | 'summarize' | 'quiz' = 'homework'
-): Promise<{ reply: string; timestamp: string }> {
+): Promise<{ reply: string; timestamp: string; usageRemaining: number }> {
   try {
     // Format conversation history for API (only role and content)
     const formattedHistory = conversationHistory.map(msg => ({
@@ -38,6 +38,7 @@ export async function sendMessage(
       return {
         reply: response.reply,
         timestamp: response.timestamp,
+        usageRemaining: response.usageRemaining,
       };
     } else {
       throw new Error(response.error || 'Failed to get AI response');

@@ -77,6 +77,11 @@ const userSchema = new mongoose.Schema({
     purpose: {
         type: mongoose.Schema.Types.Mixed,
         default: null
+    },
+    tier: {
+        type: String,
+        enum: ['free', 'standard', 'premium', 'unlimited'],
+        default: 'free',
     }
 }, {
     timestamps: false,

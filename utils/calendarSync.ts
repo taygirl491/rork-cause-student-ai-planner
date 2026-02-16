@@ -96,18 +96,34 @@ export async function syncTaskToCalendar(
   calendarId: string
 ): Promise<string | null> {
   try {
-    // Parse the due date and time
-    const startDate = new Date(`${task.dueDate}T${task.dueTime || '00:00:00'}`);
+    // Parse the due date components (YYYY-MM-DD)
+    const [year, month, day] = task.dueDate.split('-').map(Number);
     
-    // Set end date to 1 hour after start (or 30 minutes for exams/appointments)
-    const duration = task.type === 'exam' || task.type === 'appointment' ? 30 : 60;
-    const endDate = new Date(startDate.getTime() + duration * 60 * 1000);
+    let startDate: Date;
+    let endDate: Date;
+    let allDay = false;
+
+    if (task.dueTime) {
+      // Parse time components (HH:MM)
+      const [hours, minutes] = task.dueTime.split(':').map(Number);
+      startDate = new Date(year, month - 1, day, hours, minutes);
+      
+      // Set end date to 1 hour after start (or 30 minutes for exams/appointments)
+      const duration = task.type === 'exam' || task.type === 'appointment' ? 30 : 60;
+      endDate = new Date(startDate.getTime() + duration * 60 * 1000);
+    } else {
+      // All day event
+      startDate = new Date(year, month - 1, day);
+      endDate = new Date(year, month - 1, day + 1); // Next day
+      allDay = true;
+    }
     
     // Create event details
     const eventDetails: Partial<Calendar.Event> = {
       title: task.description,
       startDate,
       endDate,
+      allDay,
       timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       notes: `Type: ${task.type}\nPriority: ${task.priority}${
         task.className ? `\nClass: ${task.className}` : ''
@@ -176,7 +192,14 @@ export async function syncClassToCalendar(
     }
     
     // Find the first occurrence of the class based on startDate and daysOfWeek
-    const semesterStart = new Date(cls.startDate);
+    // Parse start date as local date to avoid UTC shifts
+    const [sYear, sMonth, sDay] = cls.startDate.split('-').map(Number);
+    const semesterStart = new Date(sYear, sMonth - 1, sDay);
+    
+    // Parse end date as local date
+    const [eYear, eMonth, eDay] = cls.endDate.split('-').map(Number);
+    const semesterEnd = new Date(eYear, eMonth - 1, eDay);
+
     const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
     
     // Get the day numbers for the class days
@@ -219,7 +242,7 @@ export async function syncClassToCalendar(
       recurrenceRule: {
         frequency: Calendar.Frequency.WEEKLY,
         daysOfTheWeek: daysOfTheWeek,
-        endDate: new Date(cls.endDate),
+        endDate: semesterEnd,
       },
     };
 
@@ -242,14 +265,33 @@ export async function updateCalendarEvent(
   task: Task
 ): Promise<boolean> {
   try {
-    const startDate = new Date(`${task.dueDate}T${task.dueTime || '00:00:00'}`);
-    const duration = task.type === 'exam' || task.type === 'appointment' ? 30 : 60;
-    const endDate = new Date(startDate.getTime() + duration * 60 * 1000);
+    // Parse the due date components (YYYY-MM-DD)
+    const [year, month, day] = task.dueDate.split('-').map(Number);
+    
+    let startDate: Date;
+    let endDate: Date;
+    let allDay = false;
+
+    if (task.dueTime) {
+      // Parse time components (HH:MM)
+      const [hours, minutes] = task.dueTime.split(':').map(Number);
+      startDate = new Date(year, month - 1, day, hours, minutes);
+      
+      // Set end date to 1 hour after start (or 30 minutes for exams/appointments)
+      const duration = task.type === 'exam' || task.type === 'appointment' ? 30 : 60;
+      endDate = new Date(startDate.getTime() + duration * 60 * 1000);
+    } else {
+      // All day event
+      startDate = new Date(year, month - 1, day);
+      endDate = new Date(year, month - 1, day + 1); // Next day
+      allDay = true;
+    }
     
     await Calendar.updateEventAsync(eventId, {
       title: task.description,
       startDate,
       endDate,
+      allDay,
       notes: `Type: ${task.type}\nPriority: ${task.priority}${
         task.className ? `\nClass: ${task.className}` : ''
       }`,
@@ -316,7 +358,14 @@ export async function updateClassEvent(
     }
     
     // Find the first occurrence of the class based on startDate and daysOfWeek
-    const semesterStart = new Date(cls.startDate);
+    // Parse start date as local date to avoid UTC shifts
+    const [sYear, sMonth, sDay] = cls.startDate.split('-').map(Number);
+    const semesterStart = new Date(sYear, sMonth - 1, sDay);
+    
+    // Parse end date as local date
+    const [eYear, eMonth, eDay] = cls.endDate.split('-').map(Number);
+    const semesterEnd = new Date(eYear, eMonth - 1, eDay);
+
     const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
     
     // Get the day numbers for the class days
@@ -358,7 +407,7 @@ export async function updateClassEvent(
       recurrenceRule: {
         frequency: Calendar.Frequency.WEEKLY,
         daysOfTheWeek: daysOfTheWeek,
-        endDate: new Date(cls.endDate),
+        endDate: semesterEnd,
       },
     });
     
