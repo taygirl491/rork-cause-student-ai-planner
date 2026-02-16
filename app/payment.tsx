@@ -104,9 +104,16 @@ export default function PaymentScreen() {
                     merchantDisplayName: 'Cause Student AI Planner',
                     customerId: customerId,
                     customerEphemeralKeySecret: response.ephemeralKey,
+                    allowsDelayedPaymentMethods: true,
                     returnURL: 'causeai://stripe-redirect',
                 });
                 initError = result.error;
+
+                if (initError) {
+                    console.error('[Stripe] initPaymentSheet error:', initError);
+                } else {
+                    console.log('[Stripe] initPaymentSheet success');
+                }
             } catch (stripeError: any) {
                 console.error('Stripe Init Error:', stripeError);
                 const Sentry = await import('@sentry/react-native');

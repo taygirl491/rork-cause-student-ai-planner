@@ -58,7 +58,7 @@ export default function AccountScreen() {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [activeSubscription, setActiveSubscription] = useState<any>(null);
   const [loadingSubscription, setLoadingSubscription] = useState(true);
-  const { user, logout, changePassword, setMockTier } = useAuth();
+  const { user, logout, changePassword } = useAuth();
   const router = useRouter();
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
   const insets = useSafeAreaInsets();
@@ -269,8 +269,14 @@ export default function AccountScreen() {
         merchantDisplayName: 'Cause Student AI Planner',
         customerId: customerId,
         customerEphemeralKeySecret: response.ephemeralKey,
+        allowsDelayedPaymentMethods: true,
         returnURL: 'causeai://stripe-redirect',
       };
+
+      console.log('[Stripe] Initializing Payment Sheet with params:', JSON.stringify({
+        ...initParams,
+        customerEphemeralKeySecret: '***',
+      }, null, 2));
 
       let initOptions;
       if (clientSecret.startsWith('pi_')) {
@@ -288,10 +294,11 @@ export default function AccountScreen() {
       const { error } = await initPaymentSheet(initOptions);
 
       if (error) {
-        console.error('initPaymentSheet error:', error);
+        console.error('[Stripe] initPaymentSheet error:', error);
         Alert.alert('Error', error.message);
         return;
       }
+      console.log('[Stripe] initPaymentSheet success');
 
       const { error: paymentError } = await presentPaymentSheet();
 
