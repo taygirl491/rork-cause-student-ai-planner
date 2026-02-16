@@ -120,8 +120,15 @@ router.post('/create-subscription', async (req, res) => {
         let customerId = user.stripeCustomerId;
 
         if (!customerId) {
+            // Ensure we have a semi-valid email to satisfy Stripe requirements
+            const customerEmail = (user.email && user.email.includes('@'))
+                ? user.email
+                : `${userId}@firebase.temp`;
+
+            console.log(`[Stripe] Creating customer for user ${userId} with email: ${customerEmail}`);
+
             const customer = await createOrGetCustomer(
-                user.email || `${userId}@temp.com`, // Use temp email if not available
+                customerEmail,
                 userId,
                 user.name || null
             );

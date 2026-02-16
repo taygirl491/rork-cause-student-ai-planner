@@ -3,7 +3,9 @@ const Stripe = require('stripe');
 
 // Make Stripe optional - only initialize if API key is provided
 const stripe = process.env.STRIPE_SECRET_KEY
-    ? new Stripe(process.env.STRIPE_SECRET_KEY)
+    ? new Stripe(process.env.STRIPE_SECRET_KEY, {
+        apiVersion: '2023-10-16',
+    })
     : null;
 
 if (!stripe) {
@@ -132,13 +134,13 @@ async function createSubscription(customerId, priceIdOrProductId, metadata = {})
             collection_method: 'charge_automatically', // Explicitly force automatic charging
             payment_settings: {
                 save_default_payment_method: 'on_subscription',
+                payment_method_types: ['card'], // Explicitly request card to nudge PI generation
             },
             expand: ['latest_invoice.payment_intent', 'pending_setup_intent'],
             metadata,
         });
 
-        console.log(`[Stripe] Subscription created: ${subscription.id}`);
-        console.log(`[Stripe] Status: ${subscription.status}`);
+        console.log(`[Stripe] Subscription created: ${subscription.id}, Status: ${subscription.status}`);
 
         // Robust handling of latest_invoice with retries
         let clientSecret = null;
@@ -155,8 +157,8 @@ async function createSubscription(customerId, priceIdOrProductId, metadata = {})
                         expand: ['payment_intent']
                     });
 
-                    console.log(`[Stripe] Invoice ${invoiceId} Attempt ${attempt}: status=${fullInvoice.status}, total=${fullInvoice.total}, amount_due=${fullInvoice.amount_due}`);
-                    console.log(`[Stripe] PI check: ${!!fullInvoice.payment_intent}, Paid: ${fullInvoice.paid}`);
+                    console.log(`[Stripe] Invoice ${invoiceId} Attempt ${attempt}: status=${fullInvoice.status}, pi=${!!fullInvoice.payment_intent}, amount_due=${fullInvoice.amount_due}`);
+                    console.log(`[Stripe] Collection Method: ${fullInvoice.collection_method}, Auto-pay: ${fullInvoice.auto_advance}`);
 
                     if (fullInvoice.payment_intent) {
                         clientSecret = typeof fullInvoice.payment_intent === 'object'
@@ -164,7 +166,7 @@ async function createSubscription(customerId, priceIdOrProductId, metadata = {})
                             : (await stripe.paymentIntents.retrieve(fullInvoice.payment_intent)).client_secret;
 
                         if (clientSecret) {
-                            console.log(`[Stripe] Success: Found client_secret via PI`);
+                            console.log(`[Stripe] Success: Found client_secret via PI (${clientSecret.substring(0, 10)}...)`);
                             break;
                         }
                     }
@@ -175,7 +177,7 @@ async function createSubscription(customerId, priceIdOrProductId, metadata = {})
                     }
 
                     if (attempt < 5) {
-                        console.log(`[Stripe] Payment Intent not ready, waiting 1.5s... (Keys present: ${Object.keys(fullInvoice).filter(k => k.includes('payment')).join(', ')})`);
+                        console.log(`[Stripe] PI not ready. Keys: ${Object.keys(fullInvoice).filter(k => k.includes('payment')).join(', ')}`);
                         await new Promise(resolve => setTimeout(resolve, 1500));
                     }
                 } catch (err) {
@@ -184,13 +186,36 @@ async function createSubscription(customerId, priceIdOrProductId, metadata = {})
             }
         }
 
-        // Fallback: Check for pending_setup_intent (used for trials or 0-amount subscriptions)
+        // Fallback 1: Check for pending_setup_intent (used for 0-amount or trial subscriptions)
         if (!clientSecret && subscription.pending_setup_intent) {
-            console.log('[Stripe] No payment intent found, using pending_setup_intent...');
+            console.log('[Stripe] Checking pending_setup_intent...');
             const setupIntent = subscription.pending_setup_intent;
             clientSecret = typeof setupIntent === 'object'
                 ? setupIntent.client_secret
                 : (await stripe.setupIntents.retrieve(setupIntent)).client_secret;
+        }
+
+        // Fallback 2: If the invoice is OPEN but has no PI, create a SetupIntent for the customer
+        // This allows PaymentSheet to collect a card, which will then trigger payment for the open invoice
+        if (!clientSecret && invoice) {
+            const invoiceId = typeof invoice === 'string' ? invoice : invoice.id;
+            console.warn(`[Stripe] Still no client_secret for invoice ${invoiceId}. Creating fallback SetupIntent.`);
+            try {
+                const setupIntent = await stripe.setupIntents.create({
+                    customer: customerId,
+                    usage: 'off_session',
+                    metadata: {
+                        subscription_id: subscription.id,
+                        invoice_id: invoiceId,
+                        user_id: metadata.userId
+                    },
+                    payment_method_types: ['card'],
+                });
+                clientSecret = setupIntent.client_secret;
+                console.log(`[Stripe] Created fallback SetupIntent: ${setupIntent.id}`);
+            } catch (siError) {
+                console.error('[Stripe] Failed to create fallback SetupIntent:', siError);
+            }
         }
 
         if (!clientSecret) {
