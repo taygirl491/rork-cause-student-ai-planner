@@ -129,6 +129,7 @@ async function createSubscription(customerId, priceIdOrProductId, metadata = {})
             customer: customerId,
             items: [{ price: priceId }],
             payment_behavior: 'default_incomplete',
+            collection_method: 'charge_automatically', // Explicitly force automatic charging
             payment_settings: {
                 save_default_payment_method: 'on_subscription',
             },
@@ -138,7 +139,6 @@ async function createSubscription(customerId, priceIdOrProductId, metadata = {})
 
         console.log(`[Stripe] Subscription created: ${subscription.id}`);
         console.log(`[Stripe] Status: ${subscription.status}`);
-        console.log(`[Stripe] Latest Invoice present: ${!!subscription.latest_invoice}`);
 
         // Robust handling of latest_invoice with retries
         let clientSecret = null;
@@ -148,26 +148,35 @@ async function createSubscription(customerId, priceIdOrProductId, metadata = {})
             const invoiceId = typeof invoice === 'string' ? invoice : invoice.id;
             console.log(`[Stripe] Resolving Payment Intent for Invoice: ${invoiceId}`);
 
-            // Retry loop (up to 3 times with small delays)
-            for (let attempt = 1; attempt <= 3; attempt++) {
+            // Increased retry loop (up to 5 times with 1.5s delay)
+            for (let attempt = 1; attempt <= 5; attempt++) {
                 try {
                     const fullInvoice = await stripe.invoices.retrieve(invoiceId, {
                         expand: ['payment_intent']
                     });
 
-                    console.log(`[Stripe] Invoice ${invoiceId} Attempt ${attempt}: status=${fullInvoice.status}, pi=${!!fullInvoice.payment_intent}`);
+                    console.log(`[Stripe] Invoice ${invoiceId} Attempt ${attempt}: status=${fullInvoice.status}, total=${fullInvoice.total}, amount_due=${fullInvoice.amount_due}`);
+                    console.log(`[Stripe] PI check: ${!!fullInvoice.payment_intent}, Paid: ${fullInvoice.paid}`);
 
                     if (fullInvoice.payment_intent) {
                         clientSecret = typeof fullInvoice.payment_intent === 'object'
                             ? fullInvoice.payment_intent.client_secret
                             : (await stripe.paymentIntents.retrieve(fullInvoice.payment_intent)).client_secret;
 
-                        if (clientSecret) break;
+                        if (clientSecret) {
+                            console.log(`[Stripe] Success: Found client_secret via PI`);
+                            break;
+                        }
                     }
 
-                    if (attempt < 3) {
-                        console.log(`[Stripe] Payment Intent not ready, waiting 1s...`);
-                        await new Promise(resolve => setTimeout(resolve, 1000));
+                    if (fullInvoice.paid || fullInvoice.amount_due === 0) {
+                        console.log(`[Stripe] Invoice already paid or $0. Checking for setup_intent fallback...`);
+                        break;
+                    }
+
+                    if (attempt < 5) {
+                        console.log(`[Stripe] Payment Intent not ready, waiting 1.5s... (Keys present: ${Object.keys(fullInvoice).filter(k => k.includes('payment')).join(', ')})`);
+                        await new Promise(resolve => setTimeout(resolve, 1500));
                     }
                 } catch (err) {
                     console.error(`[Stripe] Error retrieving invoice ${invoiceId} (Attempt ${attempt}):`, err);
@@ -177,7 +186,7 @@ async function createSubscription(customerId, priceIdOrProductId, metadata = {})
 
         // Fallback: Check for pending_setup_intent (used for trials or 0-amount subscriptions)
         if (!clientSecret && subscription.pending_setup_intent) {
-            console.log('[Stripe] No payment intent found, checking pending_setup_intent...');
+            console.log('[Stripe] No payment intent found, using pending_setup_intent...');
             const setupIntent = subscription.pending_setup_intent;
             clientSecret = typeof setupIntent === 'object'
                 ? setupIntent.client_secret
@@ -186,7 +195,9 @@ async function createSubscription(customerId, priceIdOrProductId, metadata = {})
 
         if (!clientSecret) {
             console.error(`[Stripe] CRITICAL: Failed to resolve client_secret for subscription ${subscription.id}`);
-            throw new Error('Failed to initialize payment details. Please try again.');
+            // Log a bit more about the subscription to help debug
+            console.log(`[Stripe] Subscription Final State: status=${subscription.status}, coll_method=${subscription.collection_method}`);
+            throw new Error('Stripe failed to provide a payment secret. Please check your Stripe dashboard for subscription ' + subscription.id);
         }
 
         console.log(`[Stripe] Resolved clientSecret: ${clientSecret ? clientSecret.substring(0, 10) + '...' : 'NULL'}`);
