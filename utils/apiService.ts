@@ -155,6 +155,45 @@ class ApiService {
 	}
 
 	/**
+	 * Register user in backend
+	 */
+	async registerUser(userId: string, email: string, name: string) {
+		try {
+			console.log(`[API] Registering user ${email} in backend...`);
+			const response = await fetchWithTimeout(
+				`${API_BASE_URL}/api/users/register`,
+				{
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+						"x-api-key": API_KEY,
+					},
+					body: JSON.stringify({
+						userId,
+						email,
+						name,
+					}),
+				},
+				10000
+			);
+
+			if (!response.ok) {
+				const error = await response.json();
+				console.log("[API] Registration error:", error);
+				return { success: false, error: error.message || "Registration failed" };
+			}
+
+			const result = await response.json();
+			console.log("[API] User registered in backend:", result);
+			return { success: true, ...result };
+		} catch (error: any) {
+			console.error("[API] Registration error:", error.message || error);
+			// Non-blocking, return false but don't throw
+			return { success: false, error: error.message || String(error) };
+		}
+	}
+
+	/**
 	 * Test backend connection
 	 */
 	async healthCheck() {

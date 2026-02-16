@@ -3,7 +3,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiService from '@/utils/apiService';
 import { useAuth } from './AuthContext';
 import StreakFireAnimation from '@/components/StreakFireAnimation';
-import DailyStreakModal from '@/components/DailyStreakModal';
 
 interface StreakData {
     current: number;
@@ -22,6 +21,8 @@ interface StreakContextType {
     refreshStreak: () => Promise<void>;
     awardPoints: (points: number, activityType: 'task' | 'streak' | 'goal' | 'habit' | 'feature') => Promise<{ points: number; level: number; leveledUp: boolean } | null>;
     triggerAnimation: (streakNumber?: number) => void;
+    showDailyModal: boolean;
+    setShowDailyModal: (show: boolean) => void;
 }
 
 const StreakContext = createContext<StreakContextType | undefined>(undefined);
@@ -192,17 +193,21 @@ export function StreakProvider({ children }: { children: ReactNode }) {
     };
 
     return (
-        <StreakContext.Provider value={{ streakData, isLoading, updateStreak, refreshStreak, awardPoints, triggerAnimation }}>
+        <StreakContext.Provider value={{
+            streakData,
+            isLoading,
+            updateStreak,
+            refreshStreak,
+            awardPoints,
+            triggerAnimation,
+            showDailyModal,
+            setShowDailyModal
+        }}>
             {children}
             <StreakFireAnimation
                 visible={showAnimation}
                 streakNumber={animStreakNumber}
                 onFinish={() => setShowAnimation(false)}
-            />
-            <DailyStreakModal
-                visible={showDailyModal}
-                streakCount={streakData?.current || 0}
-                onClose={() => setShowDailyModal(false)}
             />
         </StreakContext.Provider>
     );

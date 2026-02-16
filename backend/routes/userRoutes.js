@@ -41,6 +41,48 @@ router.post('/push-token', async (req, res) => {
 });
 
 /**
+ * POST /api/users/register
+ * Register or update user details (name, email)
+ */
+router.post('/register', async (req, res) => {
+    try {
+        const { userId, email, name } = req.body;
+
+        if (!userId || !email) {
+            return res.status(400).json({
+                success: false,
+                error: 'Missing required fields: userId, email'
+            });
+        }
+
+        const updateData = { email };
+        if (name) updateData.name = name;
+
+        // Create or update user
+        const user = await User.findByIdAndUpdate(
+            userId,
+            updateData,
+            { new: true, upsert: true }
+        );
+
+        console.log(`[Register] Registered/Updated user: ${email} (${userId})`);
+
+        res.json({
+            success: true,
+            message: 'User registered successfully',
+            user
+        });
+    } catch (error) {
+        console.error('Error registering user:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to register user',
+            details: error.message
+        });
+    }
+});
+
+/**
  * GET /api/users/:userId/purpose
  * Get user's purpose statement
  */

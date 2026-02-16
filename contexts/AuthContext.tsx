@@ -119,12 +119,24 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
 
         // Send welcome email (fire and forget - don't block registration)
         try {
-          const apiService = await import('@/utils/apiService');
-          apiService.default.sendWelcomeEmail(data.email, data.name)
+          const apiService = (await import('@/utils/apiService')).default;
+
+          // Register in backend (Critical for name storage)
+          await apiService.registerUser(userCredential.user.uid, data.email, data.name);
+
+          // Send welcome email
+          apiService.sendWelcomeEmail(data.email, data.name)
             .catch(err => console.log('Welcome email failed (non-blocking):', err));
+
         } catch (error) {
-          console.log('Failed to send welcome email (non-blocking):', error);
+          console.log('Failed to register/email (non-blocking):', error);
         }
+
+        // Manually update local state to ensure UI reflects name immediately
+        setAuthData(prev => ({
+          ...prev,
+          user: prev.user ? { ...prev.user, name: data.name } : null
+        }));
       }
 
       return auth.currentUser;
