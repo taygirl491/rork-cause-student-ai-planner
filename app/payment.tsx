@@ -113,6 +113,19 @@ export default function PaymentScreen() {
                     console.error('[Stripe] initPaymentSheet error:', initError);
                 } else {
                     console.log('[Stripe] initPaymentSheet success');
+
+                    // Small delay to ensure initialization is fully settled
+                    await new Promise(resolve => setTimeout(resolve, 300));
+
+                    const { error: presentError } = await presentPaymentSheet();
+                    if (presentError) {
+                        console.error('[Stripe] presentPaymentSheet error:', presentError);
+                        Alert.alert('Error', presentError.message);
+                    } else {
+                        console.log('[Stripe] Payment success');
+                        Alert.alert('Success', 'Payment completed!');
+                        router.back();
+                    }
                 }
             } catch (stripeError: any) {
                 console.error('Stripe Init Error:', stripeError);
