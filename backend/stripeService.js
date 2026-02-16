@@ -46,6 +46,24 @@ async function createPaymentIntent(amount, currency = 'usd', customerId = null, 
 }
 
 /**
+ * Create an ephemeral key for a Stripe customer
+ * @param {string} customerId - Stripe customer ID
+ * @returns {Promise<object>} Ephemeral key
+ */
+async function createEphemeralKey(customerId) {
+    try {
+        const ephemeralKey = await stripe.ephemeralKeys.create(
+            { customer: customerId },
+            { apiVersion: '2023-10-16' } // Match with your Stripe library version or a stable one
+        );
+        return ephemeralKey;
+    } catch (error) {
+        console.error('Error creating ephemeral key:', error);
+        throw new Error(`Failed to create ephemeral key: ${error.message}`);
+    }
+}
+
+/**
  * Create or retrieve a Stripe customer
  * @param {string} email - Customer email
  * @param {string} userId - Your app's user ID
@@ -348,5 +366,6 @@ module.exports = {
     getSubscription,
     createProduct,
     createPrice,
+    createEphemeralKey,
     stripe, // Export stripe instance for advanced usage
 };
