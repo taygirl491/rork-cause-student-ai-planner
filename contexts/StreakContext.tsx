@@ -74,9 +74,9 @@ export function StreakProvider({ children }: { children: ReactNode }) {
         }
     };
 
-    const loadStreakData = async () => {
+    const loadStreakData = async (options?: { silent?: boolean }) => {
         try {
-            setIsLoading(true);
+            if (!options?.silent) setIsLoading(true);
 
             // Try to load from cache first
             const cached = await AsyncStorage.getItem(STREAK_CACHE_KEY);
@@ -105,7 +105,7 @@ export function StreakProvider({ children }: { children: ReactNode }) {
         } catch (error) {
             console.error('Error loading streak data:', error);
         } finally {
-            setIsLoading(false);
+            if (!options?.silent) setIsLoading(false);
         }
     };
 
@@ -153,9 +153,9 @@ export function StreakProvider({ children }: { children: ReactNode }) {
         }
     };
 
-    const refreshStreak = async () => {
+    const refreshStreak = async (options?: { silent?: boolean }) => {
         const oldStreak = streakData?.current || 0;
-        await loadStreakData();
+        await loadStreakData(options);
 
         // After loading fresh data, check if streak increased
         // We do this here as well to capture increases that might happen 

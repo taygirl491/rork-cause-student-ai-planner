@@ -106,15 +106,15 @@ export async function syncTaskToCalendar(
     if (task.dueTime) {
       // Parse time components (HH:MM)
       const [hours, minutes] = task.dueTime.split(':').map(Number);
-      startDate = new Date(year, month - 1, day, hours, minutes);
+      startDate = new Date(year, month - 1, day, hours, minutes, 0, 0);
       
       // Set end date to 1 hour after start (or 30 minutes for exams/appointments)
       const duration = task.type === 'exam' || task.type === 'appointment' ? 30 : 60;
       endDate = new Date(startDate.getTime() + duration * 60 * 1000);
     } else {
-      // All day event
-      startDate = new Date(year, month - 1, day);
-      endDate = new Date(year, month - 1, day + 1); // Next day
+      // All day event - use local midnight range
+      startDate = new Date(year, month - 1, day, 0, 0, 0, 0);
+      endDate = new Date(year, month - 1, day, 23, 59, 59, 999);
       allDay = true;
     }
     
@@ -275,15 +275,15 @@ export async function updateCalendarEvent(
     if (task.dueTime) {
       // Parse time components (HH:MM)
       const [hours, minutes] = task.dueTime.split(':').map(Number);
-      startDate = new Date(year, month - 1, day, hours, minutes);
+      startDate = new Date(year, month - 1, day, hours, minutes, 0, 0);
       
       // Set end date to 1 hour after start (or 30 minutes for exams/appointments)
       const duration = task.type === 'exam' || task.type === 'appointment' ? 30 : 60;
       endDate = new Date(startDate.getTime() + duration * 60 * 1000);
     } else {
-      // All day event
-      startDate = new Date(year, month - 1, day);
-      endDate = new Date(year, month - 1, day + 1); // Next day
+      // All day event - use local midnight range
+      startDate = new Date(year, month - 1, day, 0, 0, 0, 0);
+      endDate = new Date(year, month - 1, day, 23, 59, 59, 999);
       allDay = true;
     }
     

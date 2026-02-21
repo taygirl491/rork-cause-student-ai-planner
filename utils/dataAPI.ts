@@ -28,6 +28,7 @@ export const tasksAPI = {
                     completed: task.completed,
                     createdAt: task.createdAt,
                     calendarEventId: task.calendarEventId,
+                    repeat: task.repeat || 'none',
                 }));
             }
             return [];
@@ -59,6 +60,7 @@ export const tasksAPI = {
                     completed: task.completed,
                     createdAt: task.createdAt,
                     calendarEventId: task.calendarEventId,
+                    repeat: task.repeat || 'none',
                 };
             }
             return null;

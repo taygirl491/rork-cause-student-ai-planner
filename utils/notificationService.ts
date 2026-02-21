@@ -125,15 +125,16 @@ export async function registerForPushNotificationsAsync(): Promise<string | unde
 function calculateTriggerTime(task: Task): Date | null {
   if (!task.dueDate || !task.reminder) return null;
 
-  const dueDate = new Date(task.dueDate);
+  const [year, month, day] = task.dueDate.split('-').map(Number);
+  let dueDate = new Date(year, month - 1, day);
   
   // If task has a specific time, use it
   if (task.dueTime) {
-    const [hours, minutes] = task.dueTime.split(':');
-    dueDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+    const [hours, minutes] = task.dueTime.split(':').map(Number);
+    dueDate = new Date(year, month - 1, day, hours, minutes, 0, 0);
   } else {
     // Default to 9 AM if no time specified
-    dueDate.setHours(9, 0, 0, 0);
+    dueDate = new Date(year, month - 1, day, 9, 0, 0, 0);
   }
 
   let triggerDate = new Date(dueDate);
@@ -286,15 +287,16 @@ export async function scheduleDueDateNotification(task: Task): Promise<string | 
       return null;
     }
 
-    const dueDate = new Date(task.dueDate);
+    const [year, month, day] = task.dueDate.split('-').map(Number);
+    let dueDate = new Date(year, month - 1, day);
     
     // If task has a specific time, use it
     if (task.dueTime) {
-      const [hours, minutes] = task.dueTime.split(':');
-      dueDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+      const [hours, minutes] = task.dueTime.split(':').map(Number);
+      dueDate = new Date(year, month - 1, day, hours, minutes, 0, 0);
     } else {
       // Default to 9 AM if no time specified
-      dueDate.setHours(9, 0, 0, 0);
+      dueDate = new Date(year, month - 1, day, 9, 0, 0, 0);
     }
 
     // Don't schedule if in the past
@@ -373,15 +375,16 @@ export async function scheduleMissedTaskNotification(task: Task): Promise<string
   try {
     if (task.completed || !task.dueDate) return null;
 
-    const missedDate = new Date(task.dueDate);
+    const [year, month, day] = task.dueDate.split('-').map(Number);
+    let missedDate = new Date(year, month - 1, day);
     
     // If task has a specific time, use it
     if (task.dueTime) {
-      const [hours, minutes] = task.dueTime.split(':');
-      missedDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+      const [hours, minutes] = task.dueTime.split(':').map(Number);
+      missedDate = new Date(year, month - 1, day, hours, minutes, 0, 0);
     } else {
       // Default to 9 AM if no time specified
-      missedDate.setHours(9, 0, 0, 0);
+      missedDate = new Date(year, month - 1, day, 9, 0, 0, 0);
     }
 
     // Add 5 minutes

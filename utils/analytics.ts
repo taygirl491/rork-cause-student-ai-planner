@@ -1,4 +1,12 @@
-import analytics from '@react-native-firebase/analytics';
+// Custom analytics utility to guard against missing native modules (e.g., in Expo Go)
+let analytics: any = null;
+
+try {
+  // Only try to import if we're not in a web environment and the module might exist
+  analytics = require('@react-native-firebase/analytics').default;
+} catch (e) {
+  console.warn('Firebase Analytics native module not found. Analytics will be disabled.');
+}
 
 /**
  * Log a custom event to Firebase Analytics
@@ -7,7 +15,9 @@ import analytics from '@react-native-firebase/analytics';
  */
 export const logCustomEvent = async (eventName: string, params?: { [key: string]: any }) => {
   try {
-    await analytics().logEvent(eventName, params);
+    if (analytics) {
+      await analytics().logEvent(eventName, params);
+    }
   } catch (error) {
     console.error('Error logging analytics event:', error);
   }
@@ -20,10 +30,12 @@ export const logCustomEvent = async (eventName: string, params?: { [key: string]
  */
 export const logScreenView = async (screenName: string, screenClass?: string) => {
   try {
-    await analytics().logScreenView({
-      screen_name: screenName,
-      screen_class: screenClass || screenName,
-    });
+    if (analytics) {
+      await analytics().logScreenView({
+        screen_name: screenName,
+        screen_class: screenClass || screenName,
+      });
+    }
   } catch (error) {
     console.error('Error logging screen view:', error);
   }
@@ -35,7 +47,9 @@ export const logScreenView = async (screenName: string, screenClass?: string) =>
  */
 export const setUserProperties = async (properties: { [key: string]: string | null }) => {
   try {
-    await analytics().setUserProperties(properties);
+    if (analytics) {
+      await analytics().setUserProperties(properties);
+    }
   } catch (error) {
     console.error('Error setting user properties:', error);
   }
@@ -47,7 +61,9 @@ export const setUserProperties = async (properties: { [key: string]: string | nu
  */
 export const setUserId = async (userId: string | null) => {
   try {
-    await analytics().setUserId(userId);
+    if (analytics) {
+      await analytics().setUserId(userId);
+    }
   } catch (error) {
     console.error('Error setting user ID:', error);
   }

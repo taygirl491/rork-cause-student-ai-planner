@@ -31,6 +31,11 @@ import {
   HelpCircle,
   Mail,
   AlertTriangle,
+  ArrowLeft,
+  Check,
+  Sparkles,
+  Zap,
+  ExternalLink,
 } from 'lucide-react-native';
 import colors from '@/constants/colors';
 import LogoButton from '@/components/LogoButton';
@@ -58,6 +63,7 @@ export default function AccountScreen() {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [activeSubscription, setActiveSubscription] = useState<any>(null);
   const [loadingSubscription, setLoadingSubscription] = useState(true);
+  const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
   const { user, logout, changePassword } = useAuth();
   const router = useRouter();
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
@@ -239,6 +245,7 @@ export default function AccountScreen() {
     }
 
     try {
+      setLoadingPlan(`${tier}-${interval}`);
       setLoadingSubscription(true);
       let clientSecret, customerId, response;
 
@@ -302,8 +309,6 @@ export default function AccountScreen() {
       }
       console.log('[Stripe] initPaymentSheet success');
 
-      console.log('[Stripe] initPaymentSheet success');
-
       // Close modal before presenting - essential for Android reliability
       setShowPaymentModal(false);
 
@@ -313,8 +318,12 @@ export default function AccountScreen() {
       const { error: paymentError } = await presentPaymentSheet();
 
       if (paymentError) {
-        console.error('[Stripe] presentPaymentSheet error:', paymentError);
-        Alert.alert('Error', paymentError.message);
+        if (paymentError.code !== 'Canceled') {
+          console.error('[Stripe] presentPaymentSheet error:', paymentError);
+          Alert.alert('Error', paymentError.message);
+        } else {
+          console.log('[Stripe] Payment canceled by user');
+        }
       } else {
         console.log('[Stripe] Payment success');
         Alert.alert('Success', 'Thank you for subscribing!');
@@ -322,9 +331,11 @@ export default function AccountScreen() {
         fetchSubscription();
       }
     } catch (error: any) {
-      setLoadingSubscription(false);
       console.error('Payment error:', error);
       Alert.alert('Error', error.message || 'Something went wrong');
+    } finally {
+      setLoadingSubscription(false);
+      setLoadingPlan(null);
     }
   };
 
@@ -668,9 +679,15 @@ export default function AccountScreen() {
               <View style={styles.pricingCards}>
                 {/* Standard Monthly */}
                 <TouchableOpacity
-                  style={[styles.pricingCard]}
+                  style={[styles.pricingCard, loadingPlan === 'standard-monthly' && styles.pricingCardLoading]}
                   onPress={() => handleUpgrade('standard', 'monthly')}
+                  disabled={!!loadingPlan}
                 >
+                  {loadingPlan === 'standard-monthly' && (
+                    <View style={styles.planLoadingOverlay}>
+                      <ActivityIndicator size="small" color={colors.primary} />
+                    </View>
+                  )}
                   <View style={styles.pricingHeader}>
                     <Text style={styles.pricingTitle}>Standard</Text>
                     <Text style={styles.pricingBadge}>MONTHLY</Text>
@@ -685,9 +702,15 @@ export default function AccountScreen() {
 
                 {/* Standard Yearly */}
                 <TouchableOpacity
-                  style={[styles.pricingCard, styles.pricingCardRecommended]}
+                  style={[styles.pricingCard, styles.pricingCardRecommended, loadingPlan === 'standard-yearly' && styles.pricingCardLoading]}
                   onPress={() => handleUpgrade('standard', 'yearly')}
+                  disabled={!!loadingPlan}
                 >
+                  {loadingPlan === 'standard-yearly' && (
+                    <View style={styles.planLoadingOverlay}>
+                      <ActivityIndicator size="small" color={colors.primary} />
+                    </View>
+                  )}
                   <View style={styles.recommendedBadge}>
                     <Text style={styles.recommendedBadgeText}>SAVE $25/YEAR</Text>
                   </View>
@@ -705,9 +728,15 @@ export default function AccountScreen() {
 
                 {/* Premium Monthly */}
                 <TouchableOpacity
-                  style={[styles.pricingCard]}
+                  style={[styles.pricingCard, loadingPlan === 'premium-monthly' && styles.pricingCardLoading]}
                   onPress={() => handleUpgrade('premium', 'monthly')}
+                  disabled={!!loadingPlan}
                 >
+                  {loadingPlan === 'premium-monthly' && (
+                    <View style={styles.planLoadingOverlay}>
+                      <ActivityIndicator size="small" color={colors.primary} />
+                    </View>
+                  )}
                   <View style={styles.pricingHeader}>
                     <Text style={styles.pricingTitle}>Premium</Text>
                     <Text style={styles.pricingBadge}>MONTHLY</Text>
@@ -722,9 +751,15 @@ export default function AccountScreen() {
 
                 {/* Premium Yearly */}
                 <TouchableOpacity
-                  style={[styles.pricingCard, styles.pricingCardRecommended]}
+                  style={[styles.pricingCard, styles.pricingCardRecommended, loadingPlan === 'premium-yearly' && styles.pricingCardLoading]}
                   onPress={() => handleUpgrade('premium', 'yearly')}
+                  disabled={!!loadingPlan}
                 >
+                  {loadingPlan === 'premium-yearly' && (
+                    <View style={styles.planLoadingOverlay}>
+                      <ActivityIndicator size="small" color={colors.primary} />
+                    </View>
+                  )}
                   <View style={styles.recommendedBadge}>
                     <Text style={styles.recommendedBadgeText}>SAVE $50/YEAR</Text>
                   </View>
@@ -742,9 +777,15 @@ export default function AccountScreen() {
 
                 {/* Unlimited Monthly */}
                 <TouchableOpacity
-                  style={[styles.pricingCard]}
+                  style={[styles.pricingCard, loadingPlan === 'unlimited-monthly' && styles.pricingCardLoading]}
                   onPress={() => handleUpgrade('unlimited', 'monthly')}
+                  disabled={!!loadingPlan}
                 >
+                  {loadingPlan === 'unlimited-monthly' && (
+                    <View style={styles.planLoadingOverlay}>
+                      <ActivityIndicator size="small" color={colors.primary} />
+                    </View>
+                  )}
                   <View style={styles.pricingHeader}>
                     <Text style={styles.pricingTitle}>Unlimited</Text>
                     <Text style={styles.pricingBadge}>MONTHLY</Text>
@@ -759,9 +800,15 @@ export default function AccountScreen() {
 
                 {/* Unlimited Yearly */}
                 <TouchableOpacity
-                  style={[styles.pricingCard, styles.pricingCardRecommended]}
+                  style={[styles.pricingCard, styles.pricingCardRecommended, loadingPlan === 'unlimited-yearly' && styles.pricingCardLoading]}
                   onPress={() => handleUpgrade('unlimited', 'yearly')}
+                  disabled={!!loadingPlan}
                 >
+                  {loadingPlan === 'unlimited-yearly' && (
+                    <View style={styles.planLoadingOverlay}>
+                      <ActivityIndicator size="small" color={colors.primary} />
+                    </View>
+                  )}
                   <View style={styles.recommendedBadge}>
                     <Text style={styles.recommendedBadgeText}>BEST VALUE - SAVE $100/YEAR</Text>
                   </View>
@@ -1295,6 +1342,18 @@ const styles = StyleSheet.create({
     padding: 24,
     borderWidth: 2,
     borderColor: colors.border,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  pricingCardLoading: {
+    opacity: 0.6,
+  },
+  planLoadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(255, 255, 255, 0.4)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
   },
   pricingCardRecommended: {
     borderColor: colors.secondary,
@@ -1401,6 +1460,9 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
     marginTop: 8,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
   },
   saveButtonDisabled: {
     opacity: 0.7,

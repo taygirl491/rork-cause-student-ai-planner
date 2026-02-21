@@ -52,10 +52,10 @@ export const [AppProvider, useApp] = createContextHook(() => {
 	const [goals, setGoals] = useState<Goal[]>([]);
 	const [notes, setNotes] = useState<Note[]>([]);
 	const [studyGroups, setStudyGroups] = useState<StudyGroup[]>([]);
-	const [tasksLoading, setTasksLoading] = useState(false);
-	const [classesLoading, setClassesLoading] = useState(false);
-	const [goalsLoading, setGoalsLoading] = useState(false);
-	const [notesLoading, setNotesLoading] = useState(false);
+	const [tasksLoading, setTasksLoading] = useState(!!user?.uid);
+	const [classesLoading, setClassesLoading] = useState(!!user?.uid);
+	const [goalsLoading, setGoalsLoading] = useState(!!user?.uid);
+	const [notesLoading, setNotesLoading] = useState(!!user?.uid);
 	const [calendarSyncEnabled, setCalendarSyncEnabled] = useState(false);
 	const [appCalendarId, setAppCalendarId] = useState<string | null>(null);
 	const [isOnline, setIsOnline] = useState(true);
@@ -74,13 +74,16 @@ export const [AppProvider, useApp] = createContextHook(() => {
 	});
 
 	// Manual refresh function for tasks
-	const refreshTasks = async () => {
+	const refreshTasks = async (options?: { silent?: boolean }) => {
 		if (!user?.uid) return;
 		try {
+			if (!options?.silent) setTasksLoading(true);
 			const tasksData = await tasksAPI.getTasks(user.uid);
 			setTasks(tasksData);
 		} catch (error) {
 			console.error("Error loading tasks:", error);
+		} finally {
+			if (!options?.silent) setTasksLoading(false);
 		}
 	};
 
@@ -139,9 +142,10 @@ export const [AppProvider, useApp] = createContextHook(() => {
 
 
 	// Manual refresh function for classes
-	const refreshClasses = async () => {
+	const refreshClasses = async (options?: { silent?: boolean }) => {
 		if (!user?.uid) return;
 		try {
+			if (!options?.silent) setClassesLoading(true);
 			const classesData = await classesAPI.getClasses(user.uid);
 			// Sort by createdAt descending (newest first)
 			const sortedClasses = classesData.sort((a, b) => {
@@ -152,6 +156,8 @@ export const [AppProvider, useApp] = createContextHook(() => {
 			setClasses(sortedClasses);
 		} catch (error) {
 			console.error("Error loading classes:", error);
+		} finally {
+			if (!options?.silent) setClassesLoading(false);
 		}
 	};
 
@@ -165,9 +171,10 @@ export const [AppProvider, useApp] = createContextHook(() => {
 
 
 	// Manual refresh function for goals
-	const refreshGoals = async () => {
+	const refreshGoals = async (options?: { silent?: boolean }) => {
 		if (!user?.uid) return;
 		try {
+			if (!options?.silent) setGoalsLoading(true);
 			const goalsData = await goalsAPI.getGoals(user.uid);
 			// Sort by createdAt descending (newest first)
 			const sortedGoals = goalsData.sort((a, b) => {
@@ -178,6 +185,8 @@ export const [AppProvider, useApp] = createContextHook(() => {
 			setGoals(sortedGoals);
 		} catch (error) {
 			console.error("Error loading goals:", error);
+		} finally {
+			if (!options?.silent) setGoalsLoading(false);
 		}
 	};
 
@@ -190,13 +199,16 @@ export const [AppProvider, useApp] = createContextHook(() => {
 
 
 	// Manual refresh function for notes
-	const refreshNotes = async () => {
+	const refreshNotes = async (options?: { silent?: boolean }) => {
 		if (!user?.uid) return;
 		try {
+			if (!options?.silent) setNotesLoading(true);
 			const notesData = await notesAPI.getNotes(user.uid);
 			setNotes(notesData);
 		} catch (error) {
 			console.error("Error loading notes:", error);
+		} finally {
+			if (!options?.silent) setNotesLoading(false);
 		}
 	};
 
@@ -323,12 +335,13 @@ export const [AppProvider, useApp] = createContextHook(() => {
 				dueTime: task.dueTime,
 				priority: task.priority,
 				reminder: task.reminder,
-				customReminderDate: task.customReminderDate || null,
+				customReminderDate: task.customReminderDate || undefined,
 				alarmEnabled: task.alarmEnabled,
 				completed: task.completed,
 				createdAt: task.createdAt,
-				calendarEventId: calendarEventId || null,
-			});
+				calendarEventId: calendarEventId || undefined,
+				repeat: task.repeat || 'none',
+			} as any);
 
 			if (newTask) {
 				// Schedule notification if reminder is set and task is not completed
@@ -376,6 +389,19 @@ export const [AppProvider, useApp] = createContextHook(() => {
 					task.calendarEventId,
 					updatedTask as Task
 				);
+			}
+
+			// Handle daily repeating tasks
+			if (updates.completed === true && task.repeat === 'daily') {
+				const currentDate = new Date(task.dueDate);
+				currentDate.setDate(currentDate.getDate() + 1);
+				const nextDueDate = currentDate.toISOString().split('T')[0];
+
+				// Instead of marking completed, we move it to tomorrow
+				updates.completed = false;
+				updates.dueDate = nextDueDate;
+
+				console.log(`[AppContext] Daily task "${task.description}" completed. Moving to ${nextDueDate}.`);
 			}
 
 			// Update local state immediately (Optimistic Update)
@@ -463,8 +489,8 @@ export const [AppProvider, useApp] = createContextHook(() => {
 				endDate: cls.endDate,
 				color: cls.color,
 				createdAt: cls.createdAt,
-				calendarEventId: calendarEventId || null,
-			});
+				calendarEventId: calendarEventId || undefined,
+			} as any);
 
 			// Don't add to state here - the WebSocket event will handle it
 			// This prevents duplicate classes
@@ -539,7 +565,7 @@ export const [AppProvider, useApp] = createContextHook(() => {
 				notificationId: goal.notificationId,
 				createdAt: goal.createdAt,
 				habits: goal.habits || [],
-			});
+			} as any);
 
 			// Don't add to state here - the WebSocket event will handle it
 			// This prevents duplicate goals
@@ -589,7 +615,7 @@ export const [AppProvider, useApp] = createContextHook(() => {
 				content: note.content,
 				createdAt: new Date().toISOString(),
 				updatedAt: new Date().toISOString(),
-			});
+			} as any);
 
 			// Don't add to state here - the WebSocket event will handle it
 			// This prevents duplicate notes
@@ -1228,8 +1254,19 @@ export const [AppProvider, useApp] = createContextHook(() => {
 		refreshNotes,
 		refreshGoals,
 		refreshStudyGroups,
+		refreshAllData: async (options?: { silent?: boolean }) => {
+			await Promise.all([
+				refreshTasks(options),
+				refreshClasses(options),
+				refreshNotes(options),
+				refreshGoals(options),
+				refreshStudyGroups(),
+			]);
+		},
 		isLoading: tasksLoading || classesLoading || goalsLoading || notesLoading,
 		videoConfig,
+		isOnline,
+		pendingOperations,
 	};
 });
 

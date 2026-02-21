@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react-native';
+import { formatStringTime12H } from '@/utils/timeUtils';
 import colors from '@/constants/colors';
 import { useApp } from '@/contexts/AppContext';
 
@@ -118,9 +119,12 @@ export default function CalendarScreen() {
       // Check if the class occurs on this day of the week
       if (!cls.daysOfWeek.includes(dayName)) return false;
 
-      // Parse start and end dates (they're stored as YYYY-MM-DD strings)
-      const classStart = new Date(cls.startDate + 'T00:00:00');
-      const classEnd = new Date(cls.endDate + 'T23:59:59');
+      // Parse start and end dates (YYYY-MM-DD) as local dates
+      const [sYear, sMonth, sDay] = cls.startDate.split('-').map(Number);
+      const classStart = new Date(sYear, sMonth - 1, sDay, 0, 0, 0, 0);
+
+      const [eYear, eMonth, eDay] = cls.endDate.split('-').map(Number);
+      const classEnd = new Date(eYear, eMonth - 1, eDay, 23, 59, 59, 999);
 
       // Create a date at midnight for comparison
       const checkDate = new Date(date);
@@ -238,14 +242,14 @@ export default function CalendarScreen() {
                 {dayClasses.map((cls) => (
                   <View key={cls.id} style={[styles.classItem, { borderLeftColor: cls.color }]}>
                     <Text style={styles.classItemTitle}>{cls.name}</Text>
-                    <Text style={styles.classItemTime}>{cls.time}</Text>
+                    <Text style={styles.classItemTime}>{formatStringTime12H(cls.time)}</Text>
                   </View>
                 ))}
                 {tasks.map((task) => (
                   <View key={task.id} style={[styles.taskItem, { borderLeftColor: colors.taskColors[task.type] }]}>
                     <Text style={styles.taskItemTitle}>{task.description}</Text>
                     <Text style={styles.taskItemType}>
-                      {task.type}{task.dueTime && ` • ${task.dueTime}`}
+                      {task.type}{task.dueTime && ` • ${formatStringTime12H(task.dueTime)}`}
                     </Text>
                   </View>
                 ))}
@@ -271,7 +275,7 @@ export default function CalendarScreen() {
             <View key={cls.id} style={[styles.dayClassCard, { borderLeftColor: cls.color }]}>
               <Text style={styles.dayClassTitle}>{cls.name}</Text>
               <Text style={styles.dayClassMeta}>
-                {cls.section && `${cls.section} • `}{cls.time}
+                {cls.section && `${cls.section} • `}{formatStringTime12H(cls.time)}
               </Text>
               {cls.professor && (
                 <Text style={styles.dayClassProf}>{cls.professor}</Text>
@@ -293,7 +297,7 @@ export default function CalendarScreen() {
                 </View>
               </View>
               {task.dueTime && (
-                <Text style={styles.dayTaskTime}>{task.dueTime}</Text>
+                <Text style={styles.dayTaskTime}>{formatStringTime12H(task.dueTime)}</Text>
               )}
               {task.className && (
                 <Text style={styles.dayTaskClass}>{task.className}</Text>
@@ -429,7 +433,7 @@ export default function CalendarScreen() {
                         {dayClasses.map((cls) => (
                           <View key={cls.id} style={[styles.selectedDayItem, { borderLeftColor: cls.color }]}>
                             <Text style={styles.selectedDayItemTitle}>{cls.name}</Text>
-                            <Text style={styles.selectedDayItemMeta}>{cls.time}</Text>
+                            <Text style={styles.selectedDayItemMeta}>{formatStringTime12H(cls.time)}</Text>
                           </View>
                         ))}
                       </>
@@ -441,7 +445,7 @@ export default function CalendarScreen() {
                           <View key={task.id} style={[styles.selectedDayItem, { borderLeftColor: colors.taskColors[task.type] }]}>
                             <Text style={styles.selectedDayItemTitle}>{task.description}</Text>
                             <Text style={styles.selectedDayItemMeta}>
-                              {task.type} {task.dueTime && `• ${task.dueTime}`}
+                              {task.type} {task.dueTime && `• ${formatStringTime12H(task.dueTime)}`}
                             </Text>
                           </View>
                         ))}
@@ -484,7 +488,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    alignSelf:"flex-end"
+    alignSelf: "flex-end"
   },
   calendarSyncText: {
     fontSize: 14,

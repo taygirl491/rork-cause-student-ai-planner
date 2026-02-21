@@ -24,6 +24,7 @@ import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Goal } from '@/types';
 import { cancelNotification, scheduleGoalNotification, scheduleHabitReminder } from '@/utils/notificationService';
+import { formatTime12H, formatStringTime12H, parseTime12H } from '@/utils/timeUtils';
 import UpgradeModal from '@/components/UpgradeModal';
 
 export default function GoalsScreen() {
@@ -226,7 +227,7 @@ export default function GoalsScreen() {
     setTitle(selectedGoal.title);
     setDescription(selectedGoal.description || '');
     setDueDate(selectedGoal.dueDate ? new Date(selectedGoal.dueDate) : new Date());
-    setDueTime(selectedGoal.dueTime ? new Date(`2000-01-01 ${selectedGoal.dueTime}`) : new Date());
+    setDueTime(selectedGoal.dueTime ? parseTime12H(formatStringTime12H(selectedGoal.dueTime)) : new Date());
     setHabits(selectedGoal.habits || []);
 
     setIsEditing(true);
@@ -420,7 +421,7 @@ export default function GoalsScreen() {
                       {goal.dueDate && (
                         <Text style={styles.goalDueDate}>
                           Due: {new Date(goal.dueDate).toLocaleDateString()}
-                          {goal.dueTime && ` at ${goal.dueTime}`}
+                          {goal.dueTime && ` at ${formatStringTime12H(goal.dueTime)}`}
                         </Text>
                       )}
                     </View>
@@ -610,7 +611,7 @@ export default function GoalsScreen() {
                   {newHabitTime && (
                     <View style={styles.reminderPreview}>
                       <Text style={styles.reminderPreviewText}>
-                        Reminder set for: {newHabitTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                        Reminder set for: {formatTime12H(newHabitTime)}
                       </Text>
                       <TouchableOpacity onPress={() => setNewHabitTime(null)}>
                         <X size={16} color={colors.textSecondary} />
@@ -624,7 +625,7 @@ export default function GoalsScreen() {
                         <View style={{ flex: 1 }}>
                           <Text style={styles.habitChipText}>{habit.title}</Text>
                           {habit.reminderEnabled && habit.reminderTime && (
-                            <Text style={styles.habitChipSubtext}>🔔 {habit.reminderTime}</Text>
+                            <Text style={styles.habitChipSubtext}>🔔 {formatStringTime12H(habit.reminderTime)}</Text>
                           )}
                         </View>
                         <TouchableOpacity onPress={() => removeHabitFromState(index)}>
