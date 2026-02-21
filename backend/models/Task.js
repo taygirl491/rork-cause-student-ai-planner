@@ -58,6 +58,10 @@ const taskSchema = new mongoose.Schema({
         type: String,
         default: null,
     },
+    repeat: {
+        type: String,
+        default: 'none',
+    },
     createdAt: {
         type: String, // ISO date string
         default: () => new Date().toISOString(),

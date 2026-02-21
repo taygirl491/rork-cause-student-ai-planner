@@ -16,6 +16,7 @@ import { useAuth } from '@/contexts/AuthContext';
 
 import { useStripe } from '@stripe/stripe-react-native';
 import apiService from '@/utils/apiService';
+import { ActivityIndicator } from 'react-native';
 
 // This ID should match the Premium Monthly price ID from AccountScreen
 const PREMIUM_MONTHLY_PRICE_ID = 'price_1Sl6opP0t2AuYFqKRMdGp5kO';
@@ -111,60 +112,26 @@ export default function PaymentScreen() {
 
                 if (initError) {
                     console.error('[Stripe] initPaymentSheet error:', initError);
+                    Alert.alert('Error', initError.message);
                 } else {
                     console.log('[Stripe] initPaymentSheet success');
-
-                    // Small delay to ensure initialization is fully settled
-                    await new Promise(resolve => setTimeout(resolve, 300));
-
-                    const { error: presentError } = await presentPaymentSheet();
-                    if (presentError) {
-                        console.error('[Stripe] presentPaymentSheet error:', presentError);
-                        Alert.alert('Error', presentError.message);
-                    } else {
-                        console.log('[Stripe] Payment success');
-                        Alert.alert('Success', 'Payment completed!');
-                        router.back();
-                    }
                 }
             } catch (stripeError: any) {
                 console.error('Stripe Init Error:', stripeError);
-                const Sentry = await import('@sentry/react-native');
-                Sentry.captureException(stripeError, {
-                    tags: { payment_step: 'init_payment_sheet' },
-                    extra: { clientSecret: clientSecret.substring(0, 10) + '...' }
-                });
-                throw new Error(`Payment initialization failed: ${stripeError.message || 'Unknown error'}`);
+                throw stripeError;
             }
 
-            if (initError) {
-                const Sentry = await import('@sentry/react-native');
-                Sentry.captureMessage('Payment sheet init error', {
-                    level: 'error',
-                    tags: { payment_step: 'init_error' },
-                    extra: { error: initError }
-                });
-                Alert.alert('Error', initError.message);
-                setLoading(false);
-                return;
-            }
+            if (initError) return;
+
+            // Small delay to ensure initialization is fully settled
+            await new Promise(resolve => setTimeout(resolve, 300));
 
             // 3. Present Payment Sheet
-            let paymentError;
-            try {
-                const result = await presentPaymentSheet();
-                paymentError = result.error;
-            } catch (presentError: any) {
-                console.error('Present Payment Sheet Error:', presentError);
-                const Sentry = await import('@sentry/react-native');
-                Sentry.captureException(presentError, {
-                    tags: { payment_step: 'present_payment_sheet' }
-                });
-                throw new Error(`Failed to show payment screen: ${presentError.message || 'Unknown error'}`);
-            }
+            const { error: paymentError } = await presentPaymentSheet();
 
             if (paymentError) {
                 if (paymentError.code !== 'Canceled') {
+                    console.error('[Stripe] presentPaymentSheet error:', paymentError);
                     const Sentry = await import('@sentry/react-native');
                     Sentry.captureMessage('Payment error', {
                         level: 'warning',
@@ -172,8 +139,11 @@ export default function PaymentScreen() {
                         extra: { error: paymentError }
                     });
                     Alert.alert('Error', paymentError.message);
+                } else {
+                    console.log('[Stripe] Payment canceled by user');
                 }
             } else {
+                console.log('[Stripe] Payment success');
                 Alert.alert('Success', 'Thank you for subscribing!', [
                     { text: 'OK', onPress: () => router.back() }
                 ]);
@@ -243,14 +213,20 @@ export default function PaymentScreen() {
                         </View>
 
                         <TouchableOpacity
-                            style={styles.subscribeButton}
+                            style={[styles.subscribeButton, loading && styles.subscribeButtonDisabled]}
                             onPress={handlePayment}
                             disabled={loading}
                         >
-                            <CreditCard size={20} color={colors.surface} />
-                            <Text style={styles.subscribeButtonText}>
-                                Subscribe Now
-                            </Text>
+                            {loading ? (
+                                <ActivityIndicator color={colors.surface} />
+                            ) : (
+                                <>
+                                    <CreditCard size={20} color={colors.surface} />
+                                    <Text style={styles.subscribeButtonText}>
+                                        Subscribe Now
+                                    </Text>
+                                </>
+                            )}
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -360,6 +336,10 @@ const styles = StyleSheet.create({
         shadowRadius: 16,
         elevation: 12,
         position: 'relative',
+        overflow: 'hidden',
+    },
+    subscribeButtonDisabled: {
+        opacity: 0.7,
     },
     popularBadge: {
         position: 'absolute',

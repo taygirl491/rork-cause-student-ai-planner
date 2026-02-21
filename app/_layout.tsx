@@ -4,8 +4,8 @@ import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { View, TouchableOpacity, StyleSheet, Modal, Text, ScrollView, Pressable, StatusBar } from "react-native";
-import { Menu, CheckSquare, Calendar, Target, FileText, BookOpen, Heart, Sparkles, User, Home, X, Users } from "lucide-react-native";
-import { AppProvider } from "@/contexts/AppContext";
+import { Menu, CheckSquare, Calendar, Target, FileText, BookOpen, Heart, Sparkles, User, Home, X, Users, WifiOff, RefreshCw } from "lucide-react-native";
+import { AppProvider, useApp } from "@/contexts/AppContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { StreakProvider } from "@/contexts/StreakContext";
 import * as NotificationService from "@/utils/notificationService";
@@ -106,6 +106,15 @@ function ProfileButton() {
   );
 }
 function CustomHeader() {
+  const { isOnline, refreshAllData } = useApp();
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await refreshAllData();
+    setIsRefreshing(false);
+  };
+
   return (
     <View style={menuStyles.header}>
       <View style={menuStyles.headerLeft}>
@@ -113,13 +122,29 @@ function CustomHeader() {
       </View>
       <View style={menuStyles.headerCenter}>
         <LogoButton size={44} />
+        {!isOnline && (
+          <View style={menuStyles.offlineBadge}>
+            <WifiOff size={12} color={colors.surface} />
+            <Text style={menuStyles.offlineText}>Offline</Text>
+          </View>
+        )}
       </View>
-      <View>
-        <View>
-          <ProfileButton />
-        </View>
+      <View style={menuStyles.headerRightContainer}>
+        {isOnline && (
+          <TouchableOpacity
+            onPress={handleRefresh}
+            style={menuStyles.refreshButton}
+            disabled={isRefreshing}
+          >
+            <RefreshCw
+              size={20}
+              color={colors.primary}
+              style={isRefreshing ? { opacity: 0.5 } : {}}
+            />
+          </TouchableOpacity>
+        )}
+        <ProfileButton />
       </View>
-      {/* <View style={menuStyles.headerRight} /> */}
     </View>
   );
 }
@@ -131,6 +156,8 @@ function RootLayoutNav() {
   const { isAuthenticated, isLoading, user } = useAuth();
   const router = useRouter();
   const [onboardingComplete, setOnboardingComplete] = useState<boolean | null>(null);
+
+  const segments = usePathname();
 
   // Set Sentry and Analytics user context when user changes
   useEffect(() => {
@@ -170,7 +197,6 @@ function RootLayoutNav() {
     }
   };
 
-  const segments = usePathname();
 
   useEffect(() => {
     if (!isLoading && onboardingComplete !== null) {
@@ -272,7 +298,7 @@ function RootLayoutNav() {
   );
 }
 
-export default Sentry.wrap(function RootLayout() {
+function RootLayout() {
   useEffect(() => {
     SplashScreen.hideAsync();
   }, []);
@@ -299,7 +325,9 @@ export default Sentry.wrap(function RootLayout() {
       </QueryClientProvider>
     </StripeProvider>
   );
-});
+}
+
+export default Sentry.wrap(RootLayout);
 
 const menuStyles = StyleSheet.create({
   menuButton: {

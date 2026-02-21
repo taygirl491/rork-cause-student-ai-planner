@@ -20,6 +20,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
+import { formatTime12H, formatStringTime12H, parseTime12H } from '@/utils/timeUtils';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Plus, X, CheckCircle, Circle, Edit2, Trash2 } from 'lucide-react-native';
 import colors from '@/constants/colors';
@@ -40,6 +41,7 @@ export default function TasksScreen() {
   const [selectedTaskForDetail, setSelectedTaskForDetail] = useState<Task | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [repeat, setRepeat] = useState<string>('none');
   const [description, setDescription] = useState('');
   const [taskType, setTaskType] = useState<TaskType>('task');
   const [selectedClass, setSelectedClass] = useState<string>('');
@@ -61,32 +63,29 @@ export default function TasksScreen() {
   const detailScaleAnim = React.useRef(new Animated.Value(0)).current;
 
 
-  // Helper to check if a task is missed (not completed and > 10 mins past due)
+  // Helper to check if a task is missed (not completed and past due)
   const isTaskMissed = (task: Task) => {
     if (task.completed) return false;
 
-    // Create due date object
-    const due = new Date(task.dueDate);
+    // Parse YYYY-MM-DD manually to create a local Date object at midnight
+    const [year, month, day] = task.dueDate.split('-').map(Number);
+    const due = new Date(year, month - 1, day);
+
     if (task.dueTime) {
-      const [hours, minutes] = task.dueTime.split(':');
-      due.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+      const [hours, minutes] = task.dueTime.split(':').map(Number);
+      due.setHours(hours, minutes, 0, 0);
     } else {
-      // Default to 9 AM logic if needed, but if no time is specified, usually implies end of day.
-      // However, notification service assumes 9 AM, so let's stick to that for "missed" consistency.
-      due.setHours(9, 0, 0, 0);
+      // If no time is specified, default to end of day (23:59:59)
+      // to avoid marking it missed too early in the day
+      due.setHours(23, 59, 59, 999);
     }
 
     // Add 10 minutes grace period
-    const gracePeriod = new Date(due.getTime() + 10 * 60000); // 10 minutes in ms
+    const gracePeriod = new Date(due.getTime() + 10 * 60000);
 
     return new Date() > gracePeriod;
   };
 
-  useFocusEffect(
-    useCallback(() => {
-      refreshTasks();
-    }, [])
-  );
 
   React.useEffect(() => {
     if (showModal) {
@@ -169,6 +168,7 @@ export default function TasksScreen() {
         className: selectedClass,
         dueDate: formattedDate,
         dueTime: formattedTime,
+        repeat,
         priority,
         reminder,
         customReminderDate: reminder === 'custom' ? customReminderDate.toISOString() : undefined,
@@ -183,6 +183,7 @@ export default function TasksScreen() {
         className: selectedClass,
         dueDate: formattedDate,
         dueTime: formattedTime,
+        repeat,
         priority,
         reminder,
         customReminderDate: reminder === 'custom' ? customReminderDate.toISOString() : undefined,
@@ -210,6 +211,7 @@ export default function TasksScreen() {
     setReminder('1d');
     setCustomReminderDate(new Date());
     setAlarmEnabled(false);
+    setRepeat('none');
   };
 
   const toggleTaskComplete = async (task: Task) => {
@@ -231,13 +233,14 @@ export default function TasksScreen() {
     setTaskType(taskToEdit.type);
     setSelectedClass(taskToEdit.className || '');
     setDueDate(new Date(taskToEdit.dueDate));
-    setDueTime(new Date(`2000-01-01 ${taskToEdit.dueTime}`));
+    setDueTime(taskToEdit.dueTime ? parseTime12H(formatStringTime12H(taskToEdit.dueTime)) : new Date());
     setPriority(taskToEdit.priority);
     setReminder(taskToEdit.reminder || '1d');
     if (taskToEdit.customReminderDate) {
       setCustomReminderDate(new Date(taskToEdit.customReminderDate));
     }
     setAlarmEnabled(taskToEdit.alarmEnabled);
+    setRepeat(taskToEdit.repeat || 'none');
     setIsEditing(true);
     setShowActionSheet(false);
     setShowModal(true);
@@ -266,12 +269,15 @@ export default function TasksScreen() {
   };
 
   const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
+    // Parse YYYY-MM-DD manually to ensure it's treated as local date
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const date = new Date(year, month - 1, day);
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
   const getDaysUntil = (dateStr: string) => {
-    const date = new Date(dateStr);
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const date = new Date(year, month - 1, day);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     date.setHours(0, 0, 0, 0);
@@ -365,7 +371,7 @@ export default function TasksScreen() {
             </View>
             <Text style={[styles.taskDate, missed && { color: '#EF4444' }]}>
               {getDaysUntil(task.dueDate)} • {formatDate(task.dueDate)}
-              {task.dueTime && ` at ${task.dueTime}`}
+              {task.dueTime && ` at ${formatStringTime12H(task.dueTime)}`}
             </Text>
           </View>
         </View>
@@ -615,7 +621,7 @@ export default function TasksScreen() {
                     onPress={() => setShowTimePicker(true)}
                   >
                     <Text style={styles.inputText}>
-                      {dueTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                      {formatTime12H(dueTime)}
                     </Text>
                   </TouchableOpacity>
                   <DateTimePickerModal
@@ -721,6 +727,29 @@ export default function TasksScreen() {
                     onCancel={() => setShowCustomReminderPicker(false)}
                   />
 
+                  <Text style={styles.label}>Repeat</Text>
+                  <View style={styles.optionGrid}>
+                    {['none', 'daily'].map((r) => (
+                      <TouchableOpacity
+                        key={r}
+                        style={[
+                          styles.optionChip,
+                          repeat === r && { backgroundColor: colors.primary },
+                        ]}
+                        onPress={() => setRepeat(r)}
+                      >
+                        <Text
+                          style={[
+                            styles.optionChipText,
+                            repeat === r && { color: colors.surface },
+                          ]}
+                        >
+                          {r.charAt(0).toUpperCase() + r.slice(1)}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+
                   <TouchableOpacity
                     style={[styles.checkboxRow, alarmEnabled && styles.checkboxRowActive]}
                     onPress={() => setAlarmEnabled(!alarmEnabled)}
@@ -802,7 +831,7 @@ export default function TasksScreen() {
                   <Text style={styles.detailLabel}>Due Date</Text>
                   <Text style={styles.detailValue}>
                     {selectedTaskForDetail && formatDate(selectedTaskForDetail.dueDate)}
-                    {selectedTaskForDetail?.dueTime && ` at ${selectedTaskForDetail.dueTime}`}
+                    {selectedTaskForDetail?.dueTime && ` at ${formatStringTime12H(selectedTaskForDetail.dueTime)}`}
                   </Text>
                 </View>
 

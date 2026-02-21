@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Button,
+  RefreshControl,
 } from 'react-native';
 import YoutubePlayer from 'react-native-youtube-iframe';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -17,21 +18,27 @@ import { useStreak } from '@/contexts/StreakContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Zap, Flame, Trophy, ListChecks, CheckCircle, Circle, Clock } from 'lucide-react-native';
 import * as Sentry from '@sentry/react-native';
+import { formatStringTime12H } from '@/utils/timeUtils';
 import UpgradeModal from '@/components/UpgradeModal';
 import DailyStreakModal from '@/components/DailyStreakModal';
 import StreakFireAnimation from '@/components/StreakFireAnimation';
 
 export default function HomeScreen() {
-  const { sortedTasks, videoConfig, isLoading, refreshTasks } = useApp();
-  const { streakData, refreshStreak, showDailyModal, setShowDailyModal, showAnimation, setShowAnimation, animStreakNumber } = useStreak();
+  const { sortedTasks, videoConfig, isLoading, refreshAllData } = useApp();
+  const { streakData, refreshStreak, showDailyModal, setShowDailyModal, showAnimation, setShowAnimation, animStreakNumber, isLoading: isStreakLoading } = useStreak();
   const { user, checkPermission } = useAuth();
   const router = useRouter();
 
-  useFocusEffect(
-    useCallback(() => {
-      refreshTasks();
-    }, [])
-  );
+  const [refreshing, setRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await Promise.all([
+      refreshAllData({ silent: true }),
+      refreshStreak({ silent: true })
+    ]);
+    setRefreshing(false);
+  };
 
   const educationQuotes = useMemo(() => [
     "Education is the most powerful weapon which you can use to change the world. - Nelson Mandela",
@@ -89,17 +96,29 @@ export default function HomeScreen() {
     return `In ${diff} days`;
   };
 
-  if (isLoading) {
+  if (isLoading || isStreakLoading) {
     return (
-      <View style={[styles.container, styles.loadingContainer]}>
+      <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={styles.loadingText}>Crushing your goals...</Text>
       </View>
     );
   }
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            colors={[colors.primary]}
+            tintColor={colors.primary}
+          />
+        }
+      >
         <View style={styles.heroSection}>
           <Text style={styles.appTitle}>Cause Student AI Planner</Text>
           <Text style={styles.heroSubtitle}>Making a difference, one task at a time</Text>
@@ -199,7 +218,7 @@ export default function HomeScreen() {
                       <Clock size={12} color={colors.textLight} />
                       <Text style={styles.taskDate}>
                         {getDaysUntil(task.dueDate)}
-                        {task.dueTime && ` at ${task.dueTime}`}
+                        {task.dueTime && ` at ${formatStringTime12H(task.dueTime)}`}
                       </Text>
                     </View>
                   </View>
@@ -252,8 +271,16 @@ const styles = StyleSheet.create({
     // paddingBottom: 50,
   },
   loadingContainer: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: colors.background,
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.textSecondary,
   },
   scrollView: {
     flex: 1,

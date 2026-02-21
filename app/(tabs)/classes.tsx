@@ -21,6 +21,7 @@ import {
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Plus, X, BookOpen, Clock, User, Calendar as CalendarIcon, Edit2, Trash2 } from 'lucide-react-native';
+import { formatTime12H } from '@/utils/timeUtils';
 import colors from '@/constants/colors';
 import { useApp } from '@/contexts/AppContext';
 import { Class } from '@/types';
@@ -29,14 +30,7 @@ import SearchBar from '@/components/SearchBar';
 const CLASS_COLORS = [colors.primary, colors.secondary, colors.success, colors.warning, '#56CCF2', '#F2994A'];
 const DAYS_OF_WEEK = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
-// Convert JS date → 12-hour string
-const formatTime12H = (date: Date): string => {
-  let hours = date.getHours();
-  const minutes = date.getMinutes().toString().padStart(2, '0');
-  const ampm = hours >= 12 ? 'PM' : 'AM';
-  hours = hours % 12 || 12; // Convert 0 → 12
-  return `${hours}:${minutes} ${ampm}`;
-};
+
 
 export default function ClassesScreen() {
   const {
@@ -185,18 +179,35 @@ export default function ClassesScreen() {
   const handleEdit = () => {
     if (!selectedClass) return;
 
-    // Parse time string "HH:MM AM/PM - HH:MM AM/PM"
-    const [startTimeStr] = selectedClass.time.split(' - ');
-    const startTimeDate = new Date(`2000-01-01 ${startTimeStr}`);
-    const endTimeStr = selectedClass.time.split(' - ')[1];
-    const endTimeDate = new Date(`2000-01-01 ${endTimeStr}`);
+    const [startTimeStr, endTimeStr] = selectedClass.time.split(' - ');
+
+    const parseTime = (timeStr: string) => {
+      const match = timeStr.match(/(\d+):(\d+)\s*(AM|PM)/i);
+      if (!match) return new Date();
+      let hours = parseInt(match[1]);
+      const minutes = parseInt(match[2]);
+      const ampm = match[3].toUpperCase();
+      if (ampm === 'PM' && hours !== 12) hours += 12;
+      if (ampm === 'AM' && hours === 12) hours = 0;
+      const d = new Date();
+      d.setHours(hours, minutes, 0, 0);
+      return d;
+    };
+
+    const startTimeDate = parseTime(startTimeStr);
+    const endTimeDate = parseTime(endTimeStr);
 
     setName(selectedClass.name);
     setSection(selectedClass.section || '');
     setSelectedDays(selectedClass.daysOfWeek);
     setProfessor(selectedClass.professor || '');
-    setStartDate(new Date(selectedClass.startDate));
-    setEndDate(new Date(selectedClass.endDate));
+
+    const [sYear, sMonth, sDay] = selectedClass.startDate.split('-').map(Number);
+    setStartDate(new Date(sYear, sMonth - 1, sDay));
+
+    const [eYear, eMonth, eDay] = selectedClass.endDate.split('-').map(Number);
+    setEndDate(new Date(eYear, eMonth - 1, eDay));
+
     setStartTime(startTimeDate);
     setEndTime(endTimeDate);
     setSelectedColor(selectedClass.color);
@@ -234,42 +245,49 @@ export default function ClassesScreen() {
     setRefreshing(false);
   };
 
-  const renderClassItem = ({ item: cls }: { item: Class }) => (
-    <TouchableOpacity
-      style={[styles.classCard, { borderLeftColor: cls.color }]}
-      onLongPress={() => handleLongPress(cls)}
-    >
-      <View style={[styles.classIconContainer, { backgroundColor: cls.color + '20' }]}>
-        <BookOpen size={28} color={cls.color} />
-      </View>
-      <View style={styles.classContent}>
-        <Text style={styles.className}>{cls.name}</Text>
+  const renderClassItem = ({ item: cls }: { item: Class }) => {
+    const formatDateStr = (dateStr: string) => {
+      const [year, month, day] = dateStr.split('-').map(Number);
+      return new Date(year, month - 1, day).toLocaleDateString();
+    };
 
-        {cls.section ? <Text style={styles.classSection}>{cls.section}</Text> : null}
-
-        <View style={styles.classMetaRow}>
-          <Clock size={14} color={colors.textSecondary} />
-          <Text style={styles.classMetaText}>{cls.time}</Text>
+    return (
+      <TouchableOpacity
+        style={[styles.classCard, { borderLeftColor: cls.color }]}
+        onLongPress={() => handleLongPress(cls)}
+      >
+        <View style={[styles.classIconContainer, { backgroundColor: cls.color + '20' }]}>
+          <BookOpen size={28} color={cls.color} />
         </View>
+        <View style={styles.classContent}>
+          <Text style={styles.className}>{cls.name}</Text>
 
-        <View style={styles.classMetaRow}>
-          <CalendarIcon size={14} color={colors.textSecondary} />
-          <Text style={styles.classMetaText}>{cls.daysOfWeek.join(', ')}</Text>
-        </View>
+          {cls.section ? <Text style={styles.classSection}>{cls.section}</Text> : null}
 
-        {cls.professor ? (
           <View style={styles.classMetaRow}>
-            <User size={14} color={colors.textSecondary} />
-            <Text style={styles.classMetaText}>{cls.professor}</Text>
+            <Clock size={14} color={colors.textSecondary} />
+            <Text style={styles.classMetaText}>{cls.time}</Text>
           </View>
-        ) : null}
 
-        <Text style={styles.classDates}>
-          {new Date(cls.startDate).toLocaleDateString()} - {new Date(cls.endDate).toLocaleDateString()}
-        </Text>
-      </View>
-    </TouchableOpacity>
-  );
+          <View style={styles.classMetaRow}>
+            <CalendarIcon size={14} color={colors.textSecondary} />
+            <Text style={styles.classMetaText}>{cls.daysOfWeek.join(', ')}</Text>
+          </View>
+
+          {cls.professor ? (
+            <View style={styles.classMetaRow}>
+              <User size={14} color={colors.textSecondary} />
+              <Text style={styles.classMetaText}>{cls.professor}</Text>
+            </View>
+          ) : null}
+
+          <Text style={styles.classDates}>
+            {formatDateStr(cls.startDate)} - {formatDateStr(cls.endDate)}
+          </Text>
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
