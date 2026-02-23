@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Alert, Modal } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Alert, Modal, Image } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -151,10 +151,10 @@ export default function LoginScreen() {
             keyboardShouldPersistTaps="handled"
           >
             <View style={styles.header}>
+
               <View style={styles.iconContainer}>
-                <GraduationCap size={64} color="#fff" strokeWidth={2} />
+                <Image source={require('../assets/images/logo.png')} style={styles.logo} />
               </View>
-              <Text style={styles.title}>Cause Student</Text>
               <Text style={styles.subtitle}>Empowering Students to Excel</Text>
             </View>
 
@@ -327,13 +327,18 @@ const styles = StyleSheet.create({
     marginBottom: 48,
   },
   iconContainer: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    width: 150,
+    height: 150,
+    borderRadius: 150,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 24,
+  },
+  logo: {
+    width: 150,
+    height: 150,
+    resizeMode: 'contain',
   },
   title: {
     fontSize: 32,

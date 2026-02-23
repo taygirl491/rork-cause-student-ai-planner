@@ -275,7 +275,7 @@ export default function AccountScreen() {
       }
 
       const initParams = {
-        merchantDisplayName: 'Cause Student AI Planner',
+        merchantDisplayName: 'Cause AI Planner',
         customerId: customerId,
         customerEphemeralKeySecret: response.ephemeralKey,
         allowsDelayedPaymentMethods: true,
@@ -451,7 +451,7 @@ export default function AccountScreen() {
 
   const handleContactSupport = () => {
     const email = 'support@causestudentplanner.com';
-    const subject = 'Support Request - Cause Student AI Planner';
+    const subject = 'Support Request - Cause AI Planner';
     const body = 'Hi Support Team,\n\nI need help with:\n\n';
 
     const mailtoUrl = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
@@ -652,7 +652,7 @@ export default function AccountScreen() {
         </View>
 
         <View style={styles.footer}>
-          <Text style={styles.footerText}>Cause Student AI Planner v1.0.0</Text>
+          <Text style={styles.footerText}>Cause AI Planner v1.0.0</Text>
           <Text style={styles.footerSubtext}>Making the world better while acing your classes 🌍</Text>
         </View>
       </ScrollView>

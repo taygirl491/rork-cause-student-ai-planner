@@ -102,7 +102,7 @@ export default function PaymentScreen() {
                 const result = await initPaymentSheet({
                     paymentIntentClientSecret: clientSecret.startsWith('pi_') ? clientSecret : undefined,
                     setupIntentClientSecret: clientSecret.startsWith('seti_') ? clientSecret : undefined,
-                    merchantDisplayName: 'Cause Student AI Planner',
+                    merchantDisplayName: 'Cause AI Planner',
                     customerId: customerId,
                     customerEphemeralKeySecret: response.ephemeralKey,
                     allowsDelayedPaymentMethods: true,

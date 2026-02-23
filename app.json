@@ -4,14 +4,14 @@
     "slug": "cause-student-ai-planner",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/logo.png",
     "scheme": "causeai",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/images/splash-icon.png",
+      "image": "./assets/images/logo.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#001370"
     },
     "ios": {
       "supportsTablet": false,
@@ -25,8 +25,8 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "foregroundImage": "./assets/images/logo.png",
+        "backgroundColor": "#001370"
       },
       "package": "com.minato.causeai",
       "permissions": [
@@ -35,7 +35,14 @@
         "android.permission.WRITE_EXTERNAL_STORAGE",
         "android.permission.RECORD_AUDIO",
         "android.permission.INTERNET",
-        "android.permission.ACCESS_NETWORK_STATE"
+        "android.permission.ACCESS_NETWORK_STATE",
+        "android.permission.SCHEDULE_EXACT_ALARM",
+        "android.permission.VIBRATE",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.WAKE_LOCK",
+        "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK",
+        "android.permission.POST_NOTIFICATIONS"
       ],
       "usesCleartextTraffic": true,
       "googleServicesFile": "./google-services.json"
@@ -97,9 +104,9 @@
         "origin": "https://rork.com/"
       },
       "eas": {
-        "projectId": "3b1f486b-50ab-4d58-90f3-ab34ba4fdcd0"
+        "projectId": "4f03b063-7906-41bc-bbe8-fb11613e296e"
       }
     },
-    "owner": "eluwaiz"
+    "owner": "uwaiz"
   }
 }
