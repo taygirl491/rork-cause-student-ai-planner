@@ -1,12 +1,13 @@
 import { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Alert, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Mail, Lock, User as UserIcon, GraduationCap, ArrowLeft, Eye, EyeOff } from 'lucide-react-native';
+import { Mail, Lock, User as UserIcon, ArrowLeft, Eye, EyeOff } from 'lucide-react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import colors from '@/constants/colors';
 import { registerForPushNotificationsAsync, savePushToken } from '@/functions/Notify';
+import Button from '@/components/Button';
 
 export default function RegisterScreen() {
   const [name, setName] = useState('');
@@ -90,10 +91,10 @@ export default function RegisterScreen() {
 
             <View style={styles.header}>
               <View style={styles.iconContainer}>
-                <GraduationCap size={64} color="#fff" strokeWidth={2} />
+                <Image source={require('../assets/images/logo.png')} style={styles.logo} />
               </View>
               <Text style={styles.title}>Create Account</Text>
-              <Text style={styles.subtitle}>Join Cause Student Today</Text>
+              <Text style={styles.subtitle}>Join Cause AI Today</Text>
             </View>
 
             <View style={styles.formContainer}>
@@ -184,15 +185,12 @@ export default function RegisterScreen() {
                 </TouchableOpacity>
               </View>
 
-              <TouchableOpacity
-                style={[styles.registerButton, isRegistering && styles.registerButtonDisabled]}
+              <Button
+                title="Create Account"
                 onPress={handleRegister}
-                disabled={isRegistering}
-              >
-                <Text style={styles.registerButtonText}>
-                  {isRegistering ? 'Creating Account...' : 'Create Account'}
-                </Text>
-              </TouchableOpacity>
+                isLoading={isRegistering}
+                style={styles.registerButton}
+              />
 
               <TouchableOpacity
                 style={styles.loginLink}
@@ -239,13 +237,18 @@ const styles = StyleSheet.create({
     marginBottom: 32,
   },
   iconContainer: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    width: 150,
+    height: 150,
+    borderRadius: 150,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 20,
+  },
+  logo: {
+    width: 150,
+    height: 150,
+    resizeMode: 'contain',
   },
   title: {
     fontSize: 28,

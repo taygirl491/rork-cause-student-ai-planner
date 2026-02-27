@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Alert, Modal } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Alert, Modal, Image } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -10,6 +10,7 @@ import colors from '@/constants/colors';
 import { registerForPushNotificationsAsync, savePushToken } from '@/functions/Notify';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '@/firebaseConfig';
+import Button from '@/components/Button';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -151,10 +152,10 @@ export default function LoginScreen() {
             keyboardShouldPersistTaps="handled"
           >
             <View style={styles.header}>
+
               <View style={styles.iconContainer}>
-                <GraduationCap size={64} color="#fff" strokeWidth={2} />
+                <Image source={require('../assets/images/logo.png')} style={styles.logo} />
               </View>
-              <Text style={styles.title}>Cause Student</Text>
               <Text style={styles.subtitle}>Empowering Students to Excel</Text>
             </View>
 
@@ -210,15 +211,12 @@ export default function LoginScreen() {
                 <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity
-                style={[styles.loginButton, (isLoggingIn || isNavigating) && styles.loginButtonDisabled]}
+              <Button
+                title="Login"
                 onPress={handleLogin}
-                disabled={isLoggingIn || isNavigating}
-              >
-                <Text style={styles.loginButtonText}>
-                  {(isLoggingIn || isNavigating) ? 'Logging in...' : 'Login'}
-                </Text>
-              </TouchableOpacity>
+                isLoading={isLoggingIn || isNavigating}
+                style={styles.loginButton}
+              />
 
               <View style={styles.divider}>
                 <View style={styles.dividerLine} />
@@ -226,13 +224,13 @@ export default function LoginScreen() {
                 <View style={styles.dividerLine} />
               </View>
 
-              <TouchableOpacity
-                style={styles.registerButton}
+              <Button
+                title="Create New Account"
                 onPress={handleRegister}
+                variant="outline"
                 disabled={isLoggingIn || isNavigating}
-              >
-                <Text style={styles.registerButtonText}>Create New Account</Text>
-              </TouchableOpacity>
+                style={styles.registerButton}
+              />
             </View>
           </ScrollView>
         </KeyboardAvoidingView>
@@ -274,28 +272,19 @@ export default function LoginScreen() {
                   />
 
                   <View style={styles.modalButtons}>
-                    <TouchableOpacity
-                      style={[styles.modalButton, styles.modalButtonCancel]}
+                    <Button
+                      title="Cancel"
                       onPress={() => setShowForgotModal(false)}
-                    >
-                      <Text style={styles.modalButtonTextCancel}>Cancel</Text>
-                    </TouchableOpacity>
+                      variant="outline"
+                      style={styles.modalButton}
+                    />
 
-                    <TouchableOpacity
-                      style={[
-                        styles.modalButton,
-                        styles.modalButtonConfirm,
-                        isResetting && styles.disabledButton
-                      ]}
+                    <Button
+                      title="Send Link"
                       onPress={handleForgotPassword}
-                      disabled={isResetting}
-                    >
-                      {isResetting ? (
-                        <Text style={styles.modalButtonTextConfirm}>Sending...</Text>
-                      ) : (
-                        <Text style={styles.modalButtonTextConfirm}>Send Link</Text>
-                      )}
-                    </TouchableOpacity>
+                      isLoading={isResetting}
+                      style={styles.modalButton}
+                    />
                   </View>
                 </View>
               </TouchableOpacity>
@@ -327,13 +316,18 @@ const styles = StyleSheet.create({
     marginBottom: 48,
   },
   iconContainer: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    width: 150,
+    height: 150,
+    borderRadius: 150,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 24,
+  },
+  logo: {
+    width: 150,
+    height: 150,
+    resizeMode: 'contain',
   },
   title: {
     fontSize: 32,

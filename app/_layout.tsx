@@ -1,9 +1,10 @@
+import "react-native-get-random-values";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack, useRouter, usePathname } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { View, TouchableOpacity, StyleSheet, Modal, Text, ScrollView, Pressable, StatusBar } from "react-native";
+import { View, TouchableOpacity, StyleSheet, Modal, Text, ScrollView, Pressable, StatusBar, Image } from "react-native";
 import { Menu, CheckSquare, Calendar, Target, FileText, BookOpen, Heart, Sparkles, User, Home, X, Users, WifiOff, RefreshCw } from "lucide-react-native";
 import { AppProvider, useApp } from "@/contexts/AppContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
@@ -16,13 +17,6 @@ import { auth } from "@/firebaseConfig";
 import * as Sentry from '@sentry/react-native';
 import { StripeProvider } from '@stripe/stripe-react-native';
 import * as Analytics from "@/utils/analytics";
-
-// Initialize Sentry
-Sentry.init({
-  dsn: process.env.EXPO_PUBLIC_SENTRY_DSN || 'https://b73520e1b6648db41574a92098b42ec2@o4510577981915136.ingest.us.sentry.io/4510577983356928',
-  debug: true,
-  tracesSampleRate: 1.0,
-});
 
 SplashScreen.preventAutoHideAsync();
 
@@ -121,7 +115,7 @@ function CustomHeader() {
         <MenuButton />
       </View>
       <View style={menuStyles.headerCenter}>
-        <LogoButton size={44} />
+        <LogoButton size={100} />
         {!isOnline && (
           <View style={menuStyles.offlineBadge}>
             <WifiOff size={12} color={colors.surface} />
@@ -200,6 +194,25 @@ function RootLayoutNav() {
 
   useEffect(() => {
     if (!isLoading && onboardingComplete !== null) {
+      SplashScreen.hideAsync();
+    }
+  }, [isLoading, onboardingComplete]);
+
+  useEffect(() => {
+    // Initialize Analytics
+    const initAnalytics = async () => {
+      try {
+        await Analytics.init();
+        console.log('[Analytics] initialized');
+      } catch (error) {
+        console.error('[Analytics] initialization failed:', error);
+      }
+    };
+    initAnalytics();
+  }, []);
+
+  useEffect(() => {
+    if (!isLoading && onboardingComplete !== null) {
       const inAuthGroup = segments === '/login' || segments === '/register' || segments === '/onboarding' || segments === '/intro-survey';
       const isInvite = segments?.startsWith('/invite');
 
@@ -237,8 +250,28 @@ function RootLayoutNav() {
     return () => subscription.remove();
   }, [router]);
 
-  if (isLoading || onboardingComplete === null) {
-    return null;
+  const inAuthGroup = segments === '/login' || segments === '/register' || segments === '/onboarding' || segments === '/intro-survey';
+  const isInvite = segments?.startsWith('/invite');
+
+  // Show a blank cover screen while:
+  // 1. Auth is still loading, OR
+  // 2. Onboarding status not yet read, OR
+  // 3. User is not authenticated AND not yet on an auth screen (redirect in-flight)
+  const shouldShowCover =
+    isLoading ||
+    onboardingComplete === null ||
+    (!isAuthenticated && !inAuthGroup && !isInvite);
+
+  if (shouldShowCover) {
+    return (
+      <View style={splashStyles.container}>
+        <Image
+          source={require('../assets/images/logo.png')}
+          style={splashStyles.logo}
+          resizeMode="contain"
+        />
+      </View>
+    );
   }
 
   return (
@@ -299,12 +332,21 @@ function RootLayoutNav() {
 }
 
 function RootLayout() {
+  const stripeKey = process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY || 'pk_live_51PRLrfP0t2AuYFqKyKwaltV3py5wvWtfdPgfadWXFl3k7nbhygi2O8J9XnwuZMWWfLavLKiN7E2A794UozlAOBq2003kcHeHIE';
+
   useEffect(() => {
-    SplashScreen.hideAsync();
+    // Initialize Sentry inside effect to prevent fatal error at module level if native module is missing
+    try {
+      Sentry.init({
+        dsn: process.env.EXPO_PUBLIC_SENTRY_DSN || 'https://b73520e1b6648db41574a92098b42ec2@o4510577981915136.ingest.us.sentry.io/4510577983356928',
+        debug: true,
+        tracesSampleRate: 1.0,
+      });
+    } catch (e) {
+      console.warn('Sentry initialization failed:', e);
+    }
   }, []);
 
-
-  const stripeKey = process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY || 'pk_live_51PRLrfP0t2AuYFqKyKwaltV3py5wvWtfdPgfadWXFl3k7nbhygi2O8J9XnwuZMWWfLavLKiN7E2A794UozlAOBq2003kcHeHIE';
   console.log('[Stripe] Initializing with key:', stripeKey ? stripeKey.substring(0, 10) + '...' : 'MISSING');
 
   return (
@@ -327,7 +369,24 @@ function RootLayout() {
   );
 }
 
-export default Sentry.wrap(RootLayout);
+const WrappedRootLayout = Sentry.wrap(RootLayout);
+
+export default function Layout() {
+  return <WrappedRootLayout />;
+}
+
+const splashStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#ffffff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logo: {
+    width: 200,
+    height: 200,
+  },
+});
 
 const menuStyles = StyleSheet.create({
   menuButton: {
@@ -338,8 +397,7 @@ const menuStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 12,
-    paddingTop: (StatusBar.currentHeight || 0) + 10,
-    paddingBottom: 12,
+    paddingTop: (StatusBar.currentHeight || 0),
     backgroundColor: colors.surface,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
@@ -351,13 +409,35 @@ const menuStyles = StyleSheet.create({
   headerCenter: {
     flex: 1,
     alignItems: 'center',
+    gap: 4,
+  },
+  headerRightContainer: {
+    width: 80,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 4,
   },
   headerCalendar: {
-    width: 80,
-    alignItems: 'flex-end',
+    padding: 8,
   },
-  headerRight: {
-    width: 80,
+  refreshButton: {
+    padding: 8,
+  },
+  offlineBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.error,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    gap: 4,
+    marginTop: -4,
+  },
+  offlineText: {
+    color: colors.surface,
+    fontSize: 10,
+    fontWeight: '700',
   },
   overlay: {
     flex: 1,

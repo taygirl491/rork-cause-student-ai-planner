@@ -18,6 +18,7 @@ import {
 	RefreshControl,
 	Switch,
 } from "react-native";
+import Button from "@/components/Button";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import UpgradeModal from "@/components/UpgradeModal";
@@ -64,6 +65,7 @@ export default function StudyGroupsScreen() {
 	const [showActionSheet, setShowActionSheet] = useState(false);
 	const [selectedGroup, setSelectedGroup] = useState<StudyGroup | null>(null);
 	const [searchQuery, setSearchQuery] = useState("");
+	const [isSaving, setIsSaving] = useState(false);
 	const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
 	// Filter groups based on search query
@@ -123,36 +125,42 @@ export default function StudyGroupsScreen() {
 	const handleCreateGroup = async () => {
 		if (!groupName || !groupClass || !groupSchool) return;
 
-		const newGroup = await createStudyGroup({
-			name: groupName,
-			className: groupClass,
-			school: groupSchool,
-			description: groupDescription,
-			isPrivate: isPrivate,
-		});
-
-		if (newGroup) {
-			Alert.alert(
-				"Group Created!",
-				`Group Code: ${newGroup.code}\n\nShare this code with others to join the group.`,
-				[
-					{ text: "Share Link", onPress: () => shareGroupCode(newGroup.code || "") },
-					{ text: "OK" }
-				]
-			);
-			schedulePushNotification({
-				title: "Group Created!",
-				body: `Group Code: ${newGroup.code}\n\nShare this code with others to join the group.`,
-				data: { group: newGroup },
+		setIsSaving(true);
+		try {
+			const newGroup = await createStudyGroup({
+				name: groupName,
+				className: groupClass,
+				school: groupSchool,
+				description: groupDescription,
+				isPrivate: isPrivate,
 			});
 
-			await refreshStudyGroups();
+			if (newGroup) {
+				Alert.alert(
+					"Group Created!",
+					`Group Code: ${newGroup.code}\n\nShare this code with others to join the group.`,
+					[
+						{ text: "Share Link", onPress: () => shareGroupCode(newGroup.code || "") },
+						{ text: "OK" }
+					]
+				);
+				schedulePushNotification({
+					title: "Group Created!",
+					body: `Group Code: ${newGroup.code}\n\nShare this code with others to join the group.`,
+					data: { group: newGroup },
+				});
 
-			await refreshStudyGroups();
-			resetGroupForm();
-			setShowCreateGroupModal(false);
-		} else {
-			Alert.alert("Error", "Failed to create group. Please try again.");
+				await refreshStudyGroups();
+				resetGroupForm();
+				setShowCreateGroupModal(false);
+			} else {
+				Alert.alert("Error", "Failed to create group. Please try again.");
+			}
+		} catch (error) {
+			console.error("Error creating group:", error);
+			Alert.alert("Error", "An unexpected error occurred.");
+		} finally {
+			setIsSaving(false);
 		}
 	};
 
@@ -186,37 +194,45 @@ export default function StudyGroupsScreen() {
 		// Use user's name from auth context, or fallback to "Student" or email prefix
 		const userName = user.name || user.email.split('@')[0] || "Student";
 
-		const result = await joinStudyGroup(joinCode.toUpperCase(), user.email, userName);
+		setIsSaving(true);
+		try {
+			const result = await joinStudyGroup(joinCode.toUpperCase(), user.email, userName);
 
-		if (!result) {
-			Alert.alert("Error", "Invalid group code. Please check and try again.");
-			return;
-		}
+			if (!result) {
+				Alert.alert("Error", "Invalid group code. Please check and try again.");
+				return;
+			}
 
-		// Check if it's a pending status
-		if (result.status === 'pending') {
-			Alert.alert(
-				"Request Sent",
-				"Your request to join has been sent to the group admins for approval."
-			);
-			await refreshStudyGroups();
-			setJoinCode("");
-			setShowJoinGroupModal(false);
-			return;
-		}
+			// Check if it's a pending status
+			if (result.status === 'pending') {
+				Alert.alert(
+					"Request Sent",
+					"Your request to join has been sent to the group admins for approval."
+				);
+				await refreshStudyGroups();
+				setJoinCode("");
+				setShowJoinGroupModal(false);
+				return;
+			}
 
-		// Otherwise it's a successful join (result.status === 'joined')
-		if ('name' in result) {
-			schedulePushNotification({
-				title: "Group Joined!",
-				body: `You have joined the group: ${result.name}`,
-				data: { group: result },
-			});
+			// Otherwise it's a successful join (result.status === 'joined')
+			if ('name' in result) {
+				schedulePushNotification({
+					title: "Group Joined!",
+					body: `You have joined the group: ${result.name}`,
+					data: { group: result },
+				});
 
-			Alert.alert("Success", `You have joined the group: ${result.name}`);
-			await refreshStudyGroups();
-			setJoinCode("");
-			setShowJoinGroupModal(false);
+				Alert.alert("Success", `You have joined the group: ${result.name}`);
+				await refreshStudyGroups();
+				setJoinCode("");
+				setShowJoinGroupModal(false);
+			}
+		} catch (error) {
+			console.error("Error joining group:", error);
+			Alert.alert("Error", "An unexpected error occurred.");
+		} finally {
+			setIsSaving(false);
 		}
 	};
 
@@ -498,17 +514,13 @@ export default function StudyGroupsScreen() {
 												thumbColor={isPrivate ? colors.surface : colors.textLight}
 											/>
 										</View>
-										<TouchableOpacity
-											style={[
-												styles.createButton,
-												(!groupName || !groupClass || !groupSchool) &&
-												styles.createButtonDisabled,
-											]}
+										<Button
+											title="Create Group"
 											onPress={handleCreateGroup}
+											isLoading={isSaving}
 											disabled={!groupName || !groupClass || !groupSchool}
-										>
-											<Text style={styles.createButtonText}>Create Group</Text>
-										</TouchableOpacity>
+											style={styles.createButton}
+										/>
 									</ScrollView>
 								</Animated.View>
 							</TouchableOpacity>
@@ -557,16 +569,13 @@ export default function StudyGroupsScreen() {
 											autoCapitalize="characters"
 										/>
 
-										<TouchableOpacity
-											style={[
-												styles.createButton,
-												!joinCode && styles.createButtonDisabled,
-											]}
+										<Button
+											title="Join Group"
 											onPress={handleJoinGroup}
+											isLoading={isSaving}
 											disabled={!joinCode}
-										>
-											<Text style={styles.createButtonText}>Join Group</Text>
-										</TouchableOpacity>
+											style={styles.createButton}
+										/>
 									</ScrollView>
 								</Animated.View>
 							</TouchableOpacity>

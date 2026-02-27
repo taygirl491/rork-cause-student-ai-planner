@@ -24,8 +24,31 @@ import DailyStreakModal from '@/components/DailyStreakModal';
 import StreakFireAnimation from '@/components/StreakFireAnimation';
 
 export default function HomeScreen() {
-  const { sortedTasks, videoConfig, isLoading, refreshAllData } = useApp();
-  const { streakData, refreshStreak, showDailyModal, setShowDailyModal, showAnimation, setShowAnimation, animStreakNumber, isLoading: isStreakLoading } = useStreak();
+  const ctx = useApp();
+  const sortedTasks = ctx?.sortedTasks || [];
+  const videoConfig = ctx?.videoConfig;
+  const isLoading = ctx?.isLoading;
+  const refreshAllData = ctx?.refreshAllData;
+
+  // Use optional chaining or try-catch for useStreak as it might be missing during early render/crashes
+  let streakCtx: any = {};
+  try {
+    streakCtx = useStreak();
+  } catch (e) {
+    console.warn('StreakContext not found in HomeScreen, using fallback');
+  }
+
+  const {
+    streakData,
+    refreshStreak,
+    showDailyModal,
+    setShowDailyModal,
+    showAnimation,
+    setShowAnimation,
+    animStreakNumber,
+    isLoading: isStreakLoading
+  } = streakCtx;
+
   const { user, checkPermission } = useAuth();
   const router = useRouter();
 
@@ -35,7 +58,7 @@ export default function HomeScreen() {
     setRefreshing(true);
     await Promise.all([
       refreshAllData({ silent: true }),
-      refreshStreak({ silent: true })
+      refreshStreak()
     ]);
     setRefreshing(false);
   };
@@ -96,7 +119,7 @@ export default function HomeScreen() {
     return `In ${diff} days`;
   };
 
-  if (isLoading || isStreakLoading) {
+  if (isLoading || isStreakLoading || !ctx) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={colors.primary} />
@@ -120,37 +143,37 @@ export default function HomeScreen() {
         }
       >
         <View style={styles.heroSection}>
-          <Text style={styles.appTitle}>Cause Student AI Planner</Text>
+          <Text style={styles.appTitle}>Cause AI Planner</Text>
           <Text style={styles.heroSubtitle}>Making a difference, one task at a time</Text>
 
           <View style={styles.statsGrid}>
             <View style={[styles.statBox, { backgroundColor: '#E0F2FE' }]}>
               <View style={[styles.statIconContainer, { backgroundColor: 'white' }]}>
-                <ListChecks size={20} color="#0EA5E9" />
+                <ListChecks size={20} color={colors.primary} />
               </View>
               <Text style={styles.statValue}>{todayTasksInfo.remaining}</Text>
               <Text style={styles.statLabel}>Today's Tasks</Text>
             </View>
 
-            <View style={[styles.statBox, { backgroundColor: '#FFEDD5' }]}>
+            <View style={[styles.statBox, { backgroundColor: '#EFF6FF' }]}>
               <View style={[styles.statIconContainer, { backgroundColor: 'white' }]}>
-                <Flame size={20} color="#F97316" />
+                <Flame size={20} color={colors.secondary} />
               </View>
               <Text style={styles.statValue}>{streakData?.current || 0}</Text>
               <Text style={styles.statLabel}>Current Streak</Text>
             </View>
 
-            <View style={[styles.statBox, { backgroundColor: '#F0F9FF' }]}>
+            <View style={[styles.statBox, { backgroundColor: '#DBEAFE' }]}>
               <View style={[styles.statIconContainer, { backgroundColor: 'white' }]}>
-                <Zap size={20} color="#06B6D4" />
+                <Zap size={20} color={colors.primaryLight} />
               </View>
               <Text style={styles.statValue}>{streakData?.points || 0}</Text>
               <Text style={styles.statLabel}>Total Points</Text>
             </View>
 
-            <View style={[styles.statBox, { backgroundColor: '#F5F3FF' }]}>
+            <View style={[styles.statBox, { backgroundColor: '#D1FAE5' }]}>
               <View style={[styles.statIconContainer, { backgroundColor: 'white' }]}>
-                <Trophy size={20} color="#8B5CF6" />
+                <Trophy size={20} color={colors.success} />
               </View>
               <Text style={styles.statValue}>{streakData?.level || 1}</Text>
               <Text style={styles.statLabel}>Levels</Text>

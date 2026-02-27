@@ -21,6 +21,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import colors from '@/constants/colors';
+import * as Analytics from '@/utils/analytics';
 import { useAuth } from '@/contexts/AuthContext';
 import { sendMessage, generateMessageId, analyzeImage, getUsageStats } from '@/utils/aiService';
 import { AIMessage } from '@/types';
@@ -222,8 +223,14 @@ export default function AIBuddyScreen() {
     setInputText('');
     setIsLoading(true);
 
+    Analytics.logCustomEvent('ai_inquiry_sent', {
+      mode: mode,
+      has_attachment: !!selectedFile,
+      attachment_type: selectedFile?.type || 'none'
+    });
+
     try {
-      let response: { reply: string; timestamp: string };
+      let response: { reply: string; timestamp: string; usageRemaining?: number };
 
       if (selectedFile && selectedFile.type === 'image') {
         // Use server-side vision analysis for images

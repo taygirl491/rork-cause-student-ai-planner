@@ -19,6 +19,7 @@ import {
   Pressable,
   RefreshControl,
 } from 'react-native';
+import Button from '@/components/Button';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { formatTime12H, formatStringTime12H, parseTime12H } from '@/utils/timeUtils';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -28,6 +29,7 @@ import { useApp } from '@/contexts/AppContext';
 import { Task, TaskType, Priority, ReminderTime } from '@/types';
 import Mascot from '@/components/Mascot';
 import SearchBar from '@/components/SearchBar';
+import * as Analytics from '@/utils/analytics';
 
 
 export default function TasksScreen() {
@@ -54,6 +56,7 @@ export default function TasksScreen() {
   const [customReminderDate, setCustomReminderDate] = useState(new Date());
   const [showCustomReminderPicker, setShowCustomReminderPicker] = useState(false);
   const [alarmEnabled, setAlarmEnabled] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Search and filter states
   const [searchQuery, setSearchQuery] = useState('');
@@ -160,45 +163,59 @@ export default function TasksScreen() {
     const formattedDate = dueDate.toISOString().split('T')[0];
     const formattedTime = dueTime.toTimeString().split(' ')[0].substring(0, 5);
 
-    if (isEditing && selectedTask) {
-      // Update existing task
-      await updateTask(selectedTask.id, {
-        description,
-        type: taskType,
-        className: selectedClass,
-        dueDate: formattedDate,
-        dueTime: formattedTime,
-        repeat,
-        priority,
-        reminder,
-        customReminderDate: reminder === 'custom' ? customReminderDate.toISOString() : undefined,
-        alarmEnabled,
-      });
-    } else {
-      // Create new task
-      const newTask: Task = {
-        id: Date.now().toString(),
-        description,
-        type: taskType,
-        className: selectedClass,
-        dueDate: formattedDate,
-        dueTime: formattedTime,
-        repeat,
-        priority,
-        reminder,
-        customReminderDate: reminder === 'custom' ? customReminderDate.toISOString() : undefined,
-        alarmEnabled,
-        completed: false,
-        createdAt: new Date().toISOString(),
-      };
-      await addTask(newTask);
-    }
+    setIsSaving(true);
+    try {
+      if (isEditing && selectedTask) {
+        // Update existing task
+        await updateTask(selectedTask.id, {
+          description,
+          type: taskType,
+          className: selectedClass,
+          dueDate: formattedDate,
+          dueTime: formattedTime,
+          repeat,
+          priority,
+          reminder,
+          customReminderDate: reminder === 'custom' ? customReminderDate.toISOString() : undefined,
+          alarmEnabled,
+        });
+      } else {
+        // Create new task
+        const newTask: Task = {
+          id: Date.now().toString(),
+          description,
+          type: taskType,
+          className: selectedClass,
+          dueDate: formattedDate,
+          dueTime: formattedTime,
+          repeat,
+          priority,
+          reminder,
+          customReminderDate: reminder === 'custom' ? customReminderDate.toISOString() : undefined,
+          alarmEnabled,
+          completed: false,
+          createdAt: new Date().toISOString(),
+        };
+        await addTask(newTask);
+        Analytics.logCustomEvent('task_created', {
+          type: taskType,
+          priority: priority,
+          has_class: !!selectedClass,
+          reminder_set: alarmEnabled
+        });
+      }
 
-    await refreshTasks();
-    resetForm();
-    setShowModal(false);
-    setIsEditing(false);
-    setSelectedTask(null);
+      await refreshTasks();
+      resetForm();
+      setShowModal(false);
+      setIsEditing(false);
+      setSelectedTask(null);
+    } catch (error) {
+      console.error("Error saving task:", error);
+      Alert.alert('Error', 'Failed to save task. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const resetForm = () => {
@@ -216,6 +233,14 @@ export default function TasksScreen() {
 
   const toggleTaskComplete = async (task: Task) => {
     updateTask(task.id, { completed: !task.completed });
+
+    if (!task.completed) {
+      Analytics.logCustomEvent('task_completed', {
+        type: task.type,
+        priority: task.priority,
+        days_to_due: Math.ceil((new Date(task.dueDate).getTime() - new Date().getTime()) / (1000 * 3600 * 24))
+      });
+    }
 
     // Streak update is now handled automatically by the backend
     // and state updates are handled optimistically by AppContext
@@ -760,13 +785,13 @@ export default function TasksScreen() {
                     <Text style={styles.checkboxLabel}>Enable alarm sound</Text>
                   </TouchableOpacity>
 
-                  <TouchableOpacity
-                    style={[styles.createButton, !description && styles.createButtonDisabled]}
+                  <Button
+                    title={isEditing ? 'Update Task' : 'Create Task'}
                     onPress={handleAddTask}
+                    isLoading={isSaving}
                     disabled={!description}
-                  >
-                    <Text style={styles.createButtonText}>{isEditing ? 'Update Task' : 'Create Task'}</Text>
-                  </TouchableOpacity>
+                    style={styles.createButton}
+                  />
                 </ScrollView>
               </Animated.View>
             </TouchableOpacity>

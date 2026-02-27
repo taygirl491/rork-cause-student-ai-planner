@@ -6,29 +6,19 @@ interface LogoButtonProps {
   size?: number;
 }
 
-export default function LogoButton({ size = 40 }: LogoButtonProps) {
+export default function LogoButton({ size = 100 }: LogoButtonProps) {
   const router = useRouter();
 
   return (
-    <TouchableOpacity 
-      style={[styles.container, { width: size, height: size }]} 
-      onPress={() => router.push('/')}
-      activeOpacity={0.7}
-    >
-      <Image
-        source={require('@/assets/images/icon.png')}
-        style={[styles.logo, { width: size, height: size }]}
-        resizeMode="contain"
-      />
-    </TouchableOpacity>
+    <Image
+      source={require('@/assets/images/logo.png')}
+      style={[styles.logo, { width: size, height: size }]}
+      resizeMode="contain"
+    />
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   logo: {
     borderRadius: 8,
   },

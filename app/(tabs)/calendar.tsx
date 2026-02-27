@@ -13,6 +13,7 @@ import { ChevronLeft, ChevronRight, X } from 'lucide-react-native';
 import { formatStringTime12H } from '@/utils/timeUtils';
 import colors from '@/constants/colors';
 import { useApp } from '@/contexts/AppContext';
+import * as Analytics from '@/utils/analytics';
 
 type ViewMode = 'month' | 'week' | 'day';
 
@@ -330,6 +331,7 @@ export default function CalendarScreen() {
       // Enable sync
       const success = await toggleCalendarSync(true);
       if (success) {
+        Analytics.logCustomEvent('calendar_sync_toggled', { enabled: true });
         Alert.alert(
           'Calendar Sync Enabled',
           'Your tasks will now be synced to your device calendar in the "Student Planner" calendar.',

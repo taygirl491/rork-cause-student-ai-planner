@@ -4,10 +4,12 @@ import {
   Text,
   StyleSheet,
   ScrollView,
+  TouchableOpacity,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import YoutubePlayer from 'react-native-youtube-iframe';
-import { Heart, BookOpen, Leaf, Brain, Users, GraduationCap } from 'lucide-react-native';
+import { Heart, BookOpen, Brain, Users, GraduationCap, ExternalLink } from 'lucide-react-native';
 import colors from '@/constants/colors';
 
 import { useApp } from '@/contexts/AppContext';
@@ -33,12 +35,7 @@ export default function CausesScreen() {
       description: 'Supporting teachers who are making a difference in low-income communities.',
       color: colors.warning,
     },
-    {
-      icon: Leaf,
-      title: 'Environmental Education',
-      description: 'Promoting environmental awareness and sustainability education programs.',
-      color: colors.success,
-    },
+
     {
       icon: Brain,
       title: 'Mental Health',
@@ -70,15 +67,9 @@ export default function CausesScreen() {
         <View style={styles.impactCard}>
           <Text style={styles.impactTitle}>Here's the Deal 🤝</Text>
           <Text style={styles.impactText}>
-            20% of your subscription ($1 out of $5) goes straight
-            to helping students, protecting the environment, and supporting mental
-            health. Every. Single. Month.
+            10% of our profits go straight to helping students and supporting mental health. Every. Single. Month.
           </Text>
           <View style={styles.statsRow}>
-            <View style={styles.statBox}>
-              <Text style={styles.statValue}>$12</Text>
-              <Text style={styles.statLabel}>Per Year</Text>
-            </View>
             <View style={styles.statBox}>
               <Text style={styles.statValue}>100%</Text>
               <Text style={styles.statLabel}>Transparent</Text>
@@ -86,29 +77,7 @@ export default function CausesScreen() {
           </View>
         </View>
 
-        <View style={styles.pricingCard}>
-          <Text style={styles.pricingTitle}>Subscription Options</Text>
-          <View style={styles.pricingOption}>
-            <View style={styles.pricingLeft}>
-              <Text style={styles.pricingPrice}>$5</Text>
-              <Text style={styles.pricingPeriod}>per month</Text>
-            </View>
-            <View style={styles.pricingRight}>
-              <Text style={styles.pricingDonation}>$1/month to charity</Text>
-            </View>
-          </View>
-          <View style={styles.divider} />
-          <View style={styles.pricingOption}>
-            <View style={styles.pricingLeft}>
-              <Text style={styles.pricingPrice}>$20</Text>
-              <Text style={styles.pricingPeriod}>per year</Text>
-            </View>
-            <View style={styles.pricingRight}>
-              <Text style={styles.pricingDonation}>$12/year to charity</Text>
-              <Text style={styles.savingsBadge}>Save $40/year</Text>
-            </View>
-          </View>
-        </View>
+
 
         <Text style={styles.sectionTitle}>Supported Causes</Text>
 
@@ -127,14 +96,10 @@ export default function CausesScreen() {
         <View style={styles.missionCard}>
           <Text style={styles.missionTitle}>Our Mission 🌍</Text>
           <Text style={styles.missionText}>
-            We believe every student deserves the tools to absolutely
-            crush it in school. When you use our app, you're not just getting your life
-            together—you're helping students everywhere access education, protect
-            the planet, and get mental health support.
+            We believe every student deserves the tools to absolutely crush it in school. When you use our app, you're not just getting your life together – you're helping students everywhere access education and get mental health support.
           </Text>
           <Text style={styles.missionText}>
-            Basically, you're making the
-            world better while acing your classes. That's what we call a win-win.
+            Basically, you're making the world better while acing your classes. That's what we call a win-win.
           </Text>
         </View>
 
@@ -175,8 +140,22 @@ export default function CausesScreen() {
           </>
         )}
 
-        <Text style={styles.sectionTitle}>Student Inspirational Talks</Text>
-        <Text style={styles.sectionSubtitle}>Watch inspiring stories from students making a difference</Text>
+        <View style={styles.groupTherapyCard}>
+          <Text style={styles.groupTherapyTitle}>Group Therapy 💬</Text>
+          <Text style={styles.groupTherapyText}>
+            We offer group therapy sessions to all users of our app.
+          </Text>
+          <TouchableOpacity
+            style={styles.groupTherapyButton}
+            onPress={() => Linking.openURL('https://causeai.app/group-therapy')}
+          >
+            <Text style={styles.groupTherapyButtonText}>Click here for more information and to sign up</Text>
+            <ExternalLink size={16} color={colors.primary} style={{ marginLeft: 6 }} />
+          </TouchableOpacity>
+        </View>
+
+        <Text style={styles.sectionTitle}>Pep Talks 🎤</Text>
+        <Text style={styles.sectionSubtitle}>Motivation from students like you: Lights, Camera, Win! – Submit your vid here for prizes. Must be 18 or over to submit.</Text>
 
         <View style={styles.videoCard}>
           <Text style={styles.videoTitle}>How I Changed the World as a Student</Text>
@@ -214,6 +193,16 @@ export default function CausesScreen() {
             height={190}
             width="100%"
             videoId={videoConfig?.causesVideo4Id || "dQw4w9WgXcQ"}
+            play={false}
+          />
+        </View>
+
+        <View style={styles.videoCard}>
+          <Text style={styles.videoTitle}>How I Protect My Mental Health at School</Text>
+          <YoutubePlayer
+            height={190}
+            width="100%"
+            videoId={videoConfig?.causesVideo5Id || "dQw4w9WgXcQ"}
             play={false}
           />
         </View>
@@ -517,5 +506,41 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: colors.text,
     lineHeight: 24,
+  },
+  groupTherapyCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    padding: 20,
+    marginHorizontal: 20,
+    marginBottom: 20,
+    borderLeftWidth: 4,
+    borderLeftColor: '#56CCF2',
+    shadowColor: colors.cardShadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  groupTherapyTitle: {
+    fontSize: 20,
+    fontWeight: '700' as const,
+    color: colors.text,
+    marginBottom: 8,
+  },
+  groupTherapyText: {
+    fontSize: 15,
+    color: colors.textSecondary,
+    lineHeight: 22,
+    marginBottom: 12,
+  },
+  groupTherapyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  groupTherapyButtonText: {
+    fontSize: 15,
+    fontWeight: '600' as const,
+    color: colors.primary,
+    textDecorationLine: 'underline',
   },
 });
