@@ -16,12 +16,14 @@ import {
 	Share,
 	RefreshControl,
 } from "react-native";
+import Button from "@/components/Button";
 import { useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Plus, X, FileText, Edit2, Trash2, Download } from "lucide-react-native";
 import colors from "@/constants/colors";
 import { useApp } from "@/contexts/AppContext";
 import SearchBar from "@/components/SearchBar";
+import * as Analytics from "@/utils/analytics";
 import { Note } from "@/types";
 import { useStreak } from "@/contexts/StreakContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -42,6 +44,7 @@ export default function NotesScreen() {
 	const [selectedClass, setSelectedClass] = useState("");
 	const [isEditing, setIsEditing] = useState(false);
 	const [selectedNote, setSelectedNote] = useState<Note | null>(null);
+	const [isSaving, setIsSaving] = useState(false);
 	const [editContent, setEditContent] = useState("");
 
 	const scaleAnim = React.useRef(new Animated.Value(0)).current;
@@ -120,34 +123,45 @@ export default function NotesScreen() {
 		]);
 	};
 
-	const handleCreateNote = () => {
+	const handleCreateNote = async () => {
 		if (!title) return;
 		// Check access before creating/updating
 		if (!checkAccess()) return;
 
-		if (isEditing && selectedNote) {
-			updateNote(selectedNote.id, {
-				title,
-				className: selectedClass,
-			});
-			setIsEditing(false);
-			setSelectedNote(null);
-		} else {
-			addNote({
-				title,
-				className: selectedClass,
-				content: "",
-				createdAt: new Date().toISOString(),
-				updatedAt: new Date().toISOString(),
-			});
-			// Award points for creating a note
-			awardPoints(5, 'feature').catch(err => console.error('Error awarding points:', err));
-		}
+		setIsSaving(true);
+		try {
+			if (isEditing && selectedNote) {
+				await updateNote(selectedNote.id, {
+					title,
+					className: selectedClass,
+				});
+				setIsEditing(false);
+				setSelectedNote(null);
+			} else {
+				await addNote({
+					title,
+					className: selectedClass,
+					content: "",
+					createdAt: new Date().toISOString(),
+					updatedAt: new Date().toISOString(),
+				});
+				// Award points for creating a note
+				awardPoints(5, 'feature').catch(err => console.error('Error awarding points:', err));
+				Analytics.logCustomEvent('note_created', {
+					has_class: !!selectedClass
+				});
+			}
 
-		refreshNotes();
-		setShowModal(false);
-		setTitle("");
-		setSelectedClass("");
+			await refreshNotes();
+			setShowModal(false);
+			setTitle("");
+			setSelectedClass("");
+		} catch (error) {
+			console.error("Error saving note:", error);
+			Alert.alert("Error", "Failed to save note. Please try again.");
+		} finally {
+			setIsSaving(false);
+		}
 	};
 
 	const handleOpenNote = (note: Note) => {
@@ -156,13 +170,24 @@ export default function NotesScreen() {
 		setShowDetailModal(true);
 	};
 
-	const handleUpdateNote = () => {
+	const handleUpdateNote = async () => {
 		if (selectedNote) {
 			// Check access before saving updates
 			if (!checkAccess()) return;
-			updateNote(selectedNote.id, {
-				content: editContent,
-			});
+			setIsSaving(true);
+			try {
+				await updateNote(selectedNote.id, {
+					content: editContent,
+				});
+				Analytics.logCustomEvent('note_saved', {
+					content_length: editContent.length,
+					has_class: !!selectedNote.className
+				});
+			} catch (error) {
+				console.error("Error updating note:", error);
+			} finally {
+				setIsSaving(false);
+			}
 		}
 	};
 
@@ -446,16 +471,13 @@ export default function NotesScreen() {
 									))}
 								</View>
 
-								<TouchableOpacity
-									style={[
-										styles.createButton,
-										!title && styles.createButtonDisabled,
-									]}
+								<Button
+									title={isEditing ? "Update Note" : "Create Note"}
 									onPress={handleCreateNote}
+									isLoading={isSaving}
 									disabled={!title}
-								>
-									<Text style={styles.createButtonText}>Create Note</Text>
-								</TouchableOpacity>
+									style={styles.createButton}
+								/>
 							</Animated.View>
 						</TouchableOpacity>
 					</TouchableOpacity>
@@ -530,15 +552,15 @@ export default function NotesScreen() {
 									>
 										<Text style={styles.deleteButtonText}>Delete Note</Text>
 									</TouchableOpacity>
-									<TouchableOpacity
-										style={styles.saveButton}
-										onPress={() => {
-											handleUpdateNote();
+									<Button
+										title="Done"
+										onPress={async () => {
+											await handleUpdateNote();
 											setShowDetailModal(false);
 										}}
-									>
-										<Text style={styles.saveButtonText}>Done</Text>
-									</TouchableOpacity>
+										isLoading={isSaving}
+										style={styles.saveButton}
+									/>
 								</View>
 
 								<TouchableOpacity

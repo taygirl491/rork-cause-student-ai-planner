@@ -15,6 +15,7 @@ import {
   Keyboard,
   RefreshControl,
 } from 'react-native';
+import Button from '@/components/Button';
 import { useFocusEffect } from 'expo-router';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -26,6 +27,7 @@ import { Goal } from '@/types';
 import { cancelNotification, scheduleGoalNotification, scheduleHabitReminder } from '@/utils/notificationService';
 import { formatTime12H, formatStringTime12H, parseTime12H } from '@/utils/timeUtils';
 import UpgradeModal from '@/components/UpgradeModal';
+import * as Analytics from '@/utils/analytics';
 
 export default function GoalsScreen() {
   const { goals, addGoal, updateGoal, deleteGoal, refreshGoals } = useApp();
@@ -45,6 +47,7 @@ export default function GoalsScreen() {
   // Edit/Delete state
   const [showActionSheet, setShowActionSheet] = useState(false);
   const [selectedGoal, setSelectedGoal] = useState<Goal | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [habits, setHabits] = useState<{
     title: string;
@@ -153,55 +156,68 @@ export default function GoalsScreen() {
       return habit;
     }));
 
-    if (isEditing && selectedGoal) {
-      const updatedGoal: Partial<Goal> = {
-        title,
-        description,
-        dueDate: formattedDate,
-        dueTime: formattedTime,
-        habits: processedHabits,
-      };
-      updateGoal(selectedGoal.id, updatedGoal);
+    setIsSaving(true);
+    try {
+      if (isEditing && selectedGoal) {
+        const updatedGoal: Partial<Goal> = {
+          title,
+          description,
+          dueDate: formattedDate,
+          dueTime: formattedTime,
+          habits: processedHabits,
+        };
+        updateGoal(selectedGoal.id, updatedGoal);
 
-      // Cancel old notification and schedule new one
-      if (selectedGoal.notificationId) {
-        await cancelNotification(selectedGoal.notificationId);
+        // Cancel old notification and schedule new one
+        if (selectedGoal.notificationId) {
+          await cancelNotification(selectedGoal.notificationId);
+        }
+        const notificationId = await scheduleGoalNotification({
+          ...selectedGoal,
+          ...updatedGoal,
+        } as Goal);
+        if (notificationId) {
+          await updateGoal(selectedGoal.id, { notificationId });
+        }
+      } else {
+        const tempGoal: Goal = {
+          id: Date.now().toString(),
+          title,
+          description,
+          dueDate: formattedDate,
+          dueTime: formattedTime,
+          completed: false,
+          createdAt: new Date().toISOString(),
+          habits: processedHabits,
+        };
+
+        // Schedule notification first to get ID
+        const notificationId = await scheduleGoalNotification(tempGoal);
+
+        const newGoal: Goal = {
+          ...tempGoal,
+          notificationId: notificationId || undefined,
+        };
+
+        await addGoal(newGoal);
+        Analytics.logCustomEvent('goal_created', {
+          has_description: !!description,
+          habit_count: habits.length,
+          has_reminder: !!notificationId
+        });
       }
-      const notificationId = await scheduleGoalNotification({
-        ...selectedGoal,
-        ...updatedGoal,
-      } as Goal);
-      if (notificationId) {
-        await updateGoal(selectedGoal.id, { notificationId });
-      }
-    } else {
-      const tempGoal: Goal = {
-        id: Date.now().toString(),
-        title,
-        description,
-        dueDate: formattedDate,
-        dueTime: formattedTime,
-        completed: false,
-        createdAt: new Date().toISOString(),
-        habits: processedHabits,
-      };
 
-      // Schedule notification first to get ID
-      const notificationId = await scheduleGoalNotification(tempGoal);
-
-      const newGoal: Goal = {
-        ...tempGoal,
-        notificationId: notificationId || undefined,
-      };
-
-      await addGoal(newGoal);
+      await refreshGoals();
+      resetForm();
+      setShowModal(false);
+      setIsEditing(false);
+      setSelectedGoal(null);
+    } catch (error) {
+      console.error("Error saving goal:", error);
+      Alert.alert('Error', 'Failed to save goal. Please try again.');
+    } finally {
+      setIsSaving(false);
     }
-
-    await refreshGoals();
-    resetForm();
-    setShowModal(false);
-    setIsEditing(false);
-    setSelectedGoal(null);
   };
 
   const resetForm = () => {
@@ -262,6 +278,13 @@ export default function GoalsScreen() {
   const toggleGoalComplete = (goal: Goal) => {
     if (!checkAccess()) return;
     updateGoal(goal.id, { completed: !goal.completed });
+
+    if (!goal.completed) {
+      Analytics.logCustomEvent('goal_completed', {
+        habit_count: goal.habits?.length || 0,
+        days_since_created: Math.ceil((new Date().getTime() - new Date(goal.createdAt).getTime()) / (1000 * 3600 * 24))
+      });
+    }
   };
 
   const addHabitToState = () => {
@@ -635,12 +658,12 @@ export default function GoalsScreen() {
                     ))}
                   </View>
 
-                  <TouchableOpacity
-                    style={styles.createButton}
+                  <Button
+                    title={isEditing ? 'Update Goal' : 'Create Goal'}
                     onPress={handleAddGoal}
-                  >
-                    <Text style={styles.createButtonText}>{isEditing ? 'Update Goal' : 'Create Goal'}</Text>
-                  </TouchableOpacity>
+                    isLoading={isSaving}
+                    style={styles.createButton}
+                  />
                 </ScrollView>
               </Animated.View>
             </TouchableOpacity>

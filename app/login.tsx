@@ -10,6 +10,7 @@ import colors from '@/constants/colors';
 import { registerForPushNotificationsAsync, savePushToken } from '@/functions/Notify';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '@/firebaseConfig';
+import Button from '@/components/Button';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -210,15 +211,12 @@ export default function LoginScreen() {
                 <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity
-                style={[styles.loginButton, (isLoggingIn || isNavigating) && styles.loginButtonDisabled]}
+              <Button
+                title="Login"
                 onPress={handleLogin}
-                disabled={isLoggingIn || isNavigating}
-              >
-                <Text style={styles.loginButtonText}>
-                  {(isLoggingIn || isNavigating) ? 'Logging in...' : 'Login'}
-                </Text>
-              </TouchableOpacity>
+                isLoading={isLoggingIn || isNavigating}
+                style={styles.loginButton}
+              />
 
               <View style={styles.divider}>
                 <View style={styles.dividerLine} />
@@ -226,13 +224,13 @@ export default function LoginScreen() {
                 <View style={styles.dividerLine} />
               </View>
 
-              <TouchableOpacity
-                style={styles.registerButton}
+              <Button
+                title="Create New Account"
                 onPress={handleRegister}
+                variant="outline"
                 disabled={isLoggingIn || isNavigating}
-              >
-                <Text style={styles.registerButtonText}>Create New Account</Text>
-              </TouchableOpacity>
+                style={styles.registerButton}
+              />
             </View>
           </ScrollView>
         </KeyboardAvoidingView>
@@ -274,28 +272,19 @@ export default function LoginScreen() {
                   />
 
                   <View style={styles.modalButtons}>
-                    <TouchableOpacity
-                      style={[styles.modalButton, styles.modalButtonCancel]}
+                    <Button
+                      title="Cancel"
                       onPress={() => setShowForgotModal(false)}
-                    >
-                      <Text style={styles.modalButtonTextCancel}>Cancel</Text>
-                    </TouchableOpacity>
+                      variant="outline"
+                      style={styles.modalButton}
+                    />
 
-                    <TouchableOpacity
-                      style={[
-                        styles.modalButton,
-                        styles.modalButtonConfirm,
-                        isResetting && styles.disabledButton
-                      ]}
+                    <Button
+                      title="Send Link"
                       onPress={handleForgotPassword}
-                      disabled={isResetting}
-                    >
-                      {isResetting ? (
-                        <Text style={styles.modalButtonTextConfirm}>Sending...</Text>
-                      ) : (
-                        <Text style={styles.modalButtonTextConfirm}>Send Link</Text>
-                      )}
-                    </TouchableOpacity>
+                      isLoading={isResetting}
+                      style={styles.modalButton}
+                    />
                   </View>
                 </View>
               </TouchableOpacity>

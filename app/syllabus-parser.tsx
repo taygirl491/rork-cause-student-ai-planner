@@ -14,6 +14,7 @@ import {
     KeyboardAvoidingView,
     Platform,
 } from 'react-native';
+import Button from '@/components/Button';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, Upload, FileText, CheckCircle, Circle, Save, Trash2, Pencil, X, File as FileIcon } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
@@ -24,6 +25,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useApp } from '@/contexts/AppContext';
 import apiService from '@/utils/apiService';
 import colors from '@/constants/colors';
+import * as Analytics from '@/utils/analytics';
 
 // Types for parsed data
 interface ParsedAssignment {
@@ -121,11 +123,25 @@ export default function SyllabusParserScreen() {
         if (!selectedFile || !user?.uid) return;
 
         setIsAnalyzing(true);
+        const startTime = Date.now();
+        Analytics.logCustomEvent('syllabus_parse_attempted', {
+            file_type: selectedFile.type,
+            file_name: selectedFile.name
+        });
+
         try {
             const result = await apiService.parseSyllabus(selectedFile.uri, user.uid, selectedFile.type);
 
             if (result.success && result.data) {
+                const duration = Date.now() - startTime;
                 console.log("Parsed Data:", result.data);
+
+                Analytics.logCustomEvent('syllabus_parse_success', {
+                    assignment_count: result.data.assignments?.length || 0,
+                    exam_count: result.data.exams?.length || 0,
+                    processing_time_ms: duration
+                });
+
                 setParsedData(result.data);
                 // Auto-select all items by default
                 const assignIndices = new Set<number>(result.data.assignments?.map((_: any, i: number) => i) || []);
@@ -133,9 +149,11 @@ export default function SyllabusParserScreen() {
                 setSelectedItems(assignIndices);
                 setSelectedExams(examIndices);
             } else {
+                Analytics.logCustomEvent('syllabus_parse_failed', { error: result.error });
                 Alert.alert('Extraction Failed', result.error || 'Could not extract data from the file.');
             }
         } catch (error: any) {
+            Analytics.logCustomEvent('syllabus_parse_error', { error: error.message });
             Alert.alert('Error', error.message || 'Failed to analyze syllabus');
         } finally {
             setIsAnalyzing(false);
@@ -263,6 +281,11 @@ export default function SyllabusParserScreen() {
                 }
             }
 
+            Analytics.logCustomEvent('syllabus_import_success', {
+                imported_count: successCount,
+                total_selected: selectedItems.size + selectedExams.size
+            });
+
             Alert.alert('Success', `Imported ${successCount} items to your planner!`, [
                 { text: 'OK', onPress: () => router.back() }
             ]);
@@ -311,22 +334,13 @@ export default function SyllabusParserScreen() {
                         </TouchableOpacity>
 
                         {!parsedData && (
-                            <TouchableOpacity
-                                style={styles.analyzeButton}
+                            <Button
+                                title={selectedFile.type.includes('pdf') ? 'Parse Document' : 'Extract Tasks'}
                                 onPress={handleAnalyze}
-                                disabled={isAnalyzing}
-                            >
-                                {isAnalyzing ? (
-                                    <ActivityIndicator color="white" />
-                                ) : (
-                                    <>
-                                        <FileText size={20} color="white" style={{ marginRight: 8 }} />
-                                        <Text style={styles.analyzeButtonText}>
-                                            {selectedFile.type.includes('pdf') ? 'Parse Document' : 'Extract Tasks'}
-                                        </Text>
-                                    </>
-                                )}
-                            </TouchableOpacity>
+                                isLoading={isAnalyzing}
+                                icon={<FileText size={20} color="white" />}
+                                style={styles.analyzeButton}
+                            />
                         )}
                     </View>
                 )}
@@ -406,22 +420,13 @@ export default function SyllabusParserScreen() {
 
             {parsedData && (
                 <View style={styles.footer}>
-                    <TouchableOpacity
-                        style={[styles.mainSaveButton, isSaving && { opacity: 0.7 }]}
+                    <Button
+                        title={`Confirm & Import (${selectedItems.size + selectedExams.size})`}
                         onPress={handleSave}
-                        disabled={isSaving}
-                    >
-                        {isSaving ? (
-                            <ActivityIndicator color="white" />
-                        ) : (
-                            <>
-                                <Save size={24} color="white" style={{ marginRight: 8 }} />
-                                <Text style={styles.mainSaveButtonText}>
-                                    Confirm & Import ({selectedItems.size + selectedExams.size})
-                                </Text>
-                            </>
-                        )}
-                    </TouchableOpacity>
+                        isLoading={isSaving}
+                        icon={<Save size={24} color="white" />}
+                        style={styles.mainSaveButton}
+                    />
                 </View>
             )}
 
@@ -475,9 +480,11 @@ export default function SyllabusParserScreen() {
                             />
                         </View>
 
-                        <TouchableOpacity style={styles.saveButton} onPress={saveEdit}>
-                            <Text style={styles.saveButtonText}>Save Changes</Text>
-                        </TouchableOpacity>
+                        <Button
+                            title="Save Changes"
+                            onPress={saveEdit}
+                            style={styles.saveButton}
+                        />
                     </View>
                 </KeyboardAvoidingView>
             </Modal>

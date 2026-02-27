@@ -1,3 +1,4 @@
+import "react-native-get-random-values";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack, useRouter, usePathname } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
@@ -16,13 +17,6 @@ import { auth } from "@/firebaseConfig";
 import * as Sentry from '@sentry/react-native';
 import { StripeProvider } from '@stripe/stripe-react-native';
 import * as Analytics from "@/utils/analytics";
-
-// Initialize Sentry
-Sentry.init({
-  dsn: process.env.EXPO_PUBLIC_SENTRY_DSN || 'https://b73520e1b6648db41574a92098b42ec2@o4510577981915136.ingest.us.sentry.io/4510577983356928',
-  debug: true,
-  tracesSampleRate: 1.0,
-});
 
 SplashScreen.preventAutoHideAsync();
 
@@ -205,6 +199,19 @@ function RootLayoutNav() {
   }, [isLoading, onboardingComplete]);
 
   useEffect(() => {
+    // Initialize Analytics
+    const initAnalytics = async () => {
+      try {
+        await Analytics.init();
+        console.log('[Analytics] initialized');
+      } catch (error) {
+        console.error('[Analytics] initialization failed:', error);
+      }
+    };
+    initAnalytics();
+  }, []);
+
+  useEffect(() => {
     if (!isLoading && onboardingComplete !== null) {
       const inAuthGroup = segments === '/login' || segments === '/register' || segments === '/onboarding' || segments === '/intro-survey';
       const isInvite = segments?.startsWith('/invite');
@@ -326,6 +333,20 @@ function RootLayoutNav() {
 
 function RootLayout() {
   const stripeKey = process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY || 'pk_live_51PRLrfP0t2AuYFqKyKwaltV3py5wvWtfdPgfadWXFl3k7nbhygi2O8J9XnwuZMWWfLavLKiN7E2A794UozlAOBq2003kcHeHIE';
+
+  useEffect(() => {
+    // Initialize Sentry inside effect to prevent fatal error at module level if native module is missing
+    try {
+      Sentry.init({
+        dsn: process.env.EXPO_PUBLIC_SENTRY_DSN || 'https://b73520e1b6648db41574a92098b42ec2@o4510577981915136.ingest.us.sentry.io/4510577983356928',
+        debug: true,
+        tracesSampleRate: 1.0,
+      });
+    } catch (e) {
+      console.warn('Sentry initialization failed:', e);
+    }
+  }, []);
+
   console.log('[Stripe] Initializing with key:', stripeKey ? stripeKey.substring(0, 10) + '...' : 'MISSING');
 
   return (
@@ -348,7 +369,11 @@ function RootLayout() {
   );
 }
 
-export default Sentry.wrap(RootLayout);
+const WrappedRootLayout = Sentry.wrap(RootLayout);
+
+export default function Layout() {
+  return <WrappedRootLayout />;
+}
 
 const splashStyles = StyleSheet.create({
   container: {

@@ -4,29 +4,32 @@
     "slug": "cause-student-ai-planner",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/logo.png",
+    "icon": "./assets/images/ios-light.png",
     "scheme": "causeai",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/images/logo.png",
+      "image": "./assets/images/ios-light.png",
       "resizeMode": "contain",
-      "backgroundColor": "#001370"
+      "backgroundColor": "#ffffff"
     },
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "app.rork.cause-student-ai-planner",
+      "buildNumber": "1",
       "infoPlist": {
         "NSPhotoLibraryUsageDescription": "Allow $(PRODUCT_NAME) to access your photos",
         "NSCameraUsageDescription": "Allow $(PRODUCT_NAME) to access your camera",
-        "NSMicrophoneUsageDescription": "Allow $(PRODUCT_NAME) to access your microphone"
+        "NSMicrophoneUsageDescription": "Allow $(PRODUCT_NAME) to access your microphone",
+        "NSCalendarsUsageDescription": "This app uses your calendar to help you schedule and track task deadlines.",
+        "NSLocationWhenInUseUsageDescription": "This app uses your location to help you find local study groups."
       },
       "usesIcloudStorage": true
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/logo.png",
-        "backgroundColor": "#001370"
+        "backgroundColor": "#ffffff"
       },
       "package": "com.minato.causeai",
       "permissions": [

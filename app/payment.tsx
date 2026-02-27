@@ -11,12 +11,14 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, Check, CreditCard, Sparkles, Zap, ExternalLink } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
+import Button from '@/components/Button';
 import colors from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
 
 import { useStripe } from '@stripe/stripe-react-native';
 import apiService from '@/utils/apiService';
 import { ActivityIndicator } from 'react-native';
+import * as Analytics from '@/utils/analytics';
 
 // This ID should match the Premium Monthly price ID from AccountScreen
 const PREMIUM_MONTHLY_PRICE_ID = 'price_1Sl6opP0t2AuYFqKRMdGp5kO';
@@ -48,6 +50,7 @@ export default function PaymentScreen() {
 
         try {
             setLoading(true);
+            Analytics.logCustomEvent('payment_flow_started', { price_id: PREMIUM_MONTHLY_PRICE_ID });
 
             // Check if Stripe is initialized (not available in Expo Go)
             if (!initPaymentSheet || !presentPaymentSheet) {
@@ -144,6 +147,9 @@ export default function PaymentScreen() {
                 }
             } else {
                 console.log('[Stripe] Payment success');
+                // Log revenue to Mixpanel & Firebase
+                Analytics.logRevenue(PRICING.price, 'USD');
+
                 Alert.alert('Success', 'Thank you for subscribing!', [
                     { text: 'OK', onPress: () => router.back() }
                 ]);
@@ -212,22 +218,13 @@ export default function PaymentScreen() {
                             ))}
                         </View>
 
-                        <TouchableOpacity
-                            style={[styles.subscribeButton, loading && styles.subscribeButtonDisabled]}
+                        <Button
+                            title="Subscribe Now"
                             onPress={handlePayment}
-                            disabled={loading}
-                        >
-                            {loading ? (
-                                <ActivityIndicator color={colors.surface} />
-                            ) : (
-                                <>
-                                    <CreditCard size={20} color={colors.surface} />
-                                    <Text style={styles.subscribeButtonText}>
-                                        Subscribe Now
-                                    </Text>
-                                </>
-                            )}
-                        </TouchableOpacity>
+                            isLoading={loading}
+                            icon={<CreditCard size={20} color={colors.surface} />}
+                            style={styles.subscribeButton}
+                        />
                     </View>
                 </View>
 

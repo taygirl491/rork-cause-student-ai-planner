@@ -7,6 +7,7 @@ import { Mail, Lock, User as UserIcon, ArrowLeft, Eye, EyeOff } from 'lucide-rea
 import { useAuth } from '@/contexts/AuthContext';
 import colors from '@/constants/colors';
 import { registerForPushNotificationsAsync, savePushToken } from '@/functions/Notify';
+import Button from '@/components/Button';
 
 export default function RegisterScreen() {
   const [name, setName] = useState('');
@@ -184,15 +185,12 @@ export default function RegisterScreen() {
                 </TouchableOpacity>
               </View>
 
-              <TouchableOpacity
-                style={[styles.registerButton, isRegistering && styles.registerButtonDisabled]}
+              <Button
+                title="Create Account"
                 onPress={handleRegister}
-                disabled={isRegistering}
-              >
-                <Text style={styles.registerButtonText}>
-                  {isRegistering ? 'Creating Account...' : 'Create Account'}
-                </Text>
-              </TouchableOpacity>
+                isLoading={isRegistering}
+                style={styles.registerButton}
+              />
 
               <TouchableOpacity
                 style={styles.loginLink}

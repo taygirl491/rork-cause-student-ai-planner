@@ -8,6 +8,7 @@ import {
     Alert,
     ActivityIndicator,
 } from 'react-native';
+import Button from '@/components/Button';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { X, UserCheck, UserX, Shield, ShieldOff, Trash2, Users } from 'lucide-react-native';
@@ -144,7 +145,7 @@ export default function GroupAdminScreen() {
         }
 
         // Check if already at max admins
-        if (group.admins && group.admins.length >= 4) {
+        if (group?.admins && group.admins.length >= 4) {
             Alert.alert('Error', 'Maximum of 4 admins allowed per group');
             return;
         }
@@ -234,20 +235,14 @@ export default function GroupAdminScreen() {
                                     </Text>
                                 </View>
                                 <View style={styles.memberActions}>
-                                    <TouchableOpacity
-                                        style={[styles.actionButton, styles.approveButton]}
+                                    <Button
+                                        title="Approve"
                                         onPress={() => handleApproveMember(member.email)}
-                                        disabled={actionLoading === member.email}
-                                    >
-                                        {actionLoading === member.email ? (
-                                            <ActivityIndicator size="small" color={colors.surface} />
-                                        ) : (
-                                            <>
-                                                <UserCheck size={18} color={colors.surface} />
-                                                <Text style={styles.actionButtonText}>Approve</Text>
-                                            </>
-                                        )}
-                                    </TouchableOpacity>
+                                        isLoading={actionLoading === member.email}
+                                        icon={<UserCheck size={18} color={colors.surface} />}
+                                        style={[styles.smallActionButton, styles.approveButton]}
+                                        textStyle={styles.actionButtonText}
+                                    />
                                     <TouchableOpacity
                                         style={[styles.actionButton, styles.rejectButton]}
                                         onPress={() => handleRejectMember(member.email)}
@@ -295,7 +290,7 @@ export default function GroupAdminScreen() {
                                     <View style={styles.memberActions}>
                                         <TouchableOpacity
                                             style={[styles.actionButton, styles.kickButton]}
-                                            onPress={() => handleKickMember(member.email, member.name)}
+                                            onPress={() => handleKickMember(member.email, member.name || '')}
                                             disabled={actionLoading === member.email}
                                         >
                                             <Trash2 size={16} color={colors.surface} />
@@ -429,6 +424,13 @@ const styles = StyleSheet.create({
         fontSize: 13,
         fontWeight: '600' as const,
         color: colors.surface,
+    },
+    smallActionButton: {
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        borderRadius: 8,
+        height: 'auto',
+        minHeight: 0,
     },
     adminBadge: {
         backgroundColor: colors.primary,

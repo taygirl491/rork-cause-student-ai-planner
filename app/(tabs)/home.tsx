@@ -24,8 +24,31 @@ import DailyStreakModal from '@/components/DailyStreakModal';
 import StreakFireAnimation from '@/components/StreakFireAnimation';
 
 export default function HomeScreen() {
-  const { sortedTasks, videoConfig, isLoading, refreshAllData } = useApp();
-  const { streakData, refreshStreak, showDailyModal, setShowDailyModal, showAnimation, setShowAnimation, animStreakNumber, isLoading: isStreakLoading } = useStreak();
+  const ctx = useApp();
+  const sortedTasks = ctx?.sortedTasks || [];
+  const videoConfig = ctx?.videoConfig;
+  const isLoading = ctx?.isLoading;
+  const refreshAllData = ctx?.refreshAllData;
+
+  // Use optional chaining or try-catch for useStreak as it might be missing during early render/crashes
+  let streakCtx: any = {};
+  try {
+    streakCtx = useStreak();
+  } catch (e) {
+    console.warn('StreakContext not found in HomeScreen, using fallback');
+  }
+
+  const {
+    streakData,
+    refreshStreak,
+    showDailyModal,
+    setShowDailyModal,
+    showAnimation,
+    setShowAnimation,
+    animStreakNumber,
+    isLoading: isStreakLoading
+  } = streakCtx;
+
   const { user, checkPermission } = useAuth();
   const router = useRouter();
 
@@ -96,7 +119,7 @@ export default function HomeScreen() {
     return `In ${diff} days`;
   };
 
-  if (isLoading || isStreakLoading) {
+  if (isLoading || isStreakLoading || !ctx) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={colors.primary} />

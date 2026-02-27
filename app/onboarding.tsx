@@ -10,6 +10,7 @@ import {
     NativeSyntheticEvent,
     NativeScrollEvent,
 } from 'react-native';
+import Button from '@/components/Button';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -141,19 +142,17 @@ export default function OnboardingScreen() {
                     {/* Action Buttons */}
                     <View style={styles.buttonContainer}>
                         {currentPage < pages.length - 1 ? (
-                            <TouchableOpacity
-                                style={styles.nextButton}
+                            <Button
+                                title="Next"
                                 onPress={handleNext}
-                            >
-                                <Text style={styles.nextButtonText}>Next</Text>
-                            </TouchableOpacity>
+                                style={styles.nextButton}
+                            />
                         ) : (
-                            <TouchableOpacity
-                                style={styles.getStartedButton}
+                            <Button
+                                title="Get Started"
                                 onPress={handleGetStarted}
-                            >
-                                <Text style={styles.getStartedButtonText}>Get Started</Text>
-                            </TouchableOpacity>
+                                style={styles.getStartedButton}
+                            />
                         )}
                     </View>
                 </View>

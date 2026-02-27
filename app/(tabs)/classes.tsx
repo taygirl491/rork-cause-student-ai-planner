@@ -18,6 +18,7 @@ import {
   Keyboard,
   RefreshControl,
 } from 'react-native';
+import Button from '@/components/Button';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Plus, X, BookOpen, Clock, User, Calendar as CalendarIcon, Edit2, Trash2 } from 'lucide-react-native';
@@ -26,6 +27,7 @@ import colors from '@/constants/colors';
 import { useApp } from '@/contexts/AppContext';
 import { Class } from '@/types';
 import SearchBar from '@/components/SearchBar';
+import * as Analytics from '@/utils/analytics';
 
 const CLASS_COLORS = [colors.primary, colors.secondary, colors.success, colors.warning, '#56CCF2', '#F2994A'];
 const DAYS_OF_WEEK = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -44,6 +46,7 @@ export default function ClassesScreen() {
   const [showClassModal, setShowClassModal] = useState(false);
   const [showActionSheet, setShowActionSheet] = useState(false);
   const [selectedClass, setSelectedClass] = useState<Class | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -135,40 +138,53 @@ export default function ClassesScreen() {
 
     const timeString = `${formatTime12H(startTime)} - ${formatTime12H(endTime)}`;
 
-    if (isEditing && selectedClass) {
-      // Update existing class
-      await updateClass(selectedClass.id, {
-        name,
-        section,
-        daysOfWeek: selectedDays,
-        time: timeString,
-        professor,
-        startDate: formattedStartDate,
-        endDate: formattedEndDate,
-        color: selectedColor,
-      });
-    } else {
-      // Create new class
-      const newClass: Class = {
-        id: Date.now().toString(),
-        name,
-        section,
-        daysOfWeek: selectedDays,
-        time: timeString,
-        professor,
-        startDate: formattedStartDate,
-        endDate: formattedEndDate,
-        color: selectedColor,
-        createdAt: new Date().toISOString(),
-      };
-      await addClass(newClass);
-    }
+    setIsSaving(true);
+    try {
+      if (isEditing && selectedClass) {
+        // Update existing class
+        await updateClass(selectedClass.id, {
+          name,
+          section,
+          daysOfWeek: selectedDays,
+          time: timeString,
+          professor,
+          startDate: formattedStartDate,
+          endDate: formattedEndDate,
+          color: selectedColor,
+        });
+      } else {
+        // Create new class
+        const newClass: Class = {
+          id: Date.now().toString(),
+          name,
+          section,
+          daysOfWeek: selectedDays,
+          time: timeString,
+          professor,
+          startDate: formattedStartDate,
+          endDate: formattedEndDate,
+          color: selectedColor,
+          createdAt: new Date().toISOString(),
+        };
+        await addClass(newClass);
+        Analytics.logCustomEvent('class_added', {
+          days_count: selectedDays.length,
+          has_professor: !!professor,
+          color_code: selectedColor
+        });
+      }
 
-    await refreshClasses();
-    resetClassForm();
-    setShowClassModal(false);
-    setIsEditing(false);
-    setSelectedClass(null);
+      await refreshClasses();
+      resetClassForm();
+      setShowClassModal(false);
+      setIsEditing(false);
+      setSelectedClass(null);
+    } catch (error) {
+      console.error("Error saving class:", error);
+      Alert.alert('Error', 'Failed to save class. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleLongPress = (cls: Class) => {
@@ -508,12 +524,12 @@ export default function ClassesScreen() {
                   </ScrollView>
 
                   {/* SUBMIT BUTTON */}
-                  <TouchableOpacity
-                    style={styles.createButton}
+                  <Button
+                    title={isEditing ? 'Update Class' : 'Add Class'}
                     onPress={handleAddClass}
-                  >
-                    <Text style={styles.createButtonText}>{isEditing ? 'Update Class' : 'Add Class'}</Text>
-                  </TouchableOpacity>
+                    isLoading={isSaving}
+                    style={styles.createButton}
+                  />
                 </ScrollView>
               </Animated.View>
             </TouchableOpacity>

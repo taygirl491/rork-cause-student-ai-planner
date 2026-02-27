@@ -9,6 +9,7 @@ import {
     Animated,
     Platform,
 } from 'react-native';
+import Button from '@/components/Button';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Check, ChevronRight } from 'lucide-react-native';
@@ -16,6 +17,7 @@ import colors from '@/constants/colors';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '@/contexts/AuthContext';
+import * as Analytics from '@/utils/analytics';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -205,6 +207,11 @@ export default function IntroSurveyScreen() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const { user } = useAuth();
     const horizontalScrollRef = useRef<ScrollView>(null);
+    const stepStartTimeRef = useRef<number>(Date.now());
+
+    useEffect(() => {
+        Analytics.logCustomEvent('onboarding_started');
+    }, []);
 
     const toggleOption = (id: number, type: string, option: string) => {
         setAnswers(prev => {
@@ -224,12 +231,28 @@ export default function IntroSurveyScreen() {
     const handleNext = async () => {
         if (currentStep < QUESTIONS.length - 1) {
             const nextStep = currentStep + 1;
+            const timeSpent = Math.round((Date.now() - stepStartTimeRef.current) / 1000);
+
+            Analytics.logCustomEvent('onboarding_step_reached', {
+                step_number: currentStep + 1,
+                step_name: QUESTIONS[currentStep].question,
+                time_spent_seconds: timeSpent
+            });
+
             setCurrentStep(nextStep);
+            stepStartTimeRef.current = Date.now();
             horizontalScrollRef.current?.scrollTo({
                 x: nextStep * SCREEN_WIDTH,
                 animated: true,
             });
         } else {
+            const timeSpent = Math.round((Date.now() - stepStartTimeRef.current) / 1000);
+            Analytics.logCustomEvent('onboarding_step_reached', {
+                step_number: currentStep + 1,
+                step_name: QUESTIONS[currentStep].question,
+                time_spent_seconds: timeSpent
+            });
+            Analytics.logCustomEvent('onboarding_finished');
             // Finish survey - sync directly if authenticated, otherwise save for later
             if (isSubmitting) return; // Prevent double-tap
 
@@ -401,19 +424,15 @@ export default function IntroSurveyScreen() {
                     ) : (
                         <View style={{ flex: 1 }} />
                     )}
-                    <TouchableOpacity
-                        style={[
-                            styles.nextButton,
-                            (!(answers[QUESTIONS[currentStep].id]?.length > 0) || isSubmitting) && styles.nextButtonDisabled
-                        ]}
+                    <Button
+                        title={currentStep === QUESTIONS.length - 1 ? "Finish" : "Next"}
                         onPress={handleNext}
-                        disabled={!(answers[QUESTIONS[currentStep].id]?.length > 0) || isSubmitting}
-                    >
-                        <Text style={styles.nextButtonText}>
-                            {isSubmitting ? "Saving..." : (currentStep === QUESTIONS.length - 1 ? "Finish" : "Next")}
-                        </Text>
-                        {!isSubmitting && <ChevronRight size={20} color="#fff" />}
-                    </TouchableOpacity>
+                        isLoading={isSubmitting}
+                        loadingText="Saving..."
+                        disabled={!(answers[QUESTIONS[currentStep].id]?.length > 0)}
+                        icon={currentStep === QUESTIONS.length - 1 ? null : <ChevronRight size={20} color="#fff" />}
+                        style={styles.nextButton}
+                    />
                 </View>
             </SafeAreaView>
         </View>

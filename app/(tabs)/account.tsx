@@ -15,6 +15,7 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
+import Button from '@/components/Button';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   User,
@@ -46,6 +47,7 @@ import apiService from '@/utils/apiService';
 // TextInput is imported from react-native above
 import { TERMS_AND_CONDITIONS, PRIVACY_POLICY } from '@/constants/LegalText';
 import { useStripe } from '@stripe/stripe-react-native';
+import * as Analytics from '@/utils/analytics';
 
 const SUBSCRIPTION_PLANS = {
   standardMonthly: 'price_1ShIc8P0t2AuYFqK2waTumLy',
@@ -247,6 +249,13 @@ export default function AccountScreen() {
     try {
       setLoadingPlan(`${tier}-${interval}`);
       setLoadingSubscription(true);
+
+      Analytics.logCustomEvent('payment_flow_started', {
+        tier,
+        interval,
+        plan_id: `${tier}-${interval}`
+      });
+
       let clientSecret, customerId, response;
 
       // Build the plan key from tier and interval
@@ -326,6 +335,19 @@ export default function AccountScreen() {
         }
       } else {
         console.log('[Stripe] Payment success');
+
+        // Log revenue based on plan
+        const prices = {
+          'standard-monthly': 5,
+          'standard-yearly': 35,
+          'premium-monthly': 10,
+          'premium-yearly': 70,
+          'unlimited-monthly': 20,
+          'unlimited-yearly': 140
+        };
+        const price = prices[`${tier}-${interval}` as keyof typeof prices] || 0;
+        Analytics.logRevenue(price, 'USD');
+
         Alert.alert('Success', 'Thank you for subscribing!');
         setCurrentSubscription(tier);
         fetchSubscription();
@@ -664,7 +686,7 @@ export default function AccountScreen() {
         onRequestClose={() => setShowPaymentModal(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, { paddingBottom: Math.max(insets.bottom + 24, 24) }]}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Choose Your Plan</Text>
               <TouchableOpacity onPress={() => setShowPaymentModal(false)}>
@@ -859,7 +881,7 @@ export default function AccountScreen() {
                 Keyboard.dismiss();
               }}
             >
-              <View style={styles.modalContent}>
+              <View style={[styles.modalContent, { paddingBottom: Math.max(insets.bottom + 24, 24) }]}>
                 <View style={styles.modalHeader}>
                   <Text style={styles.modalTitle}>Change Password</Text>
                   <TouchableOpacity onPress={() => setShowPasswordModal(false)}>
@@ -912,20 +934,13 @@ export default function AccountScreen() {
                   {confirmPassError ? <Text style={styles.errorText}>{confirmPassError}</Text> : null}
                 </View>
 
-                <TouchableOpacity
-                  style={[
-                    styles.saveButton,
-                    isChangingPassword && styles.saveButtonDisabled
-                  ]}
+                <Button
+                  title="Update Password"
                   onPress={handleChangePassword}
-                  disabled={isChangingPassword}
-                >
-                  {isChangingPassword ? (
-                    <Text style={styles.saveButtonText}>Updating...</Text>
-                  ) : (
-                    <Text style={styles.saveButtonText}>Update Password</Text>
-                  )}
-                </TouchableOpacity>
+                  isLoading={isChangingPassword}
+                  loadingText="Updating..."
+                  style={styles.saveButton}
+                />
               </View>
             </TouchableOpacity>
           </TouchableOpacity>
@@ -940,7 +955,7 @@ export default function AccountScreen() {
         onRequestClose={() => setShowTermsModal(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, styles.legalModalContent]}>
+          <View style={[styles.modalContent, styles.legalModalContent, { paddingBottom: Math.max(insets.bottom + 24, 24) }]}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Terms & Conditions</Text>
               <TouchableOpacity onPress={() => setShowTermsModal(false)}>
@@ -962,7 +977,7 @@ export default function AccountScreen() {
         onRequestClose={() => setShowPrivacyModal(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, styles.legalModalContent]}>
+          <View style={[styles.modalContent, styles.legalModalContent, { paddingBottom: Math.max(insets.bottom + 24, 24) }]}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Privacy Policy</Text>
               <TouchableOpacity onPress={() => setShowPrivacyModal(false)}>
@@ -1096,40 +1111,31 @@ export default function AccountScreen() {
 
                 <View style={styles.modalButtons}>
                   {deleteStep > 1 && (
-                    <TouchableOpacity
-                      style={[styles.modalButton, styles.modalButtonCancel]}
+                    <Button
+                      title="Back"
                       onPress={() => setDeleteStep(prev => prev - 1)}
-                    >
-                      <Text style={styles.modalButtonText}>Back</Text>
-                    </TouchableOpacity>
+                      variant="outline"
+                      style={styles.modalButton}
+                    />
                   )}
 
                   {deleteStep < 3 ? (
-                    <TouchableOpacity
-                      style={[
-                        styles.modalButton,
-                        styles.modalButtonNext,
-                        !deleteReason && deleteStep === 1 && styles.modalButtonDisabled
-                      ]}
+                    <Button
+                      title="Continue"
                       onPress={() => setDeleteStep(prev => prev + 1)}
                       disabled={!deleteReason && deleteStep === 1}
-                    >
-                      <Text style={styles.modalButtonTextNext}>Continue</Text>
-                    </TouchableOpacity>
+                      style={styles.modalButton}
+                    />
                   ) : (
-                    <TouchableOpacity
-                      style={[
-                        styles.modalButton,
-                        styles.modalButtonDelete,
-                        (isDeletingAccount || !deletePassword) && styles.modalButtonDisabled
-                      ]}
+                    <Button
+                      title="Delete Permanently"
                       onPress={confirmDeleteAccount}
-                      disabled={isDeletingAccount || !deletePassword}
-                    >
-                      <Text style={styles.modalButtonTextDelete}>
-                        {isDeletingAccount ? 'Deleting...' : 'Delete Permanently'}
-                      </Text>
-                    </TouchableOpacity>
+                      isLoading={isDeletingAccount}
+                      disabled={!deletePassword}
+                      loadingText="Deleting..."
+                      variant="danger"
+                      style={styles.modalButton}
+                    />
                   )}
                 </View>
               </View>
