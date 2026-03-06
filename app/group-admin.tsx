@@ -134,15 +134,8 @@ export default function GroupAdminScreen() {
         );
     };
 
-    const handlePromoteToAdmin = async (memberEmail: string, memberName: string) => {
+    const handlePromoteToAdmin = async (memberUserId: string, memberName: string) => {
         if (!user?.uid || !groupId || !isCreator) return;
-
-        // Find the member's userId from the group members
-        const member = group?.members.find(m => m.email === memberEmail);
-        if (!member) {
-            Alert.alert('Error', 'Member not found');
-            return;
-        }
 
         // Check if already at max admins
         if (group?.admins && group.admins.length >= 4) {
@@ -152,19 +145,55 @@ export default function GroupAdminScreen() {
 
         Alert.alert(
             'Promote to Admin',
-            `Promote ${memberName || memberEmail} to admin?`,
+            `Promote ${memberName || 'this member'} to admin?`,
             [
                 { text: 'Cancel', style: 'cancel' },
                 {
                     text: 'Promote',
                     onPress: async () => {
-                        setActionLoading(memberEmail);
+                        setActionLoading(memberUserId);
                         try {
-                            // Note: We need userId here, but we only have email
-                            // This is a limitation - we'd need to store userId in members array
-                            Alert.alert('Info', 'Promote feature requires userId. This will be available in the next update.');
+                            const success = await studyGroupsAPI.promoteToAdmin(groupId, memberUserId, user.uid);
+                            if (success) {
+                                Alert.alert('Success', 'Member promoted to admin');
+                                await refreshStudyGroups();
+                            } else {
+                                Alert.alert('Error', 'Failed to promote member');
+                            }
                         } catch (error) {
                             Alert.alert('Error', 'Failed to promote member');
+                        } finally {
+                            setActionLoading(null);
+                        }
+                    },
+                },
+            ]
+        );
+    };
+
+    const handleDemoteAdmin = async (memberUserId: string, memberName: string) => {
+        if (!user?.uid || !groupId || !isCreator) return;
+
+        Alert.alert(
+            'Demote Admin',
+            `Demote ${memberName || 'this admin'} back to regular member?`,
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Demote',
+                    style: 'destructive',
+                    onPress: async () => {
+                        setActionLoading(memberUserId);
+                        try {
+                            const success = await studyGroupsAPI.demoteAdmin(groupId, memberUserId, user.uid);
+                            if (success) {
+                                Alert.alert('Success', 'Admin demoted to member');
+                                await refreshStudyGroups();
+                            } else {
+                                Alert.alert('Error', 'Failed to demote admin');
+                            }
+                        } catch (error) {
+                            Alert.alert('Error', 'Failed to demote admin');
                         } finally {
                             setActionLoading(null);
                         }
@@ -265,8 +294,8 @@ export default function GroupAdminScreen() {
                     </View>
 
                     {group?.members.map((member) => {
-                        const isThisMemberAdmin = group.admins?.includes(member.email);
-                        const isCreatorMember = group.creatorId === member.email;
+                        const isThisMemberAdmin = group.admins?.includes(member.userId);
+                        const isCreatorMember = group.creatorId === member.userId;
 
                         return (
                             <View key={member.email} style={styles.memberCard}>
@@ -288,10 +317,33 @@ export default function GroupAdminScreen() {
                                 </View>
                                 {!isCreatorMember && (
                                     <View style={styles.memberActions}>
+                                        {isCreator && (
+                                            <>
+                                                {isThisMemberAdmin ? (
+                                                    <TouchableOpacity
+                                                        style={[styles.actionButton, styles.demoteButton]}
+                                                        onPress={() => handleDemoteAdmin(member.userId || '', member.name || '')}
+                                                        disabled={actionLoading === member.userId}
+                                                    >
+                                                        <ShieldOff size={16} color={colors.surface} />
+                                                        <Text style={styles.actionButtonText}>Demote</Text>
+                                                    </TouchableOpacity>
+                                                ) : (
+                                                    <TouchableOpacity
+                                                        style={[styles.actionButton, styles.promoteButton]}
+                                                        onPress={() => handlePromoteToAdmin(member.userId || '', member.name || '')}
+                                                        disabled={actionLoading === member.userId}
+                                                    >
+                                                        <Shield size={16} color={colors.surface} />
+                                                        <Text style={styles.actionButtonText}>Promote</Text>
+                                                    </TouchableOpacity>
+                                                )}
+                                            </>
+                                        )}
                                         <TouchableOpacity
                                             style={[styles.actionButton, styles.kickButton]}
                                             onPress={() => handleKickMember(member.email, member.name || '')}
-                                            disabled={actionLoading === member.email}
+                                            disabled={actionLoading === member.userId}
                                         >
                                             <Trash2 size={16} color={colors.surface} />
                                             <Text style={styles.actionButtonText}>Kick</Text>
@@ -416,6 +468,12 @@ const styles = StyleSheet.create({
     },
     rejectButton: {
         backgroundColor: colors.error,
+    },
+    promoteButton: {
+        backgroundColor: colors.primary,
+    },
+    demoteButton: {
+        backgroundColor: colors.textSecondary,
     },
     kickButton: {
         backgroundColor: colors.error,

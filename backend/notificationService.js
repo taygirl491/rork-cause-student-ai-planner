@@ -187,8 +187,58 @@ async function sendTaskReminder(userId, taskData) {
     }
 }
 
+/**
+ * Send notification for member approval
+ */
+async function sendMemberApprovalNotification(email, groupName, groupId) {
+    try {
+        const tokens = await getTokensForEmails([email]);
+        if (tokens.length === 0) {
+            console.log(`No push tokens found for approved member: ${email}`);
+            return;
+        }
+
+        await sendPushNotifications(
+            tokens,
+            `Application Approved! 🎉`,
+            `Your request to join ${groupName} has been approved.`,
+            { groupId, type: "member_approved" }
+        );
+
+        console.log(`Sent approval notification to: ${email}`);
+    } catch (error) {
+        console.error("Error sending approval push notification:", error);
+    }
+}
+
+/**
+ * Send notification for member rejection
+ */
+async function sendMemberRejectionNotification(email, groupName, groupId) {
+    try {
+        const tokens = await getTokensForEmails([email]);
+        if (tokens.length === 0) {
+            console.log(`No push tokens found for rejected member: ${email}`);
+            return;
+        }
+
+        await sendPushNotifications(
+            tokens,
+            `Join Request Update`,
+            `Your request to join ${groupName} was not approved at this time.`,
+            { groupId, type: "member_rejected" }
+        );
+
+        console.log(`Sent rejection notification to: ${email}`);
+    } catch (error) {
+        console.error("Error sending rejection push notification:", error);
+    }
+}
+
 module.exports = {
     sendJoinNotification,
     sendMessageNotification,
     sendTaskReminder,
+    sendMemberApprovalNotification,
+    sendMemberRejectionNotification
 };

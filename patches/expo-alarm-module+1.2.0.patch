@@ -1,0 +1,130 @@
+diff --git a/node_modules/expo-alarm-module/android/src/main/java/com/expoalarmmodule/Alarm.java b/node_modules/expo-alarm-module/android/src/main/java/com/expoalarmmodule/Alarm.java
+index d12270b..8f4424a 100644
+--- a/node_modules/expo-alarm-module/android/src/main/java/com/expoalarmmodule/Alarm.java
++++ b/node_modules/expo-alarm-module/android/src/main/java/com/expoalarmmodule/Alarm.java
+@@ -32,6 +32,7 @@ public class Alarm implements Cloneable {
+     String description;
+     boolean repeating;
+     boolean active;
++    String sound;
+     
+     /**
+      * Show dismiss button in notification. It is false by default.
+@@ -55,7 +56,7 @@ public class Alarm implements Cloneable {
+     String dismissText;
+     String snoozeText;
+ 
+-    Alarm(String uid, ArrayList<Integer> days, ZonedDateTime date, int hour, int minutes, boolean showDismiss, boolean showSnooze, int snoozeInterval, String title, String description, boolean repeating, boolean active, String dismissText, String snoozeText) {
++    Alarm(String uid, ArrayList<Integer> days, ZonedDateTime date, int hour, int minutes, boolean showDismiss, boolean showSnooze, int snoozeInterval, String title, String description, boolean repeating, boolean active, String dismissText, String snoozeText, String sound) {
+         this.uid = uid;
+         this.days = days;
+         this.hour = hour;
+@@ -69,6 +70,7 @@ public class Alarm implements Cloneable {
+         this.active = active;
+         this.dismissText = dismissText;
+         this.snoozeText = snoozeText;
++        this.sound = sound;
+         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+           this.date = date;
+         }
+diff --git a/node_modules/expo-alarm-module/android/src/main/java/com/expoalarmmodule/ExpoAlarmModuleModule.java b/node_modules/expo-alarm-module/android/src/main/java/com/expoalarmmodule/ExpoAlarmModuleModule.java
+index 0aa62bb..890567a 100644
+--- a/node_modules/expo-alarm-module/android/src/main/java/com/expoalarmmodule/ExpoAlarmModuleModule.java
++++ b/node_modules/expo-alarm-module/android/src/main/java/com/expoalarmmodule/ExpoAlarmModuleModule.java
+@@ -176,7 +176,9 @@ public class ExpoAlarmModuleModule extends ReactContextBaseJavaModule {
+         }
+       }
+     }
+-    return new Alarm(uid, days, date, hour, minutes, showDismiss, showSnooze, snoozeInterval, title, description, repeating, active, dismissText, snoozeText);
++    String sound = alarm.hasKey("sound") ? alarm.getString("sound") : "default";
++
++    return new Alarm(uid, days, date, hour, minutes, showDismiss, showSnooze, snoozeInterval, title, description, repeating, active, dismissText, snoozeText, sound);
+   }
+ 
+   private WritableMap serializeAlarmObject (Alarm alarm) throws Exception {
+diff --git a/node_modules/expo-alarm-module/android/src/main/java/com/expoalarmmodule/Manager.java b/node_modules/expo-alarm-module/android/src/main/java/com/expoalarmmodule/Manager.java
+index 569d3cb..a553030 100644
+--- a/node_modules/expo-alarm-module/android/src/main/java/com/expoalarmmodule/Manager.java
++++ b/node_modules/expo-alarm-module/android/src/main/java/com/expoalarmmodule/Manager.java
+@@ -114,7 +114,9 @@ public class Manager {
+     static void start(Context context, String alarmUid) {
+         activeAlarmUid = alarmUid;
+         sound = new Sound(context);
+-        sound.play("default");
++        Alarm alarm = Storage.getAlarm(context, alarmUid);
++        String soundName = (alarm != null && alarm.sound != null) ? alarm.sound : "default";
++        sound.play(soundName);
+ 
+         Log.d(TAG, "Starting " + activeAlarmUid);
+     }
+diff --git a/node_modules/expo-alarm-module/android/src/main/java/com/expoalarmmodule/Sound.java b/node_modules/expo-alarm-module/android/src/main/java/com/expoalarmmodule/Sound.java
+index 9546c85..56739dd 100644
+--- a/node_modules/expo-alarm-module/android/src/main/java/com/expoalarmmodule/Sound.java
++++ b/node_modules/expo-alarm-module/android/src/main/java/com/expoalarmmodule/Sound.java
+@@ -100,7 +100,7 @@ class Sound {
+     private Uri getSoundUri(String soundName) {
+         Uri soundUri;
+         if (soundName.equals("default")) {
+-            soundUri = Settings.System.DEFAULT_RINGTONE_URI;
++            soundUri = Settings.System.DEFAULT_ALARM_ALERT_URI;
+         } else {
+             int resId;
+             if (context.getResources().getIdentifier(soundName, "raw", context.getPackageName()) != 0) {
+diff --git a/node_modules/expo-alarm-module/ios/NotificationScheduler.swift b/node_modules/expo-alarm-module/ios/NotificationScheduler.swift
+index 4772edc..50c312c 100644
+--- a/node_modules/expo-alarm-module/ios/NotificationScheduler.swift
++++ b/node_modules/expo-alarm-module/ios/NotificationScheduler.swift
+@@ -49,7 +49,7 @@ class NotificationScheduler : NotificationSchedulerDelegate
+             requests in
+             print(requests)
+             let alarms = Store.shared.alarms
+-            let uuidNotificationsSet = Set(requests.map({$0.content.userInfo["uid"] as! String}))
++            let uuidNotificationsSet = Set(requests.compactMap({ $0.content.userInfo["uid"] as? String }))
+             let uuidAlarmsSet = alarms.uids
+             let uuidDeltaSet = uuidAlarmsSet.subtracting(uuidNotificationsSet)
+             
+diff --git a/node_modules/expo-alarm-module/lib/typescript/src/types/Alarm.types.d.ts b/node_modules/expo-alarm-module/lib/typescript/src/types/Alarm.types.d.ts
+index 95fa365..036424e 100644
+--- a/node_modules/expo-alarm-module/lib/typescript/src/types/Alarm.types.d.ts
++++ b/node_modules/expo-alarm-module/lib/typescript/src/types/Alarm.types.d.ts
+@@ -51,5 +51,6 @@ export type AlarmSettings = {
+      * If the alarm needs to repeat.
+      */
+     repeating?: boolean | undefined;
++    sound?: string | undefined;
+ };
+ //# sourceMappingURL=Alarm.types.d.ts.map
+\ No newline at end of file
+diff --git a/node_modules/expo-alarm-module/src/models/Alarm.tsx b/node_modules/expo-alarm-module/src/models/Alarm.tsx
+index ecc2b74..fc5bc25 100644
+--- a/node_modules/expo-alarm-module/src/models/Alarm.tsx
++++ b/node_modules/expo-alarm-module/src/models/Alarm.tsx
+@@ -14,6 +14,7 @@ class Alarm {
+   repeating?: boolean | undefined;
+   active?: boolean | undefined;
+   day?: string | Date | number[] | undefined;
++  sound?: string | undefined;
+ 
+   constructor(params: any = null) {
+     this.uid = getParam(params, 'uid');
+@@ -29,6 +30,7 @@ class Alarm {
+     this.repeating = getParam(params, 'repeating');
+     this.active = getParam(params, 'active');
+     this.day = getParam(params, 'day');
++    this.sound = getParam(params, 'sound');
+   }
+ 
+   static getEmpty() {
+diff --git a/node_modules/expo-alarm-module/src/types/Alarm.types.ts b/node_modules/expo-alarm-module/src/types/Alarm.types.ts
+index d97354b..cf35c49 100644
+--- a/node_modules/expo-alarm-module/src/types/Alarm.types.ts
++++ b/node_modules/expo-alarm-module/src/types/Alarm.types.ts
+@@ -63,4 +63,8 @@ export type AlarmSettings = {
+    * If the alarm needs to repeat.
+    */
+   repeating?: boolean | undefined;
++  /**
++   * Sound to play. Use 'default' for system alarm sound.
++   */
++  sound?: string | undefined;
+ };

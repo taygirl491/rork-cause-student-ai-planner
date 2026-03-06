@@ -4,7 +4,8 @@ import { Stack, useRouter, usePathname } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { View, TouchableOpacity, StyleSheet, Modal, Text, ScrollView, Pressable, StatusBar, Image } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { View, TouchableOpacity, StyleSheet, Modal, Text, ScrollView, Pressable, StatusBar, Image, Platform } from "react-native";
 import { Menu, CheckSquare, Calendar, Target, FileText, BookOpen, Heart, Sparkles, User, Home, X, Users, WifiOff, RefreshCw } from "lucide-react-native";
 import { AppProvider, useApp } from "@/contexts/AppContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
@@ -26,6 +27,7 @@ function MenuButton() {
   const [showMenu, setShowMenu] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
+  const insets = useSafeAreaInsets();
 
   const menuItems = [
     { label: 'Home', icon: Home, route: '/home' },
@@ -59,7 +61,7 @@ function MenuButton() {
       >
         <Pressable style={menuStyles.overlay} onPress={() => setShowMenu(false)}>
           <Pressable style={menuStyles.menuContainer} onPress={(e) => e.stopPropagation()}>
-            <View style={menuStyles.menuHeader}>
+            <View style={[menuStyles.menuHeader, { paddingTop: Platform.OS === 'ios' ? Math.max(20, insets.top) : 20 }]}>
               <Text style={menuStyles.menuTitle}>Menu</Text>
               <TouchableOpacity onPress={() => setShowMenu(false)}>
                 <X size={24} color={colors.text} />
@@ -102,6 +104,7 @@ function ProfileButton() {
 function CustomHeader() {
   const { isOnline, refreshAllData } = useApp();
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const insets = useSafeAreaInsets();
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -110,7 +113,7 @@ function CustomHeader() {
   };
 
   return (
-    <View style={menuStyles.header}>
+    <View style={[menuStyles.header, { paddingTop: Platform.OS === 'ios' ? Math.max(0, insets.top - 12) : insets.top + (StatusBar.currentHeight ? 0 : 8) }]}>
       <View style={menuStyles.headerLeft}>
         <MenuButton />
       </View>
@@ -397,7 +400,6 @@ const menuStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 12,
-    paddingTop: (StatusBar.currentHeight || 0),
     backgroundColor: colors.surface,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
