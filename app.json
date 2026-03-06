@@ -22,13 +22,14 @@
         "NSCameraUsageDescription": "Allow $(PRODUCT_NAME) to access your camera",
         "NSMicrophoneUsageDescription": "Allow $(PRODUCT_NAME) to access your microphone",
         "NSCalendarsUsageDescription": "This app uses your calendar to help you schedule and track task deadlines.",
-        "NSLocationWhenInUseUsageDescription": "This app uses your location to help you find local study groups."
+        "NSLocationWhenInUseUsageDescription": "This app uses your location to help you find local study groups.",
+        "ITSAppUsesNonExemptEncryption": false
       },
       "usesIcloudStorage": true
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/logo.png",
+        "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
       "package": "com.minato.causeai",
@@ -54,6 +55,7 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
+      "./plugins/withModularHeaders",
       [
         "expo-router",
         {
@@ -96,6 +98,14 @@
           "url": "https://sentry.io/",
           "project": "react-native",
           "organization": "minato-tu"
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "deploymentTarget": "16.0"
+          }
         }
       ]
     ],

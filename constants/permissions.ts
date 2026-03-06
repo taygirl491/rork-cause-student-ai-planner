@@ -14,7 +14,7 @@ export const PERMISSIONS: Record<SubscriptionTier, Features> = {
     canSyncSyllabus: false,
     aiInquiryLimit: 0,          // No access in free mode
     canAccessNotes: false,
-    canAccessGoals: false,
+    canAccessGoals: true,
   },
   standard: {
     canCreateGroup: true,

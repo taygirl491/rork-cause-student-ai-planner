@@ -29,7 +29,7 @@ import { Class } from '@/types';
 import SearchBar from '@/components/SearchBar';
 import * as Analytics from '@/utils/analytics';
 
-const CLASS_COLORS = [colors.primary, colors.secondary, colors.success, colors.warning, '#56CCF2', '#F2994A'];
+const CLASS_COLORS = [colors.primary, colors.secondary, colors.success, colors.warning, '#56CCF2', '#f24a9eff'];
 const DAYS_OF_WEEK = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
 

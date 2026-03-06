@@ -6,7 +6,7 @@
 const mongoose = require('mongoose');
 require('dotenv').config();
 
-const StudyGroup = require('../models/StudyGroupMongo');
+const StudyGroup = require('../models/StudyGroup');
 
 async function migrateAddUserIdToMembers() {
     try {

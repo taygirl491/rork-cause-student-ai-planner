@@ -9,12 +9,10 @@ const studyGroupSchema = new mongoose.Schema({
     className: {
         type: String,
         required: true,
-        trim: true,
     },
     school: {
         type: String,
         required: true,
-        trim: true,
     },
     description: {
         type: String,
@@ -24,33 +22,29 @@ const studyGroupSchema = new mongoose.Schema({
         type: String,
         required: true,
         unique: true,
-        uppercase: true,
-        index: true,
     },
     creatorId: {
         type: String, // Firebase UID
         required: true,
-        index: true,
     },
+    isPrivate: {
+        type: Boolean,
+        default: false,
+    },
+    admins: [{
+        type: String, // Array of Firebase UIDs (max 4)
+    }],
     members: [{
         email: {
             type: String,
             required: true,
         },
-        name: {
-            type: String,
-            default: '',
-        },
-        userId: {
-            type: String, // Firebase UID
-        },
+        name: String,
+        userId: String, // Firebase UID
         joinedAt: {
             type: Date,
             default: Date.now,
         },
-    }],
-    admins: [{
-        type: String, // Array of Firebase UIDs (max 4 admins)
     }],
     pendingMembers: [{
         email: {
@@ -64,10 +58,6 @@ const studyGroupSchema = new mongoose.Schema({
             default: Date.now,
         },
     }],
-    isPrivate: {
-        type: Boolean,
-        default: false,
-    },
     createdAt: {
         type: Date,
         default: Date.now,
@@ -77,7 +67,8 @@ const studyGroupSchema = new mongoose.Schema({
 });
 
 // Indexes
-// studyGroupSchema.index({ creatorId: 1 });
+studyGroupSchema.index({ creatorId: 1 });
 studyGroupSchema.index({ 'members.email': 1 });
+studyGroupSchema.index({ code: 1 });
 
-module.exports = mongoose.model('StudyGroupMongo', studyGroupSchema);
+module.exports = mongoose.model('StudyGroup', studyGroupSchema);

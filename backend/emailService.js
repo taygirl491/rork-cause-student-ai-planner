@@ -319,6 +319,58 @@ async function sendTestEmail(to) {
 }
 
 /**
+ * Send notification for group join (Email version)
+ */
+async function sendJoinNotification(groupData, newMembers, existingMembers) {
+  try {
+    const recipients = existingMembers.map(m => m.email);
+    if (recipients.length === 0) return { success: true, emailsSent: 0 };
+
+    const newMemberNames = newMembers.map(m => m.name || m.email).join(', ');
+    const subject = `New Member in ${groupData.name}`;
+    const message = `
+      <h1>New Member Joined! 🎉</h1>
+      <p><strong>${newMemberNames}</strong> just joined your study group <strong>${groupData.name}</strong>.</p>
+      <p>Go say hi in the group chat!</p>
+    `;
+
+    return await sendBroadcastEmail(recipients, subject, message);
+  } catch (error) {
+    console.error('Error sending join email notification:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Send notification for group creation (Email version)
+ */
+async function sendGroupCreatedNotification(to, groupData) {
+  try {
+    const transporter = createTransporter();
+    const mailOptions = {
+      from: `"CauseAI Student Planner" <${process.env.GMAIL_USER}>`,
+      to: to,
+      subject: `Study Group Created: ${groupData.name} 📚`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h1 style="color: #6366F1;">Group Created Successfully! 🎉</h1>
+          <p>Your study group <strong>${groupData.name}</strong> for <strong>${groupData.className}</strong> has been created.</p>
+          <p>Invite your classmates using this code: <strong style="font-size: 20px; color: #6366F1;">${groupData.code}</strong></p>
+          <p>Happy studying!</p>
+        </div>
+      `
+    };
+
+    await transporter.sendMail(mailOptions);
+    console.log(`✓ Group creation email sent to ${to}`);
+    return { success: true };
+  } catch (error) {
+    console.error('Error sending group creation email:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
  * Alias for sendBroadcastEmail (for compatibility with admin routes)
  */
 const sendAnnouncement = sendBroadcastEmail;
@@ -329,6 +381,8 @@ module.exports = {
   sendBroadcastEmail,
   sendAnnouncement,
   sendTestEmail,
+  sendJoinNotification,
+  sendGroupCreatedNotification,
   checkEmailConfig,
   verifyEmailService
 };

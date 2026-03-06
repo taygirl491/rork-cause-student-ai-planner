@@ -846,6 +846,56 @@ export const [AppProvider, useApp] = createContextHook(() => {
 			setStudyGroups((prev) => prev.filter((g) => g.id !== data.groupId));
 		};
 
+		const handleMemberKicked = (data: any) => {
+			console.log('Member kicked event:', data);
+			setStudyGroups((prev) =>
+				prev.map((g) => {
+					if (g.id === data.groupId) {
+						// If the current user was kicked, remove the group entirely
+						if (data.email === user.email) {
+							return null as any;
+						}
+						return {
+							...g,
+							members: g.members.filter((m) => m.email !== data.email),
+						};
+					}
+					return g;
+				}).filter(Boolean)
+			);
+		};
+
+		const handleAdminPromoted = (data: any) => {
+			console.log('Admin promoted event:', data);
+			setStudyGroups((prev) =>
+				prev.map((g) => {
+					if (g.id === data.groupId) {
+						const alreadyAdmin = g.admins?.includes(data.userId);
+						return {
+							...g,
+							admins: alreadyAdmin ? g.admins : [...(g.admins || []), data.userId],
+						};
+					}
+					return g;
+				})
+			);
+		};
+
+		const handleAdminDemoted = (data: any) => {
+			console.log('Admin demoted event:', data);
+			setStudyGroups((prev) =>
+				prev.map((g) => {
+					if (g.id === data.groupId) {
+						return {
+							...g,
+							admins: (g.admins || []).filter((id) => id !== data.userId),
+						};
+					}
+					return g;
+				})
+			);
+		};
+
 		// Task event handlers
 		const handleTaskCreated = (data: any) => {
 			if (data.userId === user.uid && data.task) {
@@ -952,6 +1002,9 @@ export const [AppProvider, useApp] = createContextHook(() => {
 		socketService.on('member-approved', handleMemberApproved);
 		socketService.on('member-rejected', handleMemberRejected);
 		socketService.on('group-joined', handleGroupJoined);
+		socketService.on('member-kicked', handleMemberKicked);
+		socketService.on('admin-promoted', handleAdminPromoted);
+		socketService.on('admin-demoted', handleAdminDemoted);
 
 		return () => {
 			// Clean up all event listeners
@@ -984,6 +1037,9 @@ export const [AppProvider, useApp] = createContextHook(() => {
 			socketService.off('member-approved', handleMemberApproved);
 			socketService.off('member-rejected', handleMemberRejected);
 			socketService.off('group-joined', handleGroupJoined);
+			socketService.off('member-kicked', handleMemberKicked);
+			socketService.off('admin-promoted', handleAdminPromoted);
+			socketService.off('admin-demoted', handleAdminDemoted);
 
 			socketService.disconnect();
 		};

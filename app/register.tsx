@@ -86,7 +86,9 @@ export default function RegisterScreen() {
             keyboardShouldPersistTaps="handled"
           >
             <TouchableOpacity style={styles.backButton} onPress={handleBack}>
-              <ArrowLeft size={24} color="#fff" />
+              <View pointerEvents="none">
+                <ArrowLeft size={24} color="#fff" />
+              </View>
             </TouchableOpacity>
 
             <View style={styles.header}>
@@ -150,11 +152,13 @@ export default function RegisterScreen() {
                   onPress={() => setShowPassword(!showPassword)}
                   style={styles.eyeIcon}
                 >
-                  {showPassword ? (
-                    <EyeOff size={20} color={colors.textSecondary} />
-                  ) : (
-                    <Eye size={20} color={colors.textSecondary} />
-                  )}
+                  <View pointerEvents="none">
+                    {showPassword ? (
+                      <EyeOff size={20} color={colors.textSecondary} />
+                    ) : (
+                      <Eye size={20} color={colors.textSecondary} />
+                    )}
+                  </View>
                 </TouchableOpacity>
               </View>
 
@@ -177,11 +181,13 @@ export default function RegisterScreen() {
                   onPress={() => setShowConfirmPassword(!showConfirmPassword)}
                   style={styles.eyeIcon}
                 >
-                  {showConfirmPassword ? (
-                    <EyeOff size={20} color={colors.textSecondary} />
-                  ) : (
-                    <Eye size={20} color={colors.textSecondary} />
-                  )}
+                  <View pointerEvents="none">
+                    {showConfirmPassword ? (
+                      <EyeOff size={20} color={colors.textSecondary} />
+                    ) : (
+                      <Eye size={20} color={colors.textSecondary} />
+                    )}
+                  </View>
                 </TouchableOpacity>
               </View>
 

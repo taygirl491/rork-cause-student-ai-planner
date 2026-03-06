@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const StudyGroup = require('../models/StudyGroupMongo');
+const StudyGroup = require('../models/StudyGroup');
 const StudyGroupMessage = require('../models/StudyGroupMessageMongo');
 const {
     sendJoinNotification,
@@ -564,9 +564,8 @@ router.post('/:groupId/kick-member', async (req, res) => {
         }
 
         // Check if trying to kick the creator
-        const creatorEmail = group.members.find(m => m.email)?.email;
-        const creatorMember = group.members[0]; // First member is creator
-        if (creatorMember && creatorMember.email === email) {
+        const memberToKick = group.members[memberIndex];
+        if (memberToKick.userId === group.creatorId) {
             return res.status(403).json({
                 success: false,
                 error: 'Cannot kick the group creator',

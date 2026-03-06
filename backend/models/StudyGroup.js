@@ -9,10 +9,12 @@ const studyGroupSchema = new mongoose.Schema({
     className: {
         type: String,
         required: true,
+        trim: true,
     },
     school: {
         type: String,
         required: true,
+        trim: true,
     },
     description: {
         type: String,
@@ -22,29 +24,33 @@ const studyGroupSchema = new mongoose.Schema({
         type: String,
         required: true,
         unique: true,
+        uppercase: true,
+        index: true,
     },
     creatorId: {
         type: String, // Firebase UID
         required: true,
+        index: true,
     },
-    isPrivate: {
-        type: Boolean,
-        default: false,
-    },
-    admins: [{
-        type: String, // Array of Firebase UIDs (max 4)
-    }],
     members: [{
         email: {
             type: String,
             required: true,
         },
-        name: String,
-        userId: String, // Firebase UID
+        name: {
+            type: String,
+            default: '',
+        },
+        userId: {
+            type: String, // Firebase UID
+        },
         joinedAt: {
             type: Date,
             default: Date.now,
         },
+    }],
+    admins: [{
+        type: String, // Array of Firebase UIDs (max 4 admins)
     }],
     pendingMembers: [{
         email: {
@@ -58,6 +64,10 @@ const studyGroupSchema = new mongoose.Schema({
             default: Date.now,
         },
     }],
+    isPrivate: {
+        type: Boolean,
+        default: false,
+    },
     createdAt: {
         type: Date,
         default: Date.now,
