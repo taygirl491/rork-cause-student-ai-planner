@@ -83,6 +83,45 @@ router.post('/register', async (req, res) => {
 });
 
 /**
+ * GET /api/users/:userId
+ * Get a single user by ID
+ */
+router.get('/:userId', async (req, res) => {
+    try {
+        const { userId } = req.params;
+
+        if (!userId) {
+            return res.status(400).json({
+                success: false,
+                error: 'Missing required field: userId'
+            });
+        }
+
+        const user = await User.findById(userId);
+
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                error: 'User not found'
+            });
+        }
+
+        res.json({
+            success: true,
+            user
+        });
+    } catch (error) {
+        console.error('Error fetching user:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to fetch user',
+            details: error.message
+        });
+    }
+});
+
+
+/**
  * GET /api/users/:userId/purpose
  * Get user's purpose statement
  */

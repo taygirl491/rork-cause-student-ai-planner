@@ -508,295 +508,297 @@ export default function TasksScreen() {
       />
 
       <Modal visible={showModal} transparent animationType="fade" onRequestClose={() => setShowModal(false)}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.keyboardAvoidingView}
-        >
-          <TouchableOpacity
-            style={styles.modalOverlay}
-            activeOpacity={1}
-            onPress={() => setShowModal(false)}
+        <SafeAreaView style={styles.safeAreaModal}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={styles.keyboardAvoidingView}
           >
             <TouchableOpacity
+              style={styles.modalOverlay}
               activeOpacity={1}
-              onPress={(e) => e.stopPropagation()}
-              style={{ width: '100%', alignItems: 'center' }}
+              onPress={() => setShowModal(false)}
             >
-              <Animated.View style={[styles.modalContent, { transform: [{ scale: scaleAnim }] }]}>
-                <View style={styles.modalHeader}>
-                  <Text style={styles.modalTitle}>{isEditing ? 'Edit Task' : 'Create Task'}</Text>
-                  <TouchableOpacity onPress={() => {
-                    setShowModal(false);
-                    setIsEditing(false);
-                    setSelectedTask(null);
-                    resetForm();
-                  }}>
-                    <X size={24} color={colors.text} />
-                  </TouchableOpacity>
-                </View>
-
-                <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.modalScrollContent} keyboardShouldPersistTaps="handled">
-                  <Text style={styles.label}>Description *</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Enter task description"
-                    placeholderTextColor={colors.textLight}
-                    value={description}
-                    onChangeText={setDescription}
-                  />
-
-                  <Text style={styles.label}>Type *</Text>
-                  <View style={styles.optionGrid}>
-                    {taskTypes.map((type) => (
-                      <TouchableOpacity
-                        key={type}
-                        style={[
-                          styles.optionChip,
-                          taskType === type && { backgroundColor: colors.taskColors[type] },
-                        ]}
-                        onPress={() => setTaskType(type)}
-                      >
-                        <Text
-                          style={[
-                            styles.optionChipText,
-                            taskType === type && { color: colors.surface },
-                          ]}
-                        >
-                          {type}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
+              <TouchableOpacity
+                activeOpacity={1}
+                onPress={(e) => e.stopPropagation()}
+                style={{ width: '100%', alignItems: 'center' }}
+              >
+                <Animated.View style={[styles.modalContent, { transform: [{ scale: scaleAnim }] }]}>
+                  <View style={styles.modalHeader}>
+                    <Text style={styles.modalTitle}>{isEditing ? 'Edit Task' : 'Create Task'}</Text>
+                    <TouchableOpacity onPress={() => {
+                      setShowModal(false);
+                      setIsEditing(false);
+                      setSelectedTask(null);
+                      resetForm();
+                    }}>
+                      <X size={24} color={colors.text} />
+                    </TouchableOpacity>
                   </View>
 
-                  <Text style={styles.label}>Class</Text>
-                  <TouchableOpacity
-                    onPress={() => {
-                      setShowModal(false);
-                      router.push('/(tabs)/classes');
-                    }}
-                    style={styles.helperNote}
-                  >
-                    <Text style={styles.helperNoteText}>
-                      Don't see your class? Click{' '}
-                      <Text style={styles.helperNoteLink}>HERE</Text>
-                      {' '}to create a class.
-                    </Text>
-                  </TouchableOpacity>
-                  <View style={styles.optionGrid}>
+                  <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.modalScrollContent} keyboardShouldPersistTaps="handled">
+                    <Text style={styles.label}>Description *</Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Enter task description"
+                      placeholderTextColor={colors.textLight}
+                      value={description}
+                      onChangeText={setDescription}
+                    />
+
+                    <Text style={styles.label}>Type *</Text>
+                    <View style={styles.optionGrid}>
+                      {taskTypes.map((type) => (
+                        <TouchableOpacity
+                          key={type}
+                          style={[
+                            styles.optionChip,
+                            taskType === type && { backgroundColor: colors.taskColors[type] },
+                          ]}
+                          onPress={() => setTaskType(type)}
+                        >
+                          <Text
+                            style={[
+                              styles.optionChipText,
+                              taskType === type && { color: colors.surface },
+                            ]}
+                          >
+                            {type}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+
+                    <Text style={styles.label}>Class</Text>
                     <TouchableOpacity
-                      style={[
-                        styles.optionChip,
-                        !selectedClass && { backgroundColor: colors.primary },
-                      ]}
-                      onPress={() => setSelectedClass('')}
+                      onPress={() => {
+                        setShowModal(false);
+                        router.push('/(tabs)/classes');
+                      }}
+                      style={styles.helperNote}
                     >
-                      <Text
-                        style={[
-                          styles.optionChipText,
-                          !selectedClass && { color: colors.surface },
-                        ]}
-                      >
-                        None
+                      <Text style={styles.helperNoteText}>
+                        Don't see your class? Click{' '}
+                        <Text style={styles.helperNoteLink}>HERE</Text>
+                        {' '}to create a class.
                       </Text>
                     </TouchableOpacity>
-                    {classes.map((cls) => (
+                    <View style={styles.optionGrid}>
                       <TouchableOpacity
-                        key={cls.id}
                         style={[
                           styles.optionChip,
-                          selectedClass === cls.name && { backgroundColor: cls.color },
+                          !selectedClass && { backgroundColor: colors.primary },
                         ]}
-                        onPress={() => setSelectedClass(cls.name)}
+                        onPress={() => setSelectedClass('')}
                       >
                         <Text
                           style={[
                             styles.optionChipText,
-                            selectedClass === cls.name && { color: colors.surface },
+                            !selectedClass && { color: colors.surface },
                           ]}
                         >
-                          {cls.name}
+                          None
                         </Text>
                       </TouchableOpacity>
-                    ))}
-                  </View>
-
-                  <Text style={styles.label}>Due Date *</Text>
-                  <TouchableOpacity
-                    style={styles.input}
-                    onPress={() => setShowDatePicker(true)}
-                  >
-                    <Text style={styles.inputText}>
-                      {dueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                    </Text>
-                  </TouchableOpacity>
-                  <DateTimePickerModal
-                    isVisible={showDatePicker}
-                    mode="date"
-                    date={dueDate}
-                    onConfirm={(date) => {
-                      setShowDatePicker(false);
-                      setDueDate(date);
-                    }}
-                    onCancel={() => setShowDatePicker(false)}
-                  />
-
-                  <Text style={styles.label}>Due Time</Text>
-                  <TouchableOpacity
-                    style={styles.input}
-                    onPress={() => setShowTimePicker(true)}
-                  >
-                    <Text style={styles.inputText}>
-                      {formatTime12H(dueTime)}
-                    </Text>
-                  </TouchableOpacity>
-                  <DateTimePickerModal
-                    isVisible={showTimePicker}
-                    mode="time"
-                    date={dueTime}
-                    onConfirm={(time) => {
-                      setShowTimePicker(false);
-                      setDueTime(time);
-                    }}
-                    onCancel={() => setShowTimePicker(false)}
-                  />
-
-                  <Text style={styles.label}>Priority</Text>
-                  <View style={styles.optionGrid}>
-                    {priorities.map((p) => (
-                      <TouchableOpacity
-                        key={p}
-                        style={[
-                          styles.optionChip,
-                          priority === p && { backgroundColor: colors.priorityColors[p] },
-                        ]}
-                        onPress={() => setPriority(p)}
-                      >
-                        <Text
+                      {classes.map((cls) => (
+                        <TouchableOpacity
+                          key={cls.id}
                           style={[
-                            styles.optionChipText,
-                            priority === p && { color: colors.surface },
+                            styles.optionChip,
+                            selectedClass === cls.name && { backgroundColor: cls.color },
                           ]}
+                          onPress={() => setSelectedClass(cls.name)}
                         >
-                          {p}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
+                          <Text
+                            style={[
+                              styles.optionChipText,
+                              selectedClass === cls.name && { color: colors.surface },
+                            ]}
+                          >
+                            {cls.name}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
 
-                  <Text style={styles.label}>Reminder</Text>
-                  <View style={styles.optionGrid}>
-                    {reminders.map((r) => (
-                      <TouchableOpacity
-                        key={r}
-                        style={[
-                          styles.optionChip,
-                          reminder === r && { backgroundColor: colors.primary },
-                        ]}
-                        onPress={() => {
-                          setReminder(r);
-                          if (r === 'custom') {
-                            // Set minimum date to current time + 1 minute
-                            const minDate = new Date();
-                            minDate.setMinutes(minDate.getMinutes() + 1);
-                            setCustomReminderDate(minDate);
-                            setShowCustomReminderPicker(true);
-                          }
-                        }}
-                      >
-                        <Text
-                          style={[
-                            styles.optionChipText,
-                            reminder === r && { color: colors.surface },
-                          ]}
-                        >
-                          {r}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-
-                  {reminder === 'custom' && (
+                    <Text style={styles.label}>Due Date *</Text>
                     <TouchableOpacity
-                      style={[styles.input, { marginTop: 8 }]}
-                      onPress={() => setShowCustomReminderPicker(true)}
+                      style={styles.input}
+                      onPress={() => setShowDatePicker(true)}
                     >
                       <Text style={styles.inputText}>
-                        {customReminderDate.toLocaleString('en-US', {
-                          month: 'short',
-                          day: 'numeric',
-                          year: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
+                        {dueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                       </Text>
                     </TouchableOpacity>
-                  )}
-                  <DateTimePickerModal
-                    isVisible={showCustomReminderPicker}
-                    mode="datetime"
-                    date={customReminderDate}
-                    minimumDate={new Date()}
-                    onConfirm={(date) => {
-                      if (date > new Date()) {
-                        setShowCustomReminderPicker(false);
-                        setCustomReminderDate(date);
-                      } else {
-                        setShowCustomReminderPicker(false);
-                        Alert.alert(
-                          'Invalid Date',
-                          'Reminder must be set for a future date and time.',
-                          [{ text: 'OK' }]
-                        );
-                      }
-                    }}
-                    onCancel={() => setShowCustomReminderPicker(false)}
-                  />
+                    <DateTimePickerModal
+                      isVisible={showDatePicker}
+                      mode="date"
+                      date={dueDate}
+                      onConfirm={(date) => {
+                        setShowDatePicker(false);
+                        setDueDate(date);
+                      }}
+                      onCancel={() => setShowDatePicker(false)}
+                    />
 
-                  <Text style={styles.label}>Repeat</Text>
-                  <View style={styles.optionGrid}>
-                    {['none', 'daily'].map((r) => (
-                      <TouchableOpacity
-                        key={r}
-                        style={[
-                          styles.optionChip,
-                          repeat === r && { backgroundColor: colors.primary },
-                        ]}
-                        onPress={() => setRepeat(r)}
-                      >
-                        <Text
+                    <Text style={styles.label}>Due Time</Text>
+                    <TouchableOpacity
+                      style={styles.input}
+                      onPress={() => setShowTimePicker(true)}
+                    >
+                      <Text style={styles.inputText}>
+                        {formatTime12H(dueTime)}
+                      </Text>
+                    </TouchableOpacity>
+                    <DateTimePickerModal
+                      isVisible={showTimePicker}
+                      mode="time"
+                      date={dueTime}
+                      onConfirm={(time) => {
+                        setShowTimePicker(false);
+                        setDueTime(time);
+                      }}
+                      onCancel={() => setShowTimePicker(false)}
+                    />
+
+                    <Text style={styles.label}>Priority</Text>
+                    <View style={styles.optionGrid}>
+                      {priorities.map((p) => (
+                        <TouchableOpacity
+                          key={p}
                           style={[
-                            styles.optionChipText,
-                            repeat === r && { color: colors.surface },
+                            styles.optionChip,
+                            priority === p && { backgroundColor: colors.priorityColors[p] },
                           ]}
+                          onPress={() => setPriority(p)}
                         >
-                          {r.charAt(0).toUpperCase() + r.slice(1)}
+                          <Text
+                            style={[
+                              styles.optionChipText,
+                              priority === p && { color: colors.surface },
+                            ]}
+                          >
+                            {p}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+
+                    <Text style={styles.label}>Reminder</Text>
+                    <View style={styles.optionGrid}>
+                      {reminders.map((r) => (
+                        <TouchableOpacity
+                          key={r}
+                          style={[
+                            styles.optionChip,
+                            reminder === r && { backgroundColor: colors.primary },
+                          ]}
+                          onPress={() => {
+                            setReminder(r);
+                            if (r === 'custom') {
+                              // Set minimum date to current time + 1 minute
+                              const minDate = new Date();
+                              minDate.setMinutes(minDate.getMinutes() + 1);
+                              setCustomReminderDate(minDate);
+                              setShowCustomReminderPicker(true);
+                            }
+                          }}
+                        >
+                          <Text
+                            style={[
+                              styles.optionChipText,
+                              reminder === r && { color: colors.surface },
+                            ]}
+                          >
+                            {r}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+
+                    {reminder === 'custom' && (
+                      <TouchableOpacity
+                        style={[styles.input, { marginTop: 8 }]}
+                        onPress={() => setShowCustomReminderPicker(true)}
+                      >
+                        <Text style={styles.inputText}>
+                          {customReminderDate.toLocaleString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
                         </Text>
                       </TouchableOpacity>
-                    ))}
-                  </View>
+                    )}
+                    <DateTimePickerModal
+                      isVisible={showCustomReminderPicker}
+                      mode="datetime"
+                      date={customReminderDate}
+                      minimumDate={new Date()}
+                      onConfirm={(date) => {
+                        if (date > new Date()) {
+                          setShowCustomReminderPicker(false);
+                          setCustomReminderDate(date);
+                        } else {
+                          setShowCustomReminderPicker(false);
+                          Alert.alert(
+                            'Invalid Date',
+                            'Reminder must be set for a future date and time.',
+                            [{ text: 'OK' }]
+                          );
+                        }
+                      }}
+                      onCancel={() => setShowCustomReminderPicker(false)}
+                    />
 
-                  <TouchableOpacity
-                    style={[styles.checkboxRow, alarmEnabled && styles.checkboxRowActive]}
-                    onPress={() => setAlarmEnabled(!alarmEnabled)}
-                  >
-                    <View style={[styles.checkbox, alarmEnabled && styles.checkboxChecked]}>
-                      {alarmEnabled && <CheckCircle size={20} color={colors.surface} />}
+                    <Text style={styles.label}>Repeat</Text>
+                    <View style={styles.optionGrid}>
+                      {['none', 'daily'].map((r) => (
+                        <TouchableOpacity
+                          key={r}
+                          style={[
+                            styles.optionChip,
+                            repeat === r && { backgroundColor: colors.primary },
+                          ]}
+                          onPress={() => setRepeat(r)}
+                        >
+                          <Text
+                            style={[
+                              styles.optionChipText,
+                              repeat === r && { color: colors.surface },
+                            ]}
+                          >
+                            {r.charAt(0).toUpperCase() + r.slice(1)}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
                     </View>
-                    <Text style={styles.checkboxLabel}>Enable alarm sound</Text>
-                  </TouchableOpacity>
 
-                  <Button
-                    title={isEditing ? 'Update Task' : 'Create Task'}
-                    onPress={handleAddTask}
-                    isLoading={isSaving}
-                    disabled={!description}
-                    style={styles.createButton}
-                  />
-                </ScrollView>
-              </Animated.View>
+                    <TouchableOpacity
+                      style={[styles.checkboxRow, alarmEnabled && styles.checkboxRowActive]}
+                      onPress={() => setAlarmEnabled(!alarmEnabled)}
+                    >
+                      <View style={[styles.checkbox, alarmEnabled && styles.checkboxChecked]}>
+                        {alarmEnabled && <CheckCircle size={20} color={colors.surface} />}
+                      </View>
+                      <Text style={styles.checkboxLabel}>Enable alarm sound</Text>
+                    </TouchableOpacity>
+
+                    <Button
+                      title={isEditing ? 'Update Task' : 'Create Task'}
+                      onPress={handleAddTask}
+                      isLoading={isSaving}
+                      disabled={!description}
+                      style={styles.createButton}
+                    />
+                  </ScrollView>
+                </Animated.View>
+              </TouchableOpacity>
             </TouchableOpacity>
-          </TouchableOpacity>
-        </KeyboardAvoidingView>
+          </KeyboardAvoidingView>
+        </SafeAreaView>
       </Modal>
 
       {/* Action Sheet Modal */}
@@ -808,133 +810,135 @@ export default function TasksScreen() {
         animationType="fade"
         onRequestClose={() => setShowDetailModal(false)}
       >
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setShowDetailModal(false)}
-        >
+        <SafeAreaView style={styles.safeAreaModal}>
           <TouchableOpacity
+            style={styles.modalOverlay}
             activeOpacity={1}
-            onPress={(e) => e.stopPropagation()}
-            style={{ width: '100%', alignItems: 'center' }}
+            onPress={() => setShowDetailModal(false)}
           >
-            <Animated.View style={[styles.modalContent, { transform: [{ scale: detailScaleAnim }] }]}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Task Details</Text>
-                <TouchableOpacity onPress={() => setShowDetailModal(false)}>
-                  <X size={24} color={colors.text} />
-                </TouchableOpacity>
-              </View>
-
-              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.modalScrollContent}>
-                {/* Task Description */}
-                <View style={styles.detailSection}>
-                  <Text style={styles.detailLabel}>Description</Text>
-                  <Text style={styles.detailValue}>{selectedTaskForDetail?.description}</Text>
+            <TouchableOpacity
+              activeOpacity={1}
+              onPress={(e) => e.stopPropagation()}
+              style={{ width: '100%', alignItems: 'center' }}
+            >
+              <Animated.View style={[styles.modalContent, { transform: [{ scale: detailScaleAnim }] }]}>
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>Task Details</Text>
+                  <TouchableOpacity onPress={() => setShowDetailModal(false)}>
+                    <X size={24} color={colors.text} />
+                  </TouchableOpacity>
                 </View>
 
-                {/* Type */}
-                <View style={styles.detailSection}>
-                  <Text style={styles.detailLabel}>Type</Text>
-                  <View style={[styles.typeBadge, { backgroundColor: selectedTaskForDetail ? colors.taskColors[selectedTaskForDetail.type] + '20' : colors.background }]}>
-                    <Text style={[styles.typeBadgeText, { color: selectedTaskForDetail ? colors.taskColors[selectedTaskForDetail.type] : colors.text }]}>
-                      {selectedTaskForDetail?.type}
-                    </Text>
-                  </View>
-                </View>
-
-                {/* Class */}
-                {selectedTaskForDetail?.className && (
+                <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.modalScrollContent}>
+                  {/* Task Description */}
                   <View style={styles.detailSection}>
-                    <Text style={styles.detailLabel}>Class</Text>
-                    <Text style={styles.detailValue}>{selectedTaskForDetail.className}</Text>
+                    <Text style={styles.detailLabel}>Description</Text>
+                    <Text style={styles.detailValue}>{selectedTaskForDetail?.description}</Text>
                   </View>
-                )}
 
-                {/* Due Date & Time */}
-                <View style={styles.detailSection}>
-                  <Text style={styles.detailLabel}>Due Date</Text>
-                  <Text style={styles.detailValue}>
-                    {selectedTaskForDetail && formatDate(selectedTaskForDetail.dueDate)}
-                    {selectedTaskForDetail?.dueTime && ` at ${formatStringTime12H(selectedTaskForDetail.dueTime)}`}
-                  </Text>
-                </View>
+                  {/* Type */}
+                  <View style={styles.detailSection}>
+                    <Text style={styles.detailLabel}>Type</Text>
+                    <View style={[styles.typeBadge, { backgroundColor: selectedTaskForDetail ? colors.taskColors[selectedTaskForDetail.type] + '20' : colors.background }]}>
+                      <Text style={[styles.typeBadgeText, { color: selectedTaskForDetail ? colors.taskColors[selectedTaskForDetail.type] : colors.text }]}>
+                        {selectedTaskForDetail?.type}
+                      </Text>
+                    </View>
+                  </View>
 
-                {/* Priority */}
-                <View style={styles.detailSection}>
-                  <Text style={styles.detailLabel}>Priority</Text>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <View style={[styles.priorityDot, { backgroundColor: selectedTaskForDetail ? colors.priorityColors[selectedTaskForDetail.priority] : colors.background }]} />
-                    <Text style={[styles.detailValue, { textTransform: 'capitalize' }]}>
-                      {selectedTaskForDetail?.priority}
+                  {/* Class */}
+                  {selectedTaskForDetail?.className && (
+                    <View style={styles.detailSection}>
+                      <Text style={styles.detailLabel}>Class</Text>
+                      <Text style={styles.detailValue}>{selectedTaskForDetail.className}</Text>
+                    </View>
+                  )}
+
+                  {/* Due Date & Time */}
+                  <View style={styles.detailSection}>
+                    <Text style={styles.detailLabel}>Due Date</Text>
+                    <Text style={styles.detailValue}>
+                      {selectedTaskForDetail && formatDate(selectedTaskForDetail.dueDate)}
+                      {selectedTaskForDetail?.dueTime && ` at ${formatStringTime12H(selectedTaskForDetail.dueTime)}`}
                     </Text>
                   </View>
+
+                  {/* Priority */}
+                  <View style={styles.detailSection}>
+                    <Text style={styles.detailLabel}>Priority</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <View style={[styles.priorityDot, { backgroundColor: selectedTaskForDetail ? colors.priorityColors[selectedTaskForDetail.priority] : colors.background }]} />
+                      <Text style={[styles.detailValue, { textTransform: 'capitalize' }]}>
+                        {selectedTaskForDetail?.priority}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Reminder */}
+                  <View style={styles.detailSection}>
+                    <Text style={styles.detailLabel}>Reminder</Text>
+                    <Text style={styles.detailValue}>
+                      {selectedTaskForDetail?.reminder === '1h' && '1 hour before'}
+                      {selectedTaskForDetail?.reminder === '2h' && '2 hours before'}
+                      {selectedTaskForDetail?.reminder === '1d' && '1 day before'}
+                      {selectedTaskForDetail?.reminder === '2d' && '2 days before'}
+                      {selectedTaskForDetail?.reminder === 'custom' && 'Custom reminder'}
+                    </Text>
+                  </View>
+
+                  {/* Alarm */}
+                  <View style={styles.detailSection}>
+                    <Text style={styles.detailLabel}>Alarm</Text>
+                    <Text style={styles.detailValue}>
+                      {selectedTaskForDetail?.alarmEnabled ? 'Enabled' : 'Disabled'}
+                    </Text>
+                  </View>
+
+                  {/* Status */}
+                  <View style={styles.detailSection}>
+                    <Text style={styles.detailLabel}>Status</Text>
+                    <Text style={[styles.detailValue, { color: selectedTaskForDetail?.completed ? colors.success : colors.textSecondary }]}>
+                      {selectedTaskForDetail?.completed ? 'Completed' : 'Pending'}
+                    </Text>
+                  </View>
+                </ScrollView>
+
+                {/* Action Buttons */}
+                <View style={styles.detailActions}>
+                  <TouchableOpacity
+                    style={[styles.detailButton, styles.toggleButton]}
+                    onPress={() => {
+                      if (selectedTaskForDetail) {
+                        toggleTaskComplete(selectedTaskForDetail);
+                        setShowDetailModal(false);
+                      }
+                    }}
+                  >
+                    <Text style={styles.detailButtonText}>
+                      Mark as {selectedTaskForDetail?.completed ? 'Incomplete' : 'Complete'}
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.detailButton, styles.editButton]}
+                    onPress={handleEditFromDetail}
+                  >
+                    <Edit2 size={18} color={colors.surface} />
+                    <Text style={styles.detailButtonText}>Edit</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.detailButton, styles.deleteButton]}
+                    onPress={handleDeleteFromDetail}
+                  >
+                    <Trash2 size={18} color={colors.surface} />
+                    <Text style={styles.detailButtonText}>Delete</Text>
+                  </TouchableOpacity>
                 </View>
-
-                {/* Reminder */}
-                <View style={styles.detailSection}>
-                  <Text style={styles.detailLabel}>Reminder</Text>
-                  <Text style={styles.detailValue}>
-                    {selectedTaskForDetail?.reminder === '1h' && '1 hour before'}
-                    {selectedTaskForDetail?.reminder === '2h' && '2 hours before'}
-                    {selectedTaskForDetail?.reminder === '1d' && '1 day before'}
-                    {selectedTaskForDetail?.reminder === '2d' && '2 days before'}
-                    {selectedTaskForDetail?.reminder === 'custom' && 'Custom reminder'}
-                  </Text>
-                </View>
-
-                {/* Alarm */}
-                <View style={styles.detailSection}>
-                  <Text style={styles.detailLabel}>Alarm</Text>
-                  <Text style={styles.detailValue}>
-                    {selectedTaskForDetail?.alarmEnabled ? 'Enabled' : 'Disabled'}
-                  </Text>
-                </View>
-
-                {/* Status */}
-                <View style={styles.detailSection}>
-                  <Text style={styles.detailLabel}>Status</Text>
-                  <Text style={[styles.detailValue, { color: selectedTaskForDetail?.completed ? colors.success : colors.textSecondary }]}>
-                    {selectedTaskForDetail?.completed ? 'Completed' : 'Pending'}
-                  </Text>
-                </View>
-              </ScrollView>
-
-              {/* Action Buttons */}
-              <View style={styles.detailActions}>
-                <TouchableOpacity
-                  style={[styles.detailButton, styles.toggleButton]}
-                  onPress={() => {
-                    if (selectedTaskForDetail) {
-                      toggleTaskComplete(selectedTaskForDetail);
-                      setShowDetailModal(false);
-                    }
-                  }}
-                >
-                  <Text style={styles.detailButtonText}>
-                    Mark as {selectedTaskForDetail?.completed ? 'Incomplete' : 'Complete'}
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.detailButton, styles.editButton]}
-                  onPress={handleEditFromDetail}
-                >
-                  <Edit2 size={18} color={colors.surface} />
-                  <Text style={styles.detailButtonText}>Edit</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.detailButton, styles.deleteButton]}
-                  onPress={handleDeleteFromDetail}
-                >
-                  <Trash2 size={18} color={colors.surface} />
-                  <Text style={styles.detailButtonText}>Delete</Text>
-                </TouchableOpacity>
-              </View>
-            </Animated.View>
+              </Animated.View>
+            </TouchableOpacity>
           </TouchableOpacity>
-        </TouchableOpacity>
+        </SafeAreaView>
       </Modal>
 
       {/* Action Sheet Modal */}
@@ -944,29 +948,34 @@ export default function TasksScreen() {
         animationType="fade"
         onRequestClose={() => setShowActionSheet(false)}
       >
-        <TouchableOpacity
-          style={styles.actionSheetOverlay}
-          activeOpacity={1}
-          onPress={() => setShowActionSheet(false)}
-        >
-          <View style={styles.actionSheetContent}>
-            <TouchableOpacity style={styles.actionButton} onPress={() => handleEdit()}>
-              <Edit2 size={20} color={colors.primary} />
-              <Text style={styles.actionButtonText}>Edit Task</Text>
-            </TouchableOpacity>
-            <View style={styles.actionDivider} />
-            <TouchableOpacity style={styles.actionButton} onPress={handleDelete}>
-              <Trash2 size={20} color="#FF3B30" />
-              <Text style={[styles.actionButtonText, { color: '#FF3B30' }]}>Delete Task</Text>
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
+        <SafeAreaView style={styles.safeAreaModal}>
+          <TouchableOpacity
+            style={styles.actionSheetOverlay}
+            activeOpacity={1}
+            onPress={() => setShowActionSheet(false)}
+          >
+            <View style={styles.actionSheetContent}>
+              <TouchableOpacity style={styles.actionButton} onPress={() => handleEdit()}>
+                <Edit2 size={20} color={colors.primary} />
+                <Text style={styles.actionButtonText}>Edit Task</Text>
+              </TouchableOpacity>
+              <View style={styles.actionDivider} />
+              <TouchableOpacity style={styles.actionButton} onPress={handleDelete}>
+                <Trash2 size={20} color="#FF3B30" />
+                <Text style={[styles.actionButtonText, { color: '#FF3B30' }]}>Delete Task</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </SafeAreaView>
       </Modal>
-    </SafeAreaView >
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeAreaModal: {
+    flex: 1,
+  },
   container: {
     flex: 1,
     backgroundColor: colors.background,

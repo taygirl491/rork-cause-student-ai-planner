@@ -356,185 +356,187 @@ export default function ClassesScreen() {
       />
 
       <Modal visible={showClassModal} transparent animationType="fade" onRequestClose={() => setShowClassModal(false)}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          style={{ flex: 1 }}
-        >
-          <TouchableOpacity
-            style={styles.modalOverlay}
-            activeOpacity={1}
-            onPress={() => setShowClassModal(false)}
+        <SafeAreaView style={styles.safeAreaModal}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+            style={{ flex: 1 }}
           >
             <TouchableOpacity
+              style={styles.modalOverlay}
               activeOpacity={1}
-              onPress={(e) => e.stopPropagation()}
-              style={{ width: '100%', alignItems: 'center' }}
+              onPress={() => setShowClassModal(false)}
             >
-              <Animated.View style={[styles.modalContent, { transform: [{ scale: scaleAnim }] }]}>
-                <View style={styles.modalHeader}>
-                  <Text style={styles.modalTitle}>{isEditing ? 'Edit Class' : 'Add Class'}</Text>
-                  <TouchableOpacity onPress={() => {
-                    setShowClassModal(false);
-                    setIsEditing(false);
-                    setSelectedClass(null);
-                    resetClassForm();
-                  }}>
-                    <X size={24} color={colors.text} />
-                  </TouchableOpacity>
-                </View>
-
-                <ScrollView showsVerticalScrollIndicator={false}>
-                  {/* CLASS NAME */}
-                  <Text style={styles.label}>Class Name *</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="e.g., Introduction to Psychology"
-                    placeholderTextColor={colors.textLight}
-                    value={name}
-                    onChangeText={setName}
-                  />
-
-                  {/* SECTION */}
-                  <Text style={styles.label}>Section (Optional)</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="e.g., Section A"
-                    placeholderTextColor={colors.textLight}
-                    value={section}
-                    onChangeText={setSection}
-                  />
-
-                  {/* DAYS */}
-                  <Text style={styles.label}>Days of Week *</Text>
-                  <View style={styles.daysGrid}>
-                    {DAYS_OF_WEEK.map((day) => (
-                      <TouchableOpacity
-                        key={day}
-                        style={[
-                          styles.dayChip,
-                          selectedDays.includes(day) && { backgroundColor: colors.primary, borderColor: colors.primary },
-                        ]}
-                        onPress={() => toggleDay(day)}
-                      >
-                        <Text
-                          style={[
-                            styles.dayChipText,
-                            selectedDays.includes(day) && { color: colors.surface },
-                          ]}
-                        >
-                          {day.slice(0, 3)}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
+              <TouchableOpacity
+                activeOpacity={1}
+                onPress={(e) => e.stopPropagation()}
+                style={{ width: '100%', alignItems: 'center' }}
+              >
+                <Animated.View style={[styles.modalContent, { transform: [{ scale: scaleAnim }] }]}>
+                  <View style={styles.modalHeader}>
+                    <Text style={styles.modalTitle}>{isEditing ? 'Edit Class' : 'Add Class'}</Text>
+                    <TouchableOpacity onPress={() => {
+                      setShowClassModal(false);
+                      setIsEditing(false);
+                      setSelectedClass(null);
+                      resetClassForm();
+                    }}>
+                      <X size={24} color={colors.text} />
+                    </TouchableOpacity>
                   </View>
 
-                  {/* TIME PICKERS */}
-                  <Text style={styles.label}>Start Time *</Text>
-                  <TouchableOpacity style={styles.input} onPress={() => setShowStartTimePicker(true)}>
-                    <Text style={styles.inputText}>{formatTime12H(startTime)}</Text>
-                  </TouchableOpacity>
-                  <DateTimePickerModal
-                    isVisible={showStartTimePicker}
-                    mode="time"
-                    date={startTime}
-                    onConfirm={(time) => {
-                      setShowStartTimePicker(false);
-                      setStartTime(time);
-                    }}
-                    onCancel={() => setShowStartTimePicker(false)}
-                  />
+                  <ScrollView showsVerticalScrollIndicator={false}>
+                    {/* CLASS NAME */}
+                    <Text style={styles.label}>Class Name *</Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="e.g., Introduction to Psychology"
+                      placeholderTextColor={colors.textLight}
+                      value={name}
+                      onChangeText={setName}
+                    />
 
-                  <Text style={styles.label}>End Time *</Text>
-                  <TouchableOpacity style={styles.input} onPress={() => setShowEndTimePicker(true)}>
-                    <Text style={styles.inputText}>{formatTime12H(endTime)}</Text>
-                  </TouchableOpacity>
-                  <DateTimePickerModal
-                    isVisible={showEndTimePicker}
-                    mode="time"
-                    date={endTime}
-                    onConfirm={(time) => {
-                      setShowEndTimePicker(false);
-                      setEndTime(time);
-                    }}
-                    onCancel={() => setShowEndTimePicker(false)}
-                  />
+                    {/* SECTION */}
+                    <Text style={styles.label}>Section (Optional)</Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="e.g., Section A"
+                      placeholderTextColor={colors.textLight}
+                      value={section}
+                      onChangeText={setSection}
+                    />
 
-                  {/* PROFESSOR */}
-                  <Text style={styles.label}>Professor</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="e.g., Dr. Smith"
-                    placeholderTextColor={colors.textLight}
-                    value={professor}
-                    onChangeText={setProfessor}
-                  />
+                    {/* DAYS */}
+                    <Text style={styles.label}>Days of Week *</Text>
+                    <View style={styles.daysGrid}>
+                      {DAYS_OF_WEEK.map((day) => (
+                        <TouchableOpacity
+                          key={day}
+                          style={[
+                            styles.dayChip,
+                            selectedDays.includes(day) && { backgroundColor: colors.primary, borderColor: colors.primary },
+                          ]}
+                          onPress={() => toggleDay(day)}
+                        >
+                          <Text
+                            style={[
+                              styles.dayChipText,
+                              selectedDays.includes(day) && { color: colors.surface },
+                            ]}
+                          >
+                            {day.slice(0, 3)}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
 
-                  {/* START DATE */}
-                  <Text style={styles.label}>Start Date *</Text>
-                  <TouchableOpacity style={styles.input} onPress={() => setShowStartDatePicker(true)}>
-                    <Text style={styles.inputText}>
-                      {startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                    </Text>
-                  </TouchableOpacity>
+                    {/* TIME PICKERS */}
+                    <Text style={styles.label}>Start Time *</Text>
+                    <TouchableOpacity style={styles.input} onPress={() => setShowStartTimePicker(true)}>
+                      <Text style={styles.inputText}>{formatTime12H(startTime)}</Text>
+                    </TouchableOpacity>
+                    <DateTimePickerModal
+                      isVisible={showStartTimePicker}
+                      mode="time"
+                      date={startTime}
+                      onConfirm={(time) => {
+                        setShowStartTimePicker(false);
+                        setStartTime(time);
+                      }}
+                      onCancel={() => setShowStartTimePicker(false)}
+                    />
 
-                  <DateTimePickerModal
-                    isVisible={showStartDatePicker}
-                    mode="date"
-                    date={startDate}
-                    onConfirm={(date) => {
-                      setShowStartDatePicker(false);
-                      setStartDate(date);
-                    }}
-                    onCancel={() => setShowStartDatePicker(false)}
-                  />
+                    <Text style={styles.label}>End Time *</Text>
+                    <TouchableOpacity style={styles.input} onPress={() => setShowEndTimePicker(true)}>
+                      <Text style={styles.inputText}>{formatTime12H(endTime)}</Text>
+                    </TouchableOpacity>
+                    <DateTimePickerModal
+                      isVisible={showEndTimePicker}
+                      mode="time"
+                      date={endTime}
+                      onConfirm={(time) => {
+                        setShowEndTimePicker(false);
+                        setEndTime(time);
+                      }}
+                      onCancel={() => setShowEndTimePicker(false)}
+                    />
 
-                  {/* END DATE */}
-                  <Text style={styles.label}>End Date *</Text>
-                  <TouchableOpacity style={styles.input} onPress={() => setShowEndDatePicker(true)}>
-                    <Text style={styles.inputText}>
-                      {endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                    </Text>
-                  </TouchableOpacity>
+                    {/* PROFESSOR */}
+                    <Text style={styles.label}>Professor</Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="e.g., Dr. Smith"
+                      placeholderTextColor={colors.textLight}
+                      value={professor}
+                      onChangeText={setProfessor}
+                    />
 
-                  <DateTimePickerModal
-                    isVisible={showEndDatePicker}
-                    mode="date"
-                    date={endDate}
-                    onConfirm={(date) => {
-                      setShowEndDatePicker(false);
-                      setEndDate(date);
-                    }}
-                    onCancel={() => setShowEndDatePicker(false)}
-                  />
+                    {/* START DATE */}
+                    <Text style={styles.label}>Start Date *</Text>
+                    <TouchableOpacity style={styles.input} onPress={() => setShowStartDatePicker(true)}>
+                      <Text style={styles.inputText}>
+                        {startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </Text>
+                    </TouchableOpacity>
 
-                  {/* COLOR PICKER */}
-                  <Text style={styles.label}>Color</Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.colorGrid}>
-                    {CLASS_COLORS.map((color) => (
-                      <TouchableOpacity
-                        key={color}
-                        style={[
-                          styles.colorOption,
-                          { backgroundColor: color },
-                          selectedColor === color && styles.colorOptionSelected,
-                        ]}
-                        onPress={() => setSelectedColor(color)}
-                      />
-                    ))}
+                    <DateTimePickerModal
+                      isVisible={showStartDatePicker}
+                      mode="date"
+                      date={startDate}
+                      onConfirm={(date) => {
+                        setShowStartDatePicker(false);
+                        setStartDate(date);
+                      }}
+                      onCancel={() => setShowStartDatePicker(false)}
+                    />
+
+                    {/* END DATE */}
+                    <Text style={styles.label}>End Date *</Text>
+                    <TouchableOpacity style={styles.input} onPress={() => setShowEndDatePicker(true)}>
+                      <Text style={styles.inputText}>
+                        {endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </Text>
+                    </TouchableOpacity>
+
+                    <DateTimePickerModal
+                      isVisible={showEndDatePicker}
+                      mode="date"
+                      date={endDate}
+                      onConfirm={(date) => {
+                        setShowEndDatePicker(false);
+                        setEndDate(date);
+                      }}
+                      onCancel={() => setShowEndDatePicker(false)}
+                    />
+
+                    {/* COLOR PICKER */}
+                    <Text style={styles.label}>Color</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.colorGrid}>
+                      {CLASS_COLORS.map((color) => (
+                        <TouchableOpacity
+                          key={color}
+                          style={[
+                            styles.colorOption,
+                            { backgroundColor: color },
+                            selectedColor === color && styles.colorOptionSelected,
+                          ]}
+                          onPress={() => setSelectedColor(color)}
+                        />
+                      ))}
+                    </ScrollView>
+
+                    {/* SUBMIT BUTTON */}
+                    <Button
+                      title={isEditing ? 'Update Class' : 'Add Class'}
+                      onPress={handleAddClass}
+                      isLoading={isSaving}
+                      style={styles.createButton}
+                    />
                   </ScrollView>
-
-                  {/* SUBMIT BUTTON */}
-                  <Button
-                    title={isEditing ? 'Update Class' : 'Add Class'}
-                    onPress={handleAddClass}
-                    isLoading={isSaving}
-                    style={styles.createButton}
-                  />
-                </ScrollView>
-              </Animated.View>
+                </Animated.View>
+              </TouchableOpacity>
             </TouchableOpacity>
-          </TouchableOpacity>
-        </KeyboardAvoidingView>
+          </KeyboardAvoidingView>
+        </SafeAreaView>
       </Modal>
 
       {/* Action Sheet Modal */}
@@ -544,29 +546,34 @@ export default function ClassesScreen() {
         animationType="fade"
         onRequestClose={() => setShowActionSheet(false)}
       >
-        <TouchableOpacity
-          style={styles.actionSheetOverlay}
-          activeOpacity={1}
-          onPress={() => setShowActionSheet(false)}
-        >
-          <View style={styles.actionSheetContent}>
-            <TouchableOpacity style={styles.actionButton} onPress={handleEdit}>
-              <Edit2 size={20} color={colors.primary} />
-              <Text style={styles.actionButtonText}>Edit Class</Text>
-            </TouchableOpacity>
-            <View style={styles.actionDivider} />
-            <TouchableOpacity style={styles.actionButton} onPress={handleDelete}>
-              <Trash2 size={20} color="#FF3B30" />
-              <Text style={[styles.actionButtonText, { color: '#FF3B30' }]}>Delete Class</Text>
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
+        <SafeAreaView style={styles.safeAreaModal}>
+          <TouchableOpacity
+            style={styles.actionSheetOverlay}
+            activeOpacity={1}
+            onPress={() => setShowActionSheet(false)}
+          >
+            <View style={styles.actionSheetContent}>
+              <TouchableOpacity style={styles.actionButton} onPress={handleEdit}>
+                <Edit2 size={20} color={colors.primary} />
+                <Text style={styles.actionButtonText}>Edit Class</Text>
+              </TouchableOpacity>
+              <View style={styles.actionDivider} />
+              <TouchableOpacity style={styles.actionButton} onPress={handleDelete}>
+                <Trash2 size={20} color="#FF3B30" />
+                <Text style={[styles.actionButtonText, { color: '#FF3B30' }]}>Delete Class</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </SafeAreaView>
       </Modal>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeAreaModal: {
+    flex: 1,
+  },
   container: { flex: 1, backgroundColor: colors.background },
   header: {
     flexDirection: 'row',

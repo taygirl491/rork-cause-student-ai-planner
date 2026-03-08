@@ -1,6 +1,10 @@
 const mongoose = require('mongoose');
 
 const studyGroupSchema = new mongoose.Schema({
+    _id: {
+        type: String, // Use Firebase/Import ID
+        required: true,
+    },
     name: {
         type: String,
         required: true,
@@ -74,6 +78,7 @@ const studyGroupSchema = new mongoose.Schema({
     },
 }, {
     timestamps: false,
+    _id: false,
 });
 
 // Indexes

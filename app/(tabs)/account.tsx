@@ -685,178 +685,180 @@ export default function AccountScreen() {
         animationType="slide"
         onRequestClose={() => setShowPaymentModal(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { paddingBottom: Math.max(insets.bottom + 24, 24) }]}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Choose Your Plan</Text>
-              <TouchableOpacity onPress={() => setShowPaymentModal(false)}>
-                <Text style={styles.modalClose}>✕</Text>
-              </TouchableOpacity>
+        <SafeAreaView style={styles.safeAreaModal}>
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalContent, { paddingBottom: Math.max(insets.bottom + 24, 24) }]}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Choose Your Plan</Text>
+                <TouchableOpacity onPress={() => setShowPaymentModal(false)}>
+                  <Text style={styles.modalClose}>✕</Text>
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView
+                style={styles.pricingCardsScroll}
+                showsVerticalScrollIndicator={false}
+              >
+                <View style={styles.pricingCards}>
+                  {/* Standard Monthly */}
+                  <TouchableOpacity
+                    style={[styles.pricingCard, loadingPlan === 'standard-monthly' && styles.pricingCardLoading]}
+                    onPress={() => handleUpgrade('standard', 'monthly')}
+                    disabled={!!loadingPlan}
+                  >
+                    {loadingPlan === 'standard-monthly' && (
+                      <View style={styles.planLoadingOverlay}>
+                        <ActivityIndicator size="small" color={colors.primary} />
+                      </View>
+                    )}
+                    <View style={styles.pricingHeader}>
+                      <Text style={styles.pricingTitle}>Standard</Text>
+                      <Text style={styles.pricingBadge}>MONTHLY</Text>
+                    </View>
+                    <Text style={styles.pricingPrice}>$5</Text>
+                    <Text style={styles.pricingPeriod}>per month</Text>
+                    <View style={styles.pricingDivider} />
+                    <Text style={styles.pricingFeatureText}>• Tasks, Calendar, Classes</Text>
+                    <Text style={styles.pricingFeatureText}>• Study Groups & Causes</Text>
+                    <Text style={styles.pricingFeatureText}>• 50 AI inquiries/day</Text>
+                  </TouchableOpacity>
+
+                  {/* Standard Yearly */}
+                  <TouchableOpacity
+                    style={[styles.pricingCard, styles.pricingCardRecommended, loadingPlan === 'standard-yearly' && styles.pricingCardLoading]}
+                    onPress={() => handleUpgrade('standard', 'yearly')}
+                    disabled={!!loadingPlan}
+                  >
+                    {loadingPlan === 'standard-yearly' && (
+                      <View style={styles.planLoadingOverlay}>
+                        <ActivityIndicator size="small" color={colors.primary} />
+                      </View>
+                    )}
+                    <View style={styles.recommendedBadge}>
+                      <Text style={styles.recommendedBadgeText}>SAVE $25/YEAR</Text>
+                    </View>
+                    <View style={styles.pricingHeader}>
+                      <Text style={styles.pricingTitle}>Standard</Text>
+                      <Text style={styles.pricingBadge}>YEARLY</Text>
+                    </View>
+                    <Text style={styles.pricingPrice}>$35</Text>
+                    <Text style={styles.pricingPeriod}>per year</Text>
+                    <View style={styles.pricingDivider} />
+                    <Text style={styles.pricingFeatureText}>• Tasks, Calendar, Classes</Text>
+                    <Text style={styles.pricingFeatureText}>• Study Groups & Causes</Text>
+                    <Text style={styles.pricingFeatureText}>• 50 AI inquiries/day</Text>
+                  </TouchableOpacity>
+
+                  {/* Premium Monthly */}
+                  <TouchableOpacity
+                    style={[styles.pricingCard, loadingPlan === 'premium-monthly' && styles.pricingCardLoading]}
+                    onPress={() => handleUpgrade('premium', 'monthly')}
+                    disabled={!!loadingPlan}
+                  >
+                    {loadingPlan === 'premium-monthly' && (
+                      <View style={styles.planLoadingOverlay}>
+                        <ActivityIndicator size="small" color={colors.primary} />
+                      </View>
+                    )}
+                    <View style={styles.pricingHeader}>
+                      <Text style={styles.pricingTitle}>Premium</Text>
+                      <Text style={styles.pricingBadge}>MONTHLY</Text>
+                    </View>
+                    <Text style={styles.pricingPrice}>$10</Text>
+                    <Text style={styles.pricingPeriod}>per month</Text>
+                    <View style={styles.pricingDivider} />
+                    <Text style={styles.pricingFeatureText}>• Everything in Standard</Text>
+                    <Text style={styles.pricingFeatureText}>• Sync Syllabus with Calendar</Text>
+                    <Text style={styles.pricingFeatureText}>• 500 AI inquiries/day</Text>
+                  </TouchableOpacity>
+
+                  {/* Premium Yearly */}
+                  <TouchableOpacity
+                    style={[styles.pricingCard, styles.pricingCardRecommended, loadingPlan === 'premium-yearly' && styles.pricingCardLoading]}
+                    onPress={() => handleUpgrade('premium', 'yearly')}
+                    disabled={!!loadingPlan}
+                  >
+                    {loadingPlan === 'premium-yearly' && (
+                      <View style={styles.planLoadingOverlay}>
+                        <ActivityIndicator size="small" color={colors.primary} />
+                      </View>
+                    )}
+                    <View style={styles.recommendedBadge}>
+                      <Text style={styles.recommendedBadgeText}>SAVE $50/YEAR</Text>
+                    </View>
+                    <View style={styles.pricingHeader}>
+                      <Text style={styles.pricingTitle}>Premium</Text>
+                      <Text style={styles.pricingBadge}>YEARLY</Text>
+                    </View>
+                    <Text style={styles.pricingPrice}>$70</Text>
+                    <Text style={styles.pricingPeriod}>per year</Text>
+                    <View style={styles.pricingDivider} />
+                    <Text style={styles.pricingFeatureText}>• Everything in Standard</Text>
+                    <Text style={styles.pricingFeatureText}>• Sync Syllabus with Calendar</Text>
+                    <Text style={styles.pricingFeatureText}>• 500 AI inquiries/day</Text>
+                  </TouchableOpacity>
+
+                  {/* Unlimited Monthly */}
+                  <TouchableOpacity
+                    style={[styles.pricingCard, loadingPlan === 'unlimited-monthly' && styles.pricingCardLoading]}
+                    onPress={() => handleUpgrade('unlimited', 'monthly')}
+                    disabled={!!loadingPlan}
+                  >
+                    {loadingPlan === 'unlimited-monthly' && (
+                      <View style={styles.planLoadingOverlay}>
+                        <ActivityIndicator size="small" color={colors.primary} />
+                      </View>
+                    )}
+                    <View style={styles.pricingHeader}>
+                      <Text style={styles.pricingTitle}>Unlimited</Text>
+                      <Text style={styles.pricingBadge}>MONTHLY</Text>
+                    </View>
+                    <Text style={styles.pricingPrice}>$20</Text>
+                    <Text style={styles.pricingPeriod}>per month</Text>
+                    <View style={styles.pricingDivider} />
+                    <Text style={styles.pricingFeatureText}>• Everything in Premium</Text>
+                    <Text style={styles.pricingFeatureText}>• Unlimited AI inquiries</Text>
+                    <Text style={styles.pricingFeatureText}>• Priority support</Text>
+                  </TouchableOpacity>
+
+                  {/* Unlimited Yearly */}
+                  <TouchableOpacity
+                    style={[styles.pricingCard, styles.pricingCardRecommended, loadingPlan === 'unlimited-yearly' && styles.pricingCardLoading]}
+                    onPress={() => handleUpgrade('unlimited', 'yearly')}
+                    disabled={!!loadingPlan}
+                  >
+                    {loadingPlan === 'unlimited-yearly' && (
+                      <View style={styles.planLoadingOverlay}>
+                        <ActivityIndicator size="small" color={colors.primary} />
+                      </View>
+                    )}
+                    <View style={styles.recommendedBadge}>
+                      <Text style={styles.recommendedBadgeText}>BEST VALUE - SAVE $100/YEAR</Text>
+                    </View>
+                    <View style={styles.pricingHeader}>
+                      <Text style={styles.pricingTitle}>Unlimited</Text>
+                      <Text style={styles.pricingBadge}>YEARLY</Text>
+                    </View>
+                    <Text style={styles.pricingPrice}>$140</Text>
+                    <Text style={styles.pricingPeriod}>per year</Text>
+                    <View style={styles.pricingDivider} />
+                    <Text style={styles.pricingFeatureText}>• Everything in Premium</Text>
+                    <Text style={styles.pricingFeatureText}>• Unlimited AI inquiries</Text>
+                    <Text style={styles.pricingFeatureText}>• Priority support</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <View style={styles.causeInfo}>
+                  <Heart size={20} color={colors.secondary} fill={colors.secondary} />
+                  <Text style={styles.causeInfoText}>
+                    Your subscription helps students crush it, protects the planet, and
+                    supports mental health for everyone!
+                  </Text>
+                </View>
+              </ScrollView>
             </View>
-
-            <ScrollView
-              style={styles.pricingCardsScroll}
-              showsVerticalScrollIndicator={false}
-            >
-              <View style={styles.pricingCards}>
-                {/* Standard Monthly */}
-                <TouchableOpacity
-                  style={[styles.pricingCard, loadingPlan === 'standard-monthly' && styles.pricingCardLoading]}
-                  onPress={() => handleUpgrade('standard', 'monthly')}
-                  disabled={!!loadingPlan}
-                >
-                  {loadingPlan === 'standard-monthly' && (
-                    <View style={styles.planLoadingOverlay}>
-                      <ActivityIndicator size="small" color={colors.primary} />
-                    </View>
-                  )}
-                  <View style={styles.pricingHeader}>
-                    <Text style={styles.pricingTitle}>Standard</Text>
-                    <Text style={styles.pricingBadge}>MONTHLY</Text>
-                  </View>
-                  <Text style={styles.pricingPrice}>$5</Text>
-                  <Text style={styles.pricingPeriod}>per month</Text>
-                  <View style={styles.pricingDivider} />
-                  <Text style={styles.pricingFeatureText}>• Tasks, Calendar, Classes</Text>
-                  <Text style={styles.pricingFeatureText}>• Study Groups & Causes</Text>
-                  <Text style={styles.pricingFeatureText}>• 50 AI inquiries/day</Text>
-                </TouchableOpacity>
-
-                {/* Standard Yearly */}
-                <TouchableOpacity
-                  style={[styles.pricingCard, styles.pricingCardRecommended, loadingPlan === 'standard-yearly' && styles.pricingCardLoading]}
-                  onPress={() => handleUpgrade('standard', 'yearly')}
-                  disabled={!!loadingPlan}
-                >
-                  {loadingPlan === 'standard-yearly' && (
-                    <View style={styles.planLoadingOverlay}>
-                      <ActivityIndicator size="small" color={colors.primary} />
-                    </View>
-                  )}
-                  <View style={styles.recommendedBadge}>
-                    <Text style={styles.recommendedBadgeText}>SAVE $25/YEAR</Text>
-                  </View>
-                  <View style={styles.pricingHeader}>
-                    <Text style={styles.pricingTitle}>Standard</Text>
-                    <Text style={styles.pricingBadge}>YEARLY</Text>
-                  </View>
-                  <Text style={styles.pricingPrice}>$35</Text>
-                  <Text style={styles.pricingPeriod}>per year</Text>
-                  <View style={styles.pricingDivider} />
-                  <Text style={styles.pricingFeatureText}>• Tasks, Calendar, Classes</Text>
-                  <Text style={styles.pricingFeatureText}>• Study Groups & Causes</Text>
-                  <Text style={styles.pricingFeatureText}>• 50 AI inquiries/day</Text>
-                </TouchableOpacity>
-
-                {/* Premium Monthly */}
-                <TouchableOpacity
-                  style={[styles.pricingCard, loadingPlan === 'premium-monthly' && styles.pricingCardLoading]}
-                  onPress={() => handleUpgrade('premium', 'monthly')}
-                  disabled={!!loadingPlan}
-                >
-                  {loadingPlan === 'premium-monthly' && (
-                    <View style={styles.planLoadingOverlay}>
-                      <ActivityIndicator size="small" color={colors.primary} />
-                    </View>
-                  )}
-                  <View style={styles.pricingHeader}>
-                    <Text style={styles.pricingTitle}>Premium</Text>
-                    <Text style={styles.pricingBadge}>MONTHLY</Text>
-                  </View>
-                  <Text style={styles.pricingPrice}>$10</Text>
-                  <Text style={styles.pricingPeriod}>per month</Text>
-                  <View style={styles.pricingDivider} />
-                  <Text style={styles.pricingFeatureText}>• Everything in Standard</Text>
-                  <Text style={styles.pricingFeatureText}>• Sync Syllabus with Calendar</Text>
-                  <Text style={styles.pricingFeatureText}>• 500 AI inquiries/day</Text>
-                </TouchableOpacity>
-
-                {/* Premium Yearly */}
-                <TouchableOpacity
-                  style={[styles.pricingCard, styles.pricingCardRecommended, loadingPlan === 'premium-yearly' && styles.pricingCardLoading]}
-                  onPress={() => handleUpgrade('premium', 'yearly')}
-                  disabled={!!loadingPlan}
-                >
-                  {loadingPlan === 'premium-yearly' && (
-                    <View style={styles.planLoadingOverlay}>
-                      <ActivityIndicator size="small" color={colors.primary} />
-                    </View>
-                  )}
-                  <View style={styles.recommendedBadge}>
-                    <Text style={styles.recommendedBadgeText}>SAVE $50/YEAR</Text>
-                  </View>
-                  <View style={styles.pricingHeader}>
-                    <Text style={styles.pricingTitle}>Premium</Text>
-                    <Text style={styles.pricingBadge}>YEARLY</Text>
-                  </View>
-                  <Text style={styles.pricingPrice}>$70</Text>
-                  <Text style={styles.pricingPeriod}>per year</Text>
-                  <View style={styles.pricingDivider} />
-                  <Text style={styles.pricingFeatureText}>• Everything in Standard</Text>
-                  <Text style={styles.pricingFeatureText}>• Sync Syllabus with Calendar</Text>
-                  <Text style={styles.pricingFeatureText}>• 500 AI inquiries/day</Text>
-                </TouchableOpacity>
-
-                {/* Unlimited Monthly */}
-                <TouchableOpacity
-                  style={[styles.pricingCard, loadingPlan === 'unlimited-monthly' && styles.pricingCardLoading]}
-                  onPress={() => handleUpgrade('unlimited', 'monthly')}
-                  disabled={!!loadingPlan}
-                >
-                  {loadingPlan === 'unlimited-monthly' && (
-                    <View style={styles.planLoadingOverlay}>
-                      <ActivityIndicator size="small" color={colors.primary} />
-                    </View>
-                  )}
-                  <View style={styles.pricingHeader}>
-                    <Text style={styles.pricingTitle}>Unlimited</Text>
-                    <Text style={styles.pricingBadge}>MONTHLY</Text>
-                  </View>
-                  <Text style={styles.pricingPrice}>$20</Text>
-                  <Text style={styles.pricingPeriod}>per month</Text>
-                  <View style={styles.pricingDivider} />
-                  <Text style={styles.pricingFeatureText}>• Everything in Premium</Text>
-                  <Text style={styles.pricingFeatureText}>• Unlimited AI inquiries</Text>
-                  <Text style={styles.pricingFeatureText}>• Priority support</Text>
-                </TouchableOpacity>
-
-                {/* Unlimited Yearly */}
-                <TouchableOpacity
-                  style={[styles.pricingCard, styles.pricingCardRecommended, loadingPlan === 'unlimited-yearly' && styles.pricingCardLoading]}
-                  onPress={() => handleUpgrade('unlimited', 'yearly')}
-                  disabled={!!loadingPlan}
-                >
-                  {loadingPlan === 'unlimited-yearly' && (
-                    <View style={styles.planLoadingOverlay}>
-                      <ActivityIndicator size="small" color={colors.primary} />
-                    </View>
-                  )}
-                  <View style={styles.recommendedBadge}>
-                    <Text style={styles.recommendedBadgeText}>BEST VALUE - SAVE $100/YEAR</Text>
-                  </View>
-                  <View style={styles.pricingHeader}>
-                    <Text style={styles.pricingTitle}>Unlimited</Text>
-                    <Text style={styles.pricingBadge}>YEARLY</Text>
-                  </View>
-                  <Text style={styles.pricingPrice}>$140</Text>
-                  <Text style={styles.pricingPeriod}>per year</Text>
-                  <View style={styles.pricingDivider} />
-                  <Text style={styles.pricingFeatureText}>• Everything in Premium</Text>
-                  <Text style={styles.pricingFeatureText}>• Unlimited AI inquiries</Text>
-                  <Text style={styles.pricingFeatureText}>• Priority support</Text>
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.causeInfo}>
-                <Heart size={20} color={colors.secondary} fill={colors.secondary} />
-                <Text style={styles.causeInfoText}>
-                  Your subscription helps students crush it, protects the planet, and
-                  supports mental health for everyone!
-                </Text>
-              </View>
-            </ScrollView>
           </View>
-        </View>
+        </SafeAreaView>
       </Modal>
 
       <Modal
@@ -865,86 +867,88 @@ export default function AccountScreen() {
         animationType="slide"
         onRequestClose={() => setShowPasswordModal(false)}
       >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={{ flex: 1 }}
-        >
-          <TouchableOpacity
-            activeOpacity={1}
-            onPress={() => setShowPasswordModal(false)}
-            style={styles.modalOverlay}
+        <SafeAreaView style={styles.safeAreaModal}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={{ flex: 1 }}
           >
             <TouchableOpacity
               activeOpacity={1}
-              onPress={(e) => {
-                e.stopPropagation();
-                Keyboard.dismiss();
-              }}
+              onPress={() => setShowPasswordModal(false)}
+              style={styles.modalOverlay}
             >
-              <View style={[styles.modalContent, { paddingBottom: Math.max(insets.bottom + 24, 24) }]}>
-                <View style={styles.modalHeader}>
-                  <Text style={styles.modalTitle}>Change Password</Text>
-                  <TouchableOpacity onPress={() => setShowPasswordModal(false)}>
-                    <Text style={styles.modalClose}>✕</Text>
-                  </TouchableOpacity>
-                </View>
+              <TouchableOpacity
+                activeOpacity={1}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  Keyboard.dismiss();
+                }}
+              >
+                <View style={[styles.modalContent, { paddingBottom: Math.max(insets.bottom + 24, 24) }]}>
+                  <View style={styles.modalHeader}>
+                    <Text style={styles.modalTitle}>Change Password</Text>
+                    <TouchableOpacity onPress={() => setShowPasswordModal(false)}>
+                      <Text style={styles.modalClose}>✕</Text>
+                    </TouchableOpacity>
+                  </View>
 
-                <View style={styles.inputGroup}>
-                  <TextInput
-                    style={[styles.modalInput, currPassError ? styles.inputError : null]}
-                    placeholder="Current Password"
-                    placeholderTextColor={colors.textSecondary}
-                    value={currentPassword}
-                    onChangeText={(text) => {
-                      setCurrentPassword(text);
-                      if (currPassError) setCurrPassError('');
-                    }}
-                    secureTextEntry
+                  <View style={styles.inputGroup}>
+                    <TextInput
+                      style={[styles.modalInput, currPassError ? styles.inputError : null]}
+                      placeholder="Current Password"
+                      placeholderTextColor={colors.textSecondary}
+                      value={currentPassword}
+                      onChangeText={(text) => {
+                        setCurrentPassword(text);
+                        if (currPassError) setCurrPassError('');
+                      }}
+                      secureTextEntry
+                    />
+                    {currPassError ? <Text style={styles.errorText}>{currPassError}</Text> : null}
+                  </View>
+
+                  <View style={styles.inputGroup}>
+                    <TextInput
+                      style={[styles.modalInput, newPassError ? styles.inputError : null]}
+                      placeholder="New Password"
+                      placeholderTextColor={colors.textSecondary}
+                      value={newPassword}
+                      onChangeText={(text) => {
+                        setNewPassword(text);
+                        if (newPassError) setNewPassError('');
+                      }}
+                      secureTextEntry
+                    />
+                    {newPassError ? <Text style={styles.errorText}>{newPassError}</Text> : null}
+                  </View>
+
+                  <View style={styles.inputGroup}>
+                    <TextInput
+                      style={[styles.modalInput, confirmPassError ? styles.inputError : null]}
+                      placeholder="Confirm New Password"
+                      placeholderTextColor={colors.textSecondary}
+                      value={confirmPassword}
+                      onChangeText={(text) => {
+                        setConfirmPassword(text);
+                        if (confirmPassError) setConfirmPassError('');
+                      }}
+                      secureTextEntry
+                    />
+                    {confirmPassError ? <Text style={styles.errorText}>{confirmPassError}</Text> : null}
+                  </View>
+
+                  <Button
+                    title="Update Password"
+                    onPress={handleChangePassword}
+                    isLoading={isChangingPassword}
+                    loadingText="Updating..."
+                    style={styles.saveButton}
                   />
-                  {currPassError ? <Text style={styles.errorText}>{currPassError}</Text> : null}
                 </View>
-
-                <View style={styles.inputGroup}>
-                  <TextInput
-                    style={[styles.modalInput, newPassError ? styles.inputError : null]}
-                    placeholder="New Password"
-                    placeholderTextColor={colors.textSecondary}
-                    value={newPassword}
-                    onChangeText={(text) => {
-                      setNewPassword(text);
-                      if (newPassError) setNewPassError('');
-                    }}
-                    secureTextEntry
-                  />
-                  {newPassError ? <Text style={styles.errorText}>{newPassError}</Text> : null}
-                </View>
-
-                <View style={styles.inputGroup}>
-                  <TextInput
-                    style={[styles.modalInput, confirmPassError ? styles.inputError : null]}
-                    placeholder="Confirm New Password"
-                    placeholderTextColor={colors.textSecondary}
-                    value={confirmPassword}
-                    onChangeText={(text) => {
-                      setConfirmPassword(text);
-                      if (confirmPassError) setConfirmPassError('');
-                    }}
-                    secureTextEntry
-                  />
-                  {confirmPassError ? <Text style={styles.errorText}>{confirmPassError}</Text> : null}
-                </View>
-
-                <Button
-                  title="Update Password"
-                  onPress={handleChangePassword}
-                  isLoading={isChangingPassword}
-                  loadingText="Updating..."
-                  style={styles.saveButton}
-                />
-              </View>
+              </TouchableOpacity>
             </TouchableOpacity>
-          </TouchableOpacity>
-        </KeyboardAvoidingView>
+          </KeyboardAvoidingView>
+        </SafeAreaView>
       </Modal>
 
       {/* Terms Modal */}
@@ -954,19 +958,21 @@ export default function AccountScreen() {
         animationType="slide"
         onRequestClose={() => setShowTermsModal(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, styles.legalModalContent, { paddingBottom: Math.max(insets.bottom + 24, 24) }]}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Terms & Conditions</Text>
-              <TouchableOpacity onPress={() => setShowTermsModal(false)}>
-                <Text style={styles.modalClose}>✕</Text>
-              </TouchableOpacity>
+        <SafeAreaView style={styles.safeAreaModal}>
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalContent, styles.legalModalContent, { paddingBottom: Math.max(insets.bottom + 24, 24) }]}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Terms & Conditions</Text>
+                <TouchableOpacity onPress={() => setShowTermsModal(false)}>
+                  <Text style={styles.modalClose}>✕</Text>
+                </TouchableOpacity>
+              </View>
+              <ScrollView style={styles.legalScrollView} showsVerticalScrollIndicator={true}>
+                <Text style={styles.legalText}>{TERMS_AND_CONDITIONS}</Text>
+              </ScrollView>
             </View>
-            <ScrollView style={styles.legalScrollView} showsVerticalScrollIndicator={true}>
-              <Text style={styles.legalText}>{TERMS_AND_CONDITIONS}</Text>
-            </ScrollView>
           </View>
-        </View>
+        </SafeAreaView>
       </Modal>
 
       {/* Privacy Modal */}
@@ -976,19 +982,21 @@ export default function AccountScreen() {
         animationType="slide"
         onRequestClose={() => setShowPrivacyModal(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, styles.legalModalContent, { paddingBottom: Math.max(insets.bottom + 24, 24) }]}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Privacy Policy</Text>
-              <TouchableOpacity onPress={() => setShowPrivacyModal(false)}>
-                <Text style={styles.modalClose}>✕</Text>
-              </TouchableOpacity>
+        <SafeAreaView style={styles.safeAreaModal}>
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalContent, styles.legalModalContent, { paddingBottom: Math.max(insets.bottom + 24, 24) }]}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Privacy Policy</Text>
+                <TouchableOpacity onPress={() => setShowPrivacyModal(false)}>
+                  <Text style={styles.modalClose}>✕</Text>
+                </TouchableOpacity>
+              </View>
+              <ScrollView style={styles.legalScrollView} showsVerticalScrollIndicator={true}>
+                <Text style={styles.legalText}>{PRIVACY_POLICY}</Text>
+              </ScrollView>
             </View>
-            <ScrollView style={styles.legalScrollView} showsVerticalScrollIndicator={true}>
-              <Text style={styles.legalText}>{PRIVACY_POLICY}</Text>
-            </ScrollView>
           </View>
-        </View>
+        </SafeAreaView>
       </Modal>
 
       {/* Delete Account Modal */}
@@ -1001,153 +1009,158 @@ export default function AccountScreen() {
           setDeletePassword('');
         }}
       >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={{ flex: 1 }}
-        >
-          <TouchableOpacity
-            activeOpacity={1}
-            onPress={() => {
-              setShowDeleteModal(false);
-              setDeletePassword('');
-            }}
-            style={styles.modalOverlay}
+        <SafeAreaView style={styles.safeAreaModal}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={{ flex: 1 }}
           >
             <TouchableOpacity
               activeOpacity={1}
-              onPress={(e) => {
-                e.stopPropagation();
-                Keyboard.dismiss();
+              onPress={() => {
+                setShowDeleteModal(false);
+                setDeletePassword('');
               }}
+              style={styles.modalOverlay}
             >
-              <View style={[styles.modalContent, { paddingBottom: Math.max(insets.bottom + 24, 24) }]}>
-                <View style={styles.modalHeader}>
-                  <Text style={styles.modalTitle}>
-                    {deleteStep === 1 ? 'Why are you leaving?' :
-                      deleteStep === 2 ? 'Think twice' :
-                        'Confirm Deletion'}
-                  </Text>
-                  <TouchableOpacity onPress={() => {
-                    setShowDeleteModal(false);
-                    setDeletePassword('');
-                    setDeleteStep(1);
-                  }}>
-                    <Text style={styles.modalClose}>✕</Text>
-                  </TouchableOpacity>
-                </View>
-
-                {deleteStep === 1 && (
-                  <View>
-                    <Text style={styles.deleteWarning}>
-                      We're sorry to see you go! Please let us know why you're deleting your account so we can improve.
+              <TouchableOpacity
+                activeOpacity={1}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  Keyboard.dismiss();
+                }}
+              >
+                <View style={[styles.modalContent, { paddingBottom: Math.max(insets.bottom + 24, 24) }]}>
+                  <View style={styles.modalHeader}>
+                    <Text style={styles.modalTitle}>
+                      {deleteStep === 1 ? 'Why are you leaving?' :
+                        deleteStep === 2 ? 'Think twice' :
+                          'Confirm Deletion'}
                     </Text>
-                    {[
-                      'Found a better app',
-                      'Too expensive',
-                      'Missing features',
-                      'Privacy concerns',
-                      'Technical issues',
-                      'Other'
-                    ].map((reason) => (
-                      <TouchableOpacity
-                        key={reason}
-                        style={[
-                          styles.reasonItem,
-                          deleteReason === reason && styles.reasonItemActive
-                        ]}
-                        onPress={() => setDeleteReason(reason)}
-                      >
-                        <Text style={[
-                          styles.reasonItemText,
-                          deleteReason === reason && styles.reasonItemTextActive
-                        ]}>
-                          {reason}
-                        </Text>
-                        {deleteReason === reason && (
-                          <CheckCircle2 size={20} color={colors.primary} />
-                        )}
-                      </TouchableOpacity>
-                    ))}
+                    <TouchableOpacity onPress={() => {
+                      setShowDeleteModal(false);
+                      setDeletePassword('');
+                      setDeleteStep(1);
+                    }}>
+                      <Text style={styles.modalClose}>✕</Text>
+                    </TouchableOpacity>
                   </View>
-                )}
 
-                {deleteStep === 2 && (
-                  <View>
-                    <View style={styles.warningBox}>
-                      <AlertTriangle size={32} color="#FF9500" />
-                      <Text style={styles.warningBoxTitle}>Warning: Permanent Action</Text>
+                  {deleteStep === 1 && (
+                    <View>
+                      <Text style={styles.deleteWarning}>
+                        We're sorry to see you go! Please let us know why you're deleting your account so we can improve.
+                      </Text>
+                      {[
+                        'Found a better app',
+                        'Too expensive',
+                        'Missing features',
+                        'Privacy concerns',
+                        'Technical issues',
+                        'Other'
+                      ].map((reason) => (
+                        <TouchableOpacity
+                          key={reason}
+                          style={[
+                            styles.reasonItem,
+                            deleteReason === reason && styles.reasonItemActive
+                          ]}
+                          onPress={() => setDeleteReason(reason)}
+                        >
+                          <Text style={[
+                            styles.reasonItemText,
+                            deleteReason === reason && styles.reasonItemTextActive
+                          ]}>
+                            {reason}
+                          </Text>
+                          {deleteReason === reason && (
+                            <CheckCircle2 size={20} color={colors.primary} />
+                          )}
+                        </TouchableOpacity>
+                      ))}
                     </View>
-                    <Text style={styles.deleteWarning}>
-                      Deleting your account is permanent and cannot be undone. You will lose access to:
-                    </Text>
-                    <View style={styles.lossList}>
-                      <Text style={styles.lossItem}>• All your saved tasks and classes</Text>
-                      <Text style={styles.lossItem}>• Your AI Buddy chat history</Text>
-                      <Text style={styles.lossItem}>• Your points, levels and streak history</Text>
-                      <Text style={styles.lossItem}>• Active subscription benefits</Text>
+                  )}
+
+                  {deleteStep === 2 && (
+                    <View>
+                      <View style={styles.warningBox}>
+                        <AlertTriangle size={32} color="#FF9500" />
+                        <Text style={styles.warningBoxTitle}>Warning: Permanent Action</Text>
+                      </View>
+                      <Text style={styles.deleteWarning}>
+                        Deleting your account is permanent and cannot be undone. You will lose access to:
+                      </Text>
+                      <View style={styles.lossList}>
+                        <Text style={styles.lossItem}>• All your saved tasks and classes</Text>
+                        <Text style={styles.lossItem}>• Your AI Buddy chat history</Text>
+                        <Text style={styles.lossItem}>• Your points, levels and streak history</Text>
+                        <Text style={styles.lossItem}>• Active subscription benefits</Text>
+                      </View>
                     </View>
-                  </View>
-                )}
+                  )}
 
-                {deleteStep === 3 && (
-                  <View>
-                    <Text style={styles.deleteWarning}>
-                      To finalize this action, please enter your password for verification.
-                    </Text>
+                  {deleteStep === 3 && (
+                    <View>
+                      <Text style={styles.deleteWarning}>
+                        To finalize this action, please enter your password for verification.
+                      </Text>
 
-                    <View style={styles.inputGroup}>
-                      <TextInput
-                        style={styles.modalInput}
-                        placeholder="Enter your password"
-                        placeholderTextColor={colors.textSecondary}
-                        value={deletePassword}
-                        onChangeText={setDeletePassword}
-                        secureTextEntry
-                        autoFocus
+                      <View style={styles.inputGroup}>
+                        <TextInput
+                          style={styles.modalInput}
+                          placeholder="Enter your password"
+                          placeholderTextColor={colors.textSecondary}
+                          value={deletePassword}
+                          onChangeText={setDeletePassword}
+                          secureTextEntry
+                          autoFocus
+                        />
+                      </View>
+                    </View>
+                  )}
+
+                  <View style={styles.modalButtons}>
+                    {deleteStep > 1 && (
+                      <Button
+                        title="Back"
+                        onPress={() => setDeleteStep(prev => prev - 1)}
+                        variant="outline"
+                        style={styles.modalButton}
                       />
-                    </View>
+                    )}
+
+                    {deleteStep < 3 ? (
+                      <Button
+                        title="Continue"
+                        onPress={() => setDeleteStep(prev => prev + 1)}
+                        disabled={!deleteReason && deleteStep === 1}
+                        style={styles.modalButton}
+                      />
+                    ) : (
+                      <Button
+                        title="Delete Permanently"
+                        onPress={confirmDeleteAccount}
+                        isLoading={isDeletingAccount}
+                        disabled={!deletePassword}
+                        loadingText="Deleting..."
+                        variant="danger"
+                        style={styles.modalButton}
+                      />
+                    )}
                   </View>
-                )}
-
-                <View style={styles.modalButtons}>
-                  {deleteStep > 1 && (
-                    <Button
-                      title="Back"
-                      onPress={() => setDeleteStep(prev => prev - 1)}
-                      variant="outline"
-                      style={styles.modalButton}
-                    />
-                  )}
-
-                  {deleteStep < 3 ? (
-                    <Button
-                      title="Continue"
-                      onPress={() => setDeleteStep(prev => prev + 1)}
-                      disabled={!deleteReason && deleteStep === 1}
-                      style={styles.modalButton}
-                    />
-                  ) : (
-                    <Button
-                      title="Delete Permanently"
-                      onPress={confirmDeleteAccount}
-                      isLoading={isDeletingAccount}
-                      disabled={!deletePassword}
-                      loadingText="Deleting..."
-                      variant="danger"
-                      style={styles.modalButton}
-                    />
-                  )}
                 </View>
-              </View>
+              </TouchableOpacity>
             </TouchableOpacity>
-          </TouchableOpacity>
-        </KeyboardAvoidingView>
+          </KeyboardAvoidingView>
+        </SafeAreaView>
       </Modal>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeAreaModal: {
+    flex: 1,
+  },
   container: {
     flex: 1,
     backgroundColor: colors.background,

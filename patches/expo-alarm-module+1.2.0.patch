@@ -70,8 +70,95 @@ index 9546c85..56739dd 100644
          } else {
              int resId;
              if (context.getResources().getIdentifier(soundName, "raw", context.getPackageName()) != 0) {
+diff --git a/node_modules/expo-alarm-module/ios/Alarms.swift b/node_modules/expo-alarm-module/ios/Alarms.swift
+index 9ad7803..3c4ddad 100644
+--- a/node_modules/expo-alarm-module/ios/Alarms.swift
++++ b/node_modules/expo-alarm-module/ios/Alarms.swift
+@@ -31,11 +31,18 @@ class Alarms: Codable {
+     
+     func add(_ alarm: Alarm) {
+         alarms.append(alarm)
+-        let newIndex = alarms.firstIndex { $0.uid == alarm.uid }!
+-        Store.shared.save(self, notifying: alarm, userInfo: [
+-            Alarm.changeReasonKey: Alarm.added,
+-            Alarm.newValueKey: newIndex
+-        ])
++        if let newIndex = alarms.firstIndex(where: { $0.uid == alarm.uid }) {
++            Store.shared.save(self, notifying: alarm, userInfo: [
++                Alarm.changeReasonKey: Alarm.added,
++                Alarm.newValueKey: newIndex
++            ])
++        } else {
++            print("Error: Could not find index of added alarm \(alarm.uid)")
++            Store.shared.save(self, notifying: alarm, userInfo: [
++                Alarm.changeReasonKey: Alarm.added,
++                Alarm.newValueKey: alarms.count - 1
++            ])
++        }
+     }
+     
+     func remove(_ uid: String) {
+diff --git a/node_modules/expo-alarm-module/ios/ExpoAlarmModule.swift b/node_modules/expo-alarm-module/ios/ExpoAlarmModule.swift
+index 85af3bf..9395ec2 100644
+--- a/node_modules/expo-alarm-module/ios/ExpoAlarmModule.swift
++++ b/node_modules/expo-alarm-module/ios/ExpoAlarmModule.swift
+@@ -42,7 +42,11 @@ class ExpoAlarmModule: NSObject, UNUserNotificationCenterDelegate, AVAudioPlayer
+ 
+     @objc(set:withResolver:withRejecter:)
+     func set(alarm: NSDictionary, resolve:RCTPromiseResolveBlock, reject:RCTPromiseRejectBlock) -> Void {
+-        let alarmToUse = Alarm(dictionary: alarm as! NSMutableDictionary);
++        guard let mutableAlarm = alarm.mutableCopy() as? NSMutableDictionary else {
++            reject("error", "Could not convert alarm to NSMutableDictionary", nil)
++            return
++        }
++        let alarmToUse = Alarm(dictionary: mutableAlarm);
+ 
+         manager.schedule(alarmToUse);    
+ 
+@@ -193,7 +197,10 @@ class ExpoAlarmModule: NSObject, UNUserNotificationCenterDelegate, AVAudioPlayer
+             },
+             nil)
+         
+-        guard let filePath = Bundle.main.path(forResource: soundName, ofType: "mp3") else {fatalError()}
++        guard let filePath = Bundle.main.path(forResource: soundName, ofType: "mp3") else {
++            print("Error: Could not find sound file \(soundName).mp3")
++            return
++        }
+         let url = URL(fileURLWithPath: filePath)
+         
+         do {
+diff --git a/node_modules/expo-alarm-module/ios/Manager.swift b/node_modules/expo-alarm-module/ios/Manager.swift
+index 7bbc1a9..d6ed52a 100644
+--- a/node_modules/expo-alarm-module/ios/Manager.swift
++++ b/node_modules/expo-alarm-module/ios/Manager.swift
+@@ -27,10 +27,10 @@ class Manager {
+     
+ 
+     func enable(_ uid: String) {
+-        let alarm: Alarm! = self.getAlarm(uid) ?? nil;
++        let alarm = self.getAlarm(uid)
+         
+         // Only enables if the alarm already exists and is disabled.
+-        if((alarm != nil) && !alarm.active) {
++        if let alarm = alarm, !alarm.active {
+             // Creates the notification (the alarm).
+             scheduler.setNotification(alarm: alarm)
+             
+@@ -44,10 +44,10 @@ class Manager {
+         // Stops any sound of alarm that is playing.
+         self.stop()
+         
+-        let alarm: Alarm! = self.getAlarm(uid) ?? nil
++        let alarm = self.getAlarm(uid)
+         
+         // Only disables if the alarm already exists and is enabled.
+-        if((alarm != nil) && alarm.active) {
++        if let alarm = alarm, alarm.active {
+             // Cancels the notification.
+             scheduler.cancelNotification(ByUUIDStr: uid)
+             
 diff --git a/node_modules/expo-alarm-module/ios/NotificationScheduler.swift b/node_modules/expo-alarm-module/ios/NotificationScheduler.swift
-index 4772edc..50c312c 100644
+index 4772edc..751e262 100644
 --- a/node_modules/expo-alarm-module/ios/NotificationScheduler.swift
 +++ b/node_modules/expo-alarm-module/ios/NotificationScheduler.swift
 @@ -49,7 +49,7 @@ class NotificationScheduler : NotificationSchedulerDelegate
@@ -83,6 +170,69 @@ index 4772edc..50c312c 100644
              let uuidAlarmsSet = alarms.uids
              let uuidDeltaSet = uuidAlarmsSet.subtracting(uuidNotificationsSet)
              
+@@ -78,7 +78,11 @@ class NotificationScheduler : NotificationSchedulerDelegate
+         //scheduling date is eariler than current date
+         if date < now {
+             //plus one day, otherwise the notification will be fired righton
+-            notificationDates.append((calendar as NSCalendar).date(byAdding: NSCalendar.Unit.day, value: 1, to: date, options:.matchStrictly)!)
++            if let nextDate = (calendar as NSCalendar).date(byAdding: NSCalendar.Unit.day, value: 1, to: date, options:.matchStrictly) {
++                notificationDates.append(nextDate)
++            } else {
++                notificationDates.append(date.addingTimeInterval(24 * 3600))
++            }
+         } else {
+             notificationDates.append(date)
+         }
+@@ -88,8 +92,10 @@ class NotificationScheduler : NotificationSchedulerDelegate
+     
+     static func correctSecondComponent(date: Date, calendar: Calendar = Calendar(identifier: Calendar.Identifier.gregorian)) -> Date {
+         let second = calendar.component(.second, from: date)
+-        let d = (calendar as NSCalendar).date(byAdding: NSCalendar.Unit.second, value: -second, to: date, options:.matchStrictly)!
+-        return d
++        if let d = (calendar as NSCalendar).date(byAdding: NSCalendar.Unit.second, value: -second, to: date, options:.matchStrictly) {
++            return d
++        }
++        return date
+     }
+     
+     func setNotification(alarm: Alarm) {
+@@ -122,13 +128,18 @@ class NotificationScheduler : NotificationSchedulerDelegate
+     
+     func setNotificationForSnooze(ringtoneName: String, snoozeMinute: Int, uid: String) {
+         let currentAlarm = alarms.getAlarm(ByUUIDStr: uid);
+-        if(currentAlarm != nil) {
++        if let alarm = currentAlarm {
+             let calendar = Calendar(identifier: Calendar.Identifier.gregorian)
+             let now = Date()
+-            let snoozeDate = (calendar as NSCalendar).date(byAdding: NSCalendar.Unit.minute, value: snoozeMinute, to: now, options:.matchStrictly)!
+-            setNotification(alarm: currentAlarm!)
++            if let snoozeDate = (calendar as NSCalendar).date(byAdding: NSCalendar.Unit.minute, value: snoozeMinute, to: now, options:.matchStrictly) {
++                // The snoozeDate isn't actually used in this version of the code, 
++                // but we might as well calculate it safely if the original intent was to use it or verify it.
++                setNotification(alarm: alarm)
++            } else {
++                setNotification(alarm: alarm)
++            }
+         } else {
+-            print("Error when setting notification for snooze")
++            print("Error when setting notification for snooze: Alarm not found for uid \(uid)")
+         }
+     }
+     
+@@ -139,10 +150,10 @@ class NotificationScheduler : NotificationSchedulerDelegate
+     func updateNotification(ByUUIDStr uid: String, date: Date, ringtoneName: String, snoonzeEnabled: Bool) {
+         cancelNotification(ByUUIDStr: uid)
+         let currentAlarm = alarms.getAlarm(ByUUIDStr: uid);
+-        if(currentAlarm != nil) {
+-            setNotification(alarm: currentAlarm!)
++        if let alarm = currentAlarm {
++            setNotification(alarm: alarm)
+         } else {
+-            print("Error updating notification")
++            print("Error updating notification: Alarm not found for uid \(uid)")
+         }
+     }
+     
 diff --git a/node_modules/expo-alarm-module/lib/typescript/src/types/Alarm.types.d.ts b/node_modules/expo-alarm-module/lib/typescript/src/types/Alarm.types.d.ts
 index 95fa365..036424e 100644
 --- a/node_modules/expo-alarm-module/lib/typescript/src/types/Alarm.types.d.ts

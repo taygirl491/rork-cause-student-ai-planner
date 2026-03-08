@@ -244,54 +244,56 @@ export default function LoginScreen() {
           animationType="fade"
           onRequestClose={() => setShowForgotModal(false)}
         >
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            style={{ flex: 1 }}
-          >
-            <TouchableOpacity
-              activeOpacity={1}
-              onPress={() => setShowForgotModal(false)}
-              style={styles.modalOverlay}
+          <SafeAreaView style={styles.safeAreaModal}>
+            <KeyboardAvoidingView
+              behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+              style={{ flex: 1 }}
             >
               <TouchableOpacity
                 activeOpacity={1}
-                onPress={(e) => e.stopPropagation()}
+                onPress={() => setShowForgotModal(false)}
+                style={styles.modalOverlay}
               >
-                <View style={styles.modalContent}>
-                  <Text style={styles.modalTitle}>Reset Password</Text>
-                  <Text style={styles.modalSubtitle}>
-                    Enter your email address and we'll send you a link to reset your password.
-                  </Text>
+                <TouchableOpacity
+                  activeOpacity={1}
+                  onPress={(e) => e.stopPropagation()}
+                >
+                  <View style={styles.modalContent}>
+                    <Text style={styles.modalTitle}>Reset Password</Text>
+                    <Text style={styles.modalSubtitle}>
+                      Enter your email address and we'll send you a link to reset your password.
+                    </Text>
 
-                  <TextInput
-                    style={styles.modalInput}
-                    placeholder="Email Address"
-                    placeholderTextColor={colors.textSecondary}
-                    value={resetEmail}
-                    onChangeText={setResetEmail}
-                    autoCapitalize="none"
-                    keyboardType="email-address"
-                  />
-
-                  <View style={styles.modalButtons}>
-                    <Button
-                      title="Cancel"
-                      onPress={() => setShowForgotModal(false)}
-                      variant="outline"
-                      style={styles.modalButton}
+                    <TextInput
+                      style={styles.modalInput}
+                      placeholder="Email Address"
+                      placeholderTextColor={colors.textSecondary}
+                      value={resetEmail}
+                      onChangeText={setResetEmail}
+                      autoCapitalize="none"
+                      keyboardType="email-address"
                     />
 
-                    <Button
-                      title="Send Link"
-                      onPress={handleForgotPassword}
-                      isLoading={isResetting}
-                      style={styles.modalButton}
-                    />
+                    <View style={styles.modalButtons}>
+                      <Button
+                        title="Cancel"
+                        onPress={() => setShowForgotModal(false)}
+                        variant="outline"
+                        style={styles.modalButton}
+                      />
+
+                      <Button
+                        title="Send Link"
+                        onPress={handleForgotPassword}
+                        isLoading={isResetting}
+                        style={styles.modalButton}
+                      />
+                    </View>
                   </View>
-                </View>
+                </TouchableOpacity>
               </TouchableOpacity>
-            </TouchableOpacity>
-          </KeyboardAvoidingView>
+            </KeyboardAvoidingView>
+          </SafeAreaView>
         </Modal>
       </SafeAreaView>
     </LinearGradient>
@@ -306,6 +308,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   keyboardView: {
+    flex: 1,
+  },
+  safeAreaModal: {
     flex: 1,
   },
   scrollContent: {

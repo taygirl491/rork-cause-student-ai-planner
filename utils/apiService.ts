@@ -194,6 +194,20 @@ class ApiService {
 	}
 
 	/**
+	 * Get user data from backend
+	 */
+	async getUser(userId: string) {
+		try {
+			console.log(`[API] Fetching user ${userId} from backend...`);
+			const response = await this.get(`/api/users/${userId}`);
+			return response;
+		} catch (error: any) {
+			console.error("[API] Get user error:", error.message || error);
+			return { success: false, error: error.message || String(error) };
+		}
+	}
+
+	/**
 	 * Test backend connection
 	 */
 	async healthCheck() {

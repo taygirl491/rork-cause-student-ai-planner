@@ -53,18 +53,39 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
 
   // Listen for auth state changes
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
-        setAuthData({
-          user: {
-            email: firebaseUser.email || '',
-            name: firebaseUser.displayName || 'User',
-            uid: firebaseUser.uid,
-            photoURL: firebaseUser.photoURL || undefined,
-            tier: 'free',
-          },
-          isAuthenticated: true,
-        });
+        try {
+          // Fetch additional user data from backend (like tier)
+          const apiService = (await import('@/utils/apiService')).default;
+          const backendUserResponse = await apiService.getUser(firebaseUser.uid);
+
+          const backendUser = backendUserResponse?.success ? backendUserResponse.user : null;
+
+          setAuthData({
+            user: {
+              email: firebaseUser.email || '',
+              name: backendUser?.name || firebaseUser.displayName || 'User',
+              uid: firebaseUser.uid,
+              photoURL: firebaseUser.photoURL || undefined,
+              tier: backendUser?.tier || 'free',
+            },
+            isAuthenticated: true,
+          });
+        } catch (error) {
+          console.error('[AuthContext] Error fetching backend user:', error);
+          // Fallback to basic firebase data
+          setAuthData({
+            user: {
+              email: firebaseUser.email || '',
+              name: firebaseUser.displayName || 'User',
+              uid: firebaseUser.uid,
+              photoURL: firebaseUser.photoURL || undefined,
+              tier: 'free',
+            },
+            isAuthenticated: true,
+          });
+        }
         syncPurposeStatement(firebaseUser.uid);
       } else {
         setAuthData({
@@ -107,21 +128,33 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
           const apiService = (await import('@/utils/apiService')).default;
 
           // Register in backend (Critical for name storage)
-          await apiService.registerUser(userCredential.user.uid, data.email, data.name);
+          const registrationResponse = await apiService.registerUser(userCredential.user.uid, data.email, data.name);
+
+          // Update local state with the actual tier returned from backend (might be important if they had a previous subscription)
+          const backendUser = registrationResponse?.success ? registrationResponse.user : null;
 
           // Send welcome email
           apiService.sendWelcomeEmail(data.email, data.name)
             .catch(err => console.log('Welcome email failed (non-blocking):', err));
 
+          // Manually update local state to ensure UI reflects data immediately
+          setAuthData(prev => ({
+            ...prev,
+            user: prev.user ? {
+              ...prev.user,
+              name: data.name,
+              tier: backendUser?.tier || 'free'
+            } : null
+          }));
+
         } catch (error) {
           console.log('Failed to register/email (non-blocking):', error);
+          // Still update name locally even if backend call fails
+          setAuthData(prev => ({
+            ...prev,
+            user: prev.user ? { ...prev.user, name: data.name } : null
+          }));
         }
-
-        // Manually update local state to ensure UI reflects name immediately
-        setAuthData(prev => ({
-          ...prev,
-          user: prev.user ? { ...prev.user, name: data.name } : null
-        }));
       }
 
       return auth.currentUser;
@@ -130,6 +163,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       queryClient.invalidateQueries({ queryKey: ['auth'] });
     },
   });
+
 
   const logoutMutation = useMutation({
     mutationFn: async () => {
