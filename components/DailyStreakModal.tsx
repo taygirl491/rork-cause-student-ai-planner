@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { Flame, X } from 'lucide-react-native';
 import { BlurView } from 'expo-blur';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import colors from '@/constants/colors';
 import StreakFireAnimation from './StreakFireAnimation';
 
@@ -55,54 +56,59 @@ export default function DailyStreakModal({ visible, streakCount, onClose }: Dail
             animationType="none"
             onRequestClose={onClose}
         >
-            <View style={styles.overlay}>
-                <BlurView intensity={20} style={StyleSheet.absoluteFill} tint="dark" />
+            <SafeAreaView style={styles.safeArea}>
+                <View style={styles.overlay}>
+                    <BlurView intensity={20} style={StyleSheet.absoluteFill} tint="dark" />
 
-                <Animated.View
-                    style={[
-                        styles.content,
-                        {
-                            opacity: fadeAnim,
-                            transform: [{ translateY: slideAnim }]
-                        }
-                    ]}
-                >
-                    <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-                        <X size={24} color={colors.textSecondary} />
-                    </TouchableOpacity>
+                    <Animated.View
+                        style={[
+                            styles.content,
+                            {
+                                opacity: fadeAnim,
+                                transform: [{ translateY: slideAnim }]
+                            }
+                        ]}
+                    >
+                        <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+                            <X size={24} color={colors.textSecondary} />
+                        </TouchableOpacity>
 
-                    <View style={styles.header}>
-                        <View style={styles.fireContainer}>
-                            <StreakFireAnimation
-                                visible={visible}
-                                streakNumber={streakCount}
-                                onFinish={() => { }}
-                            />
+                        <View style={styles.header}>
+                            <View style={styles.fireContainer}>
+                                <StreakFireAnimation
+                                    visible={visible}
+                                    streakNumber={streakCount}
+                                    onFinish={() => { }}
+                                />
+                            </View>
                         </View>
-                    </View>
 
-                    <View style={styles.body}>
-                        <Text style={styles.title}>Daily Streak!</Text>
-                        <Text style={styles.description}>
-                            You've checked in {streakCount} {streakCount === 1 ? 'day' : 'days'} in a row. Keep it up!
-                        </Text>
+                        <View style={styles.body}>
+                            <Text style={styles.title}>Daily Streak!</Text>
+                            <Text style={styles.description}>
+                                You've checked in {streakCount} {streakCount === 1 ? 'day' : 'days'} in a row. Keep it up!
+                            </Text>
 
-                        <View style={styles.streakBadge}>
-                            <Flame size={20} color={colors.primary} fill={colors.primary} />
-                            <Text style={styles.streakCountText}>Day {streakCount}</Text>
+                            <View style={styles.streakBadge}>
+                                <Flame size={20} color={colors.primary} fill={colors.primary} />
+                                <Text style={styles.streakCountText}>Day {streakCount}</Text>
+                            </View>
                         </View>
-                    </View>
 
-                    <TouchableOpacity style={styles.button} onPress={onClose}>
-                        <Text style={styles.buttonText}>Awesome!</Text>
-                    </TouchableOpacity>
-                </Animated.View>
-            </View>
+                        <TouchableOpacity style={styles.button} onPress={onClose}>
+                            <Text style={styles.buttonText}>Awesome!</Text>
+                        </TouchableOpacity>
+                    </Animated.View>
+                </View>
+            </SafeAreaView>
         </Modal>
     );
 }
 
 const styles = StyleSheet.create({
+    safeArea: {
+        flex: 1,
+    },
     overlay: {
         flex: 1,
         backgroundColor: 'rgba(0, 0, 0, 0.4)',

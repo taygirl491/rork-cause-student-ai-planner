@@ -1,5 +1,6 @@
 import React from 'react';
 import { Modal, View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { X, Crown, Sparkles } from 'lucide-react-native';
 import colors from '@/constants/colors';
@@ -26,39 +27,44 @@ export default function UpgradeModal({ visible, onClose, featureName, message }:
             animationType="fade"
             onRequestClose={onClose}
         >
-            <View style={styles.overlay}>
-                <View style={styles.content}>
-                    <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-                        <X size={24} color={colors.textSecondary} />
-                    </TouchableOpacity>
+            <SafeAreaView style={styles.safeArea}>
+                <View style={styles.overlay}>
+                    <View style={styles.content}>
+                        <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+                            <X size={24} color={colors.textSecondary} />
+                        </TouchableOpacity>
 
-                    <View style={styles.iconContainer}>
-                        <Crown size={40} color="#FFD700" fill="#FFD700" />
-                        <Sparkles size={24} color={colors.primary} style={styles.sparkle} />
+                        <View style={styles.iconContainer}>
+                            <Crown size={40} color="#FFD700" fill="#FFD700" />
+                            <Sparkles size={24} color={colors.primary} style={styles.sparkle} />
+                        </View>
+
+                        <Text style={styles.title}>Unlock {featureName}</Text>
+                        <Text style={styles.message}>
+                            {message || `Upgrade to Premium to access ${featureName} and other exclusive features.`}
+                        </Text>
+
+                        <TouchableOpacity style={styles.upgradeButton} onPress={handleUpgrade}>
+                            <Text style={styles.upgradeButtonText}>Upgrade Now</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity style={styles.cancelButton} onPress={onClose}>
+                            <Text style={styles.cancelButtonText}>Maybe Later</Text>
+                        </TouchableOpacity>
                     </View>
-
-                    <Text style={styles.title}>Unlock {featureName}</Text>
-                    <Text style={styles.message}>
-                        {message || `Upgrade to Premium to access ${featureName} and other exclusive features.`}
-                    </Text>
-
-                    <TouchableOpacity style={styles.upgradeButton} onPress={handleUpgrade}>
-                        <Text style={styles.upgradeButtonText}>Upgrade Now</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity style={styles.cancelButton} onPress={onClose}>
-                        <Text style={styles.cancelButtonText}>Maybe Later</Text>
-                    </TouchableOpacity>
                 </View>
-            </View>
+            </SafeAreaView>
         </Modal>
     );
 }
 
 const styles = StyleSheet.create({
-    overlay: {
+    safeArea: {
         flex: 1,
         backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    },
+    overlay: {
+        flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
         padding: 24,

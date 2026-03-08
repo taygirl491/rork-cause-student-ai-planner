@@ -330,21 +330,23 @@ export default function GroupDetailScreen() {
                 animationType="fade"
                 onRequestClose={() => setShowImageViewer(false)}
             >
-                <View style={styles.imageViewerOverlay}>
-                    <TouchableOpacity
-                        style={styles.imageViewerClose}
-                        onPress={() => setShowImageViewer(false)}
-                    >
-                        <X size={30} color={colors.surface} />
-                    </TouchableOpacity>
-                    {selectedImage && (
-                        <Image
-                            source={{ uri: selectedImage }}
-                            style={styles.imageViewerImage}
-                            resizeMode="contain"
-                        />
-                    )}
-                </View>
+                <SafeAreaView style={{ flex: 1 }}>
+                    <View style={styles.imageViewerOverlay}>
+                        <TouchableOpacity
+                            style={styles.imageViewerClose}
+                            onPress={() => setShowImageViewer(false)}
+                        >
+                            <X size={30} color={colors.surface} />
+                        </TouchableOpacity>
+                        {selectedImage && (
+                            <Image
+                                source={{ uri: selectedImage }}
+                                style={styles.imageViewerImage}
+                                resizeMode="contain"
+                            />
+                        )}
+                    </View>
+                </SafeAreaView>
             </Modal>
 
             {/* Members Modal */}
@@ -354,48 +356,50 @@ export default function GroupDetailScreen() {
                 animationType="fade"
                 onRequestClose={() => setShowMembersModal(false)}
             >
-                <TouchableOpacity
-                    style={styles.modalOverlay}
-                    activeOpacity={1}
-                    onPress={() => setShowMembersModal(false)}
-                >
+                <SafeAreaView style={{ flex: 1 }}>
                     <TouchableOpacity
+                        style={styles.modalOverlay}
                         activeOpacity={1}
-                        onPress={(e) => e.stopPropagation()}
-                        style={styles.modalContainer}
+                        onPress={() => setShowMembersModal(false)}
                     >
-                        <View style={styles.modalContent}>
-                            <View style={styles.modalHeader}>
-                                <Text style={styles.modalTitle}>Group Members ({group.members.length})</Text>
-                                <TouchableOpacity onPress={() => setShowMembersModal(false)}>
-                                    <X size={24} color={colors.text} />
-                                </TouchableOpacity>
-                            </View>
+                        <TouchableOpacity
+                            activeOpacity={1}
+                            onPress={(e) => e.stopPropagation()}
+                            style={styles.modalContainer}
+                        >
+                            <View style={styles.modalContent}>
+                                <View style={styles.modalHeader}>
+                                    <Text style={styles.modalTitle}>Group Members ({group.members.length})</Text>
+                                    <TouchableOpacity onPress={() => setShowMembersModal(false)}>
+                                        <X size={24} color={colors.text} />
+                                    </TouchableOpacity>
+                                </View>
 
-                            <ScrollView style={styles.membersList} contentContainerStyle={styles.membersListContent}>
-                                {group.members.map((member, index) => (
-                                    <View key={member.email + index} style={styles.memberItem}>
-                                        <View style={styles.memberAvatar}>
-                                            <User size={20} color={colors.surface} />
-                                        </View>
-                                        <View style={styles.memberInfo}>
-                                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                                                <Text style={styles.memberName}>{member.name || member.email.split('@')[0]}</Text>
-                                                {/* Show admin badge if member is an admin */}
-                                                {group.admins?.includes(member.userId) && (
-                                                    <View style={styles.adminBadgeSmall}>
-                                                        <Text style={styles.adminBadgeSmallText}>ADMIN</Text>
-                                                    </View>
-                                                )}
+                                <ScrollView style={styles.membersList} contentContainerStyle={styles.membersListContent}>
+                                    {group.members.map((member, index) => (
+                                        <View key={member.email + index} style={styles.memberItem}>
+                                            <View style={styles.memberAvatar}>
+                                                <User size={20} color={colors.surface} />
                                             </View>
-                                            <Text style={styles.memberEmail}>{member.email}</Text>
+                                            <View style={styles.memberInfo}>
+                                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                                    <Text style={styles.memberName}>{member.name || member.email.split('@')[0]}</Text>
+                                                    {/* Show admin badge if member is an admin */}
+                                                    {group.admins?.includes(member.userId) && (
+                                                        <View style={styles.adminBadgeSmall}>
+                                                            <Text style={styles.adminBadgeSmallText}>ADMIN</Text>
+                                                        </View>
+                                                    )}
+                                                </View>
+                                                <Text style={styles.memberEmail}>{member.email}</Text>
+                                            </View>
                                         </View>
-                                    </View>
-                                ))}
-                            </ScrollView>
-                        </View>
+                                    ))}
+                                </ScrollView>
+                            </View>
+                        </TouchableOpacity>
                     </TouchableOpacity>
-                </TouchableOpacity>
+                </SafeAreaView>
             </Modal>
         </SafeAreaView>
     );

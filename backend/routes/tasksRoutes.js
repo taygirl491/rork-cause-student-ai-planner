@@ -97,11 +97,21 @@ router.put('/:taskId', async (req, res) => {
             { new: true, runValidators: true }
         );
 
+        // Award points if the task was just completed
+        if (updates.completed === true && !wasCompleted) {
+            try {
+                const gamificationService = require('../gamificationService');
+                const pointsMap = { 'low': 5, 'medium': 10, 'high': 20 };
+                const points = pointsMap[task.priority] || 10;
+                await gamificationService.awardPoints(task.userId, points, 'task');
+                console.log(`[Tasks] Awarded ${points} points to user ${task.userId} for completing task ${taskId}`);
+            } catch (error) {
+                console.error('Error awarding points for task completion:', error);
+            }
+        }
+
         // Emit WebSocket event
         // Streak update removed from here - now handled on daily app launch
-        if (updates.completed === true && !wasCompleted) {
-            // Task completed logic (optional: award points for task completion here if not already handled)
-        }
 
         res.json({
             success: true,

@@ -584,6 +584,10 @@ export const [AppProvider, useApp] = createContextHook(() => {
 				setGoals((prev) =>
 					prev.map((g) => (g.id === id ? { ...g, ...updates } : g))
 				);
+				// Refresh streaks to show new points (if goal was completed)
+				if (updates.completed === true) {
+					refreshStreak();
+				}
 			}
 		} catch (error) {
 			console.error("Error updating goal:", error);
@@ -1068,6 +1072,9 @@ export const [AppProvider, useApp] = createContextHook(() => {
 			if (newGroup) {
 				// Don't add to state here - the WebSocket event will handle it
 				// This prevents duplicate groups
+				// Refresh streaks to show new points
+				refreshStreak();
+
 				return {
 					...newGroup,
 					messages: newGroup.messages || [],
@@ -1105,6 +1112,9 @@ export const [AppProvider, useApp] = createContextHook(() => {
 					}
 					return [{ ...group, messages: group.messages || [] }, ...prev];
 				});
+
+				// Refresh streaks to show new points
+				refreshStreak();
 
 				return {
 					status: 'joined',

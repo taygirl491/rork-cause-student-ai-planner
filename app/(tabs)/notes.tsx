@@ -28,6 +28,8 @@ import { Note } from "@/types";
 import { useStreak } from "@/contexts/StreakContext";
 import { useAuth } from "@/contexts/AuthContext";
 import UpgradeModal from "@/components/UpgradeModal";
+import * as FileSystem from "expo-file-system";
+import * as Sharing from "expo-sharing";
 
 export default function NotesScreen() {
 	const { notes, addNote, updateNote, deleteNote, classes, refreshNotes } = useApp();
@@ -204,10 +206,30 @@ export default function NotesScreen() {
 		if (!selectedNote) return;
 
 		try {
-			await Share.share({
-				message: `${selectedNote.title}\n\n${selectedNote.content}`,
-				title: selectedNote.title,
+			// Create a temporary file path
+			const filename = `${selectedNote.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.txt`;
+			const fileUri = `${FileSystem.cacheDirectory}${filename}`;
+
+			// Write the note content to the file
+			const content = `${selectedNote.title}\n\n${selectedNote.content}`;
+			await FileSystem.writeAsStringAsync(fileUri, content, {
+				encoding: FileSystem.EncodingType.UTF8,
 			});
+
+			// Share the file
+			if (await Sharing.isAvailableAsync()) {
+				await Sharing.shareAsync(fileUri, {
+					mimeType: 'text/plain',
+					dialogTitle: `Download ${selectedNote.title}`,
+					UTI: 'public.plain-text', // iOS specific
+				});
+			} else {
+				// Fallback to text share if sharing is not available
+				await Share.share({
+					message: content,
+					title: selectedNote.title,
+				});
+			}
 		} catch (error) {
 			console.error("Error sharing note:", error);
 			Alert.alert("Error", "Failed to download/share note");
@@ -387,101 +409,103 @@ export default function NotesScreen() {
 				animationType="fade"
 				onRequestClose={() => setShowModal(false)}
 			>
-				<KeyboardAvoidingView
-					behavior={Platform.OS === "ios" ? "padding" : "height"}
-					style={{ flex: 1 }}
-				>
-					<TouchableOpacity
-						style={styles.modalOverlay}
-						activeOpacity={1}
-						onPress={() => setShowModal(false)}
+				<SafeAreaView style={styles.safeAreaModal}>
+					<KeyboardAvoidingView
+						behavior={Platform.OS === "ios" ? "padding" : "height"}
+						style={{ flex: 1 }}
 					>
 						<TouchableOpacity
+							style={styles.modalOverlay}
 							activeOpacity={1}
-							onPress={(e) => e.stopPropagation()}
-							style={{ width: '100%', alignItems: 'center' }}
+							onPress={() => setShowModal(false)}
 						>
-							<Animated.View
-								style={[styles.modalContent, { transform: [{ scale: scaleAnim }] }]}
+							<TouchableOpacity
+								activeOpacity={1}
+								onPress={(e) => e.stopPropagation()}
+								style={{ width: '100%', alignItems: 'center' }}
 							>
-								<View style={styles.modalHeader}>
-									<Text style={styles.modalTitle}>
-										{isEditing ? "Edit Note" : "New Note"}
-									</Text>
-									<TouchableOpacity
-										onPress={() => {
-											setShowModal(false);
-											setIsEditing(false);
-											setTitle("");
-											setSelectedClass("");
-										}}
-									>
-										<X size={24} color={colors.text} />
-									</TouchableOpacity>
-								</View>
-
-								<Text style={styles.label}>Title *</Text>
-								<TextInput
-									style={styles.input}
-									placeholder="Note title"
-									placeholderTextColor={colors.textLight}
-									value={title}
-									onChangeText={setTitle}
-									autoFocus
-								/>
-
-								<Text style={styles.label}>Class (Optional)</Text>
-								<View style={styles.classGrid}>
-									<TouchableOpacity
-										style={[
-											styles.classChip,
-											!selectedClass && { backgroundColor: colors.primary },
-										]}
-										onPress={() => setSelectedClass("")}
-									>
-										<Text
-											style={[
-												styles.classChipText,
-												!selectedClass && { color: colors.surface },
-											]}
-										>
-											None
+								<Animated.View
+									style={[styles.modalContent, { transform: [{ scale: scaleAnim }] }]}
+								>
+									<View style={styles.modalHeader}>
+										<Text style={styles.modalTitle}>
+											{isEditing ? "Edit Note" : "New Note"}
 										</Text>
-									</TouchableOpacity>
-									{classes.map((cls) => (
 										<TouchableOpacity
-											key={cls.id}
+											onPress={() => {
+												setShowModal(false);
+												setIsEditing(false);
+												setTitle("");
+												setSelectedClass("");
+											}}
+										>
+											<X size={24} color={colors.text} />
+										</TouchableOpacity>
+									</View>
+
+									<Text style={styles.label}>Title *</Text>
+									<TextInput
+										style={styles.input}
+										placeholder="Note title"
+										placeholderTextColor={colors.textLight}
+										value={title}
+										onChangeText={setTitle}
+										autoFocus
+									/>
+
+									<Text style={styles.label}>Class (Optional)</Text>
+									<View style={styles.classGrid}>
+										<TouchableOpacity
 											style={[
 												styles.classChip,
-												selectedClass === cls.name && {
-													backgroundColor: cls.color,
-												},
+												!selectedClass && { backgroundColor: colors.primary },
 											]}
-											onPress={() => setSelectedClass(cls.name)}
+											onPress={() => setSelectedClass("")}
 										>
 											<Text
 												style={[
 													styles.classChipText,
-													selectedClass === cls.name && { color: colors.surface },
+													!selectedClass && { color: colors.surface },
 												]}
 											>
-												{cls.name}
+												None
 											</Text>
 										</TouchableOpacity>
-									))}
-								</View>
+										{classes.map((cls) => (
+											<TouchableOpacity
+												key={cls.id}
+												style={[
+													styles.classChip,
+													selectedClass === cls.name && {
+														backgroundColor: cls.color,
+													},
+												]}
+												onPress={() => setSelectedClass(cls.name)}
+											>
+												<Text
+													style={[
+														styles.classChipText,
+														selectedClass === cls.name && { color: colors.surface },
+													]}
+												>
+													{cls.name}
+												</Text>
+											</TouchableOpacity>
+										))}
+									</View>
 
-								<Button
-									title={isEditing ? "Update Note" : "Create Note"}
-									onPress={handleCreateNote}
-									isLoading={isSaving}
-									disabled={!title}
-									style={styles.createButton}
-								/>
-							</Animated.View>
+									<Button
+										title={isEditing ? "Update Note" : "Create Note"}
+										onPress={handleCreateNote}
+										isLoading={isSaving}
+										disabled={!title}
+										style={styles.createButton}
+									/>
+								</Animated.View>
+							</TouchableOpacity>
 						</TouchableOpacity>
-					</TouchableOpacity>
-				</KeyboardAvoidingView>
+					</KeyboardAvoidingView>
+				</SafeAreaView>
 			</Modal>
 
 			{/* Detail/Edit Modal */}
@@ -491,96 +515,98 @@ export default function NotesScreen() {
 				animationType="fade"
 				onRequestClose={() => setShowDetailModal(false)}
 			>
-				<KeyboardAvoidingView
-					behavior={Platform.OS === "ios" ? "padding" : "height"}
-					style={{ flex: 1 }}
-				>
-					<TouchableOpacity
-						style={styles.modalOverlay}
-						activeOpacity={1}
-						onPress={() => setShowDetailModal(false)}
+				<SafeAreaView style={styles.safeAreaModal}>
+					<KeyboardAvoidingView
+						behavior={Platform.OS === "ios" ? "padding" : "height"}
+						style={{ flex: 1 }}
 					>
 						<TouchableOpacity
+							style={styles.modalOverlay}
 							activeOpacity={1}
-							onPress={(e) => e.stopPropagation()}
-							style={{ width: '100%', alignItems: 'center' }}
+							onPress={() => setShowDetailModal(false)}
 						>
-							<Animated.View
-								style={[
-									styles.modalContent,
-									{ transform: [{ scale: detailScaleAnim }] },
-								]}
+							<TouchableOpacity
+								activeOpacity={1}
+								onPress={(e) => e.stopPropagation()}
+								style={{ width: '100%', alignItems: 'center' }}
 							>
-								<View style={styles.modalHeader}>
-									<Text style={styles.modalTitle}>{selectedNote?.title}</Text>
-									<TouchableOpacity onPress={() => setShowDetailModal(false)}>
-										<X size={24} color={colors.text} />
-									</TouchableOpacity>
-								</View>
-
-								{selectedNote?.className && (
-									<View
-										style={[
-											styles.classTag,
-											{ marginBottom: 16, alignSelf: "flex-start" },
-										]}
-									>
-										<Text style={styles.classTagText}>
-											{selectedNote.className}
-										</Text>
-									</View>
-								)}
-
-								<Text style={styles.label}>Content</Text>
-								<TextInput
-									style={[styles.input, styles.contentInput]}
-									placeholder="Write your notes here..."
-									placeholderTextColor={colors.textLight}
-									value={editContent}
-									onChangeText={setEditContent}
-									onBlur={handleUpdateNote}
-									multiline
-									numberOfLines={10}
-									textAlignVertical="top"
-									autoFocus
-								/>
-
-								<View style={styles.detailModalActions}>
-									<TouchableOpacity
-										style={styles.deleteButton}
-										onPress={handleDeleteNote}
-									>
-										<Text style={styles.deleteButtonText}>Delete Note</Text>
-									</TouchableOpacity>
-									<Button
-										title="Done"
-										onPress={async () => {
-											await handleUpdateNote();
-											setShowDetailModal(false);
-										}}
-										isLoading={isSaving}
-										style={styles.saveButton}
-									/>
-								</View>
-
-								<TouchableOpacity
-									style={styles.downloadButton}
-									onPress={handleDownloadNote}
+								<Animated.View
+									style={[
+										styles.modalContent,
+										{ transform: [{ scale: detailScaleAnim }] },
+									]}
 								>
-									<Download size={20} color={colors.primary} />
-									<Text style={styles.downloadButtonText}>Download Note</Text>
-								</TouchableOpacity>
+									<View style={styles.modalHeader}>
+										<Text style={styles.modalTitle}>{selectedNote?.title}</Text>
+										<TouchableOpacity onPress={() => setShowDetailModal(false)}>
+											<X size={24} color={colors.text} />
+										</TouchableOpacity>
+									</View>
 
-								<Text style={styles.dateInfo}>
-									Created: {selectedNote && formatDate(selectedNote.createdAt)}
-								</Text>
-								<Text style={styles.dateInfo}>
-									Updated: {selectedNote && formatDate(selectedNote.updatedAt)}
-								</Text>
-							</Animated.View>
+									{selectedNote?.className && (
+										<View
+											style={[
+												styles.classTag,
+												{ marginBottom: 16, alignSelf: "flex-start" },
+											]}
+										>
+											<Text style={styles.classTagText}>
+												{selectedNote.className}
+											</Text>
+										</View>
+									)}
+
+									<Text style={styles.label}>Content</Text>
+									<TextInput
+										style={[styles.input, styles.contentInput]}
+										placeholder="Write your notes here..."
+										placeholderTextColor={colors.textLight}
+										value={editContent}
+										onChangeText={setEditContent}
+										onBlur={handleUpdateNote}
+										multiline
+										numberOfLines={10}
+										textAlignVertical="top"
+										autoFocus
+									/>
+
+									<View style={styles.detailModalActions}>
+										<TouchableOpacity
+											style={styles.deleteButton}
+											onPress={handleDeleteNote}
+										>
+											<Text style={styles.deleteButtonText}>Delete Note</Text>
+										</TouchableOpacity>
+										<Button
+											title="Done"
+											onPress={async () => {
+												await handleUpdateNote();
+												setShowDetailModal(false);
+											}}
+											isLoading={isSaving}
+											style={styles.saveButton}
+										/>
+									</View>
+
+									<TouchableOpacity
+										style={styles.downloadButton}
+										onPress={handleDownloadNote}
+									>
+										<Download size={20} color={colors.primary} />
+										<Text style={styles.downloadButtonText}>Download Note</Text>
+									</TouchableOpacity>
+
+									<Text style={styles.dateInfo}>
+										Created: {selectedNote && formatDate(selectedNote.createdAt)}
+									</Text>
+									<Text style={styles.dateInfo}>
+										Updated: {selectedNote && formatDate(selectedNote.updatedAt)}
+									</Text>
+								</Animated.View>
+							</TouchableOpacity>
 						</TouchableOpacity>
-					</TouchableOpacity>
-				</KeyboardAvoidingView>
+					</KeyboardAvoidingView>
+				</SafeAreaView>
 			</Modal>
 
 			{/* Action Sheet Modal */}
@@ -590,34 +616,39 @@ export default function NotesScreen() {
 				animationType="fade"
 				onRequestClose={() => setShowActionSheet(false)}
 			>
-				<TouchableOpacity
-					style={styles.actionSheetOverlay}
-					activeOpacity={1}
-					onPress={() => setShowActionSheet(false)}
-				>
-					<View style={styles.actionSheetContent}>
-						<TouchableOpacity style={styles.actionButton} onPress={handleEdit}>
-							<Edit2 size={20} color={colors.primary} />
-							<Text style={styles.actionButtonText}>Edit Note</Text>
-						</TouchableOpacity>
-						<View style={styles.actionDivider} />
-						<TouchableOpacity
-							style={styles.actionButton}
-							onPress={handleDelete}
-						>
-							<Trash2 size={20} color="#FF3B30" />
-							<Text style={[styles.actionButtonText, { color: "#FF3B30" }]}>
-								Delete Note
-							</Text>
-						</TouchableOpacity>
-					</View>
-				</TouchableOpacity>
+				<SafeAreaView style={styles.safeAreaModal}>
+					<TouchableOpacity
+						style={styles.actionSheetOverlay}
+						activeOpacity={1}
+						onPress={() => setShowActionSheet(false)}
+					>
+						<View style={styles.actionSheetContent}>
+							<TouchableOpacity style={styles.actionButton} onPress={handleEdit}>
+								<Edit2 size={20} color={colors.primary} />
+								<Text style={styles.actionButtonText}>Edit Note</Text>
+							</TouchableOpacity>
+							<View style={styles.actionDivider} />
+							<TouchableOpacity
+								style={styles.actionButton}
+								onPress={handleDelete}
+							>
+								<Trash2 size={20} color="#FF3B30" />
+								<Text style={[styles.actionButtonText, { color: "#FF3B30" }]}>
+									Delete Note
+								</Text>
+							</TouchableOpacity>
+						</View>
+					</TouchableOpacity>
+				</SafeAreaView>
 			</Modal>
 		</SafeAreaView >
 	);
 }
 // styles
 const styles = StyleSheet.create({
+	safeAreaModal: {
+		flex: 1,
+	},
 	container: {
 		flex: 1,
 		backgroundColor: colors.background,

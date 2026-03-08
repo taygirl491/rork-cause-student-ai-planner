@@ -438,94 +438,96 @@ export default function StudyGroupsScreen() {
 					animationType="fade"
 					onRequestClose={() => setShowCreateGroupModal(false)}
 				>
-					<KeyboardAvoidingView
-						behavior={Platform.OS === "ios" ? "padding" : "height"}
-						style={{ flex: 1 }}
-					>
-						<TouchableOpacity
-							style={styles.modalOverlay}
-							activeOpacity={1}
-							onPress={() => setShowCreateGroupModal(false)}
+					<SafeAreaView style={styles.safeAreaModal}>
+						<KeyboardAvoidingView
+							behavior={Platform.OS === "ios" ? "padding" : "height"}
+							style={{ flex: 1 }}
 						>
 							<TouchableOpacity
+								style={styles.modalOverlay}
 								activeOpacity={1}
-								onPress={(e) => e.stopPropagation()}
-								style={{ width: '100%', alignItems: 'center' }}
+								onPress={() => setShowCreateGroupModal(false)}
 							>
-								<Animated.View
-									style={[styles.modalContent, { transform: [{ scale: scaleAnim }] }]}
+								<TouchableOpacity
+									activeOpacity={1}
+									onPress={(e) => e.stopPropagation()}
+									style={{ width: '100%', alignItems: 'center' }}
 								>
-									<View style={styles.modalHeader}>
-										<Text style={styles.modalTitle}>Create Study Group</Text>
-										<TouchableOpacity onPress={() => setShowCreateGroupModal(false)}>
-											<X size={24} color={colors.text} />
-										</TouchableOpacity>
-									</View>
-
-									<ScrollView showsVerticalScrollIndicator={false}>
-										<Text style={styles.label}>Group Name *</Text>
-										<TextInput
-											style={styles.input}
-											placeholder="e.g., Calculus Study Group"
-											placeholderTextColor={colors.textLight}
-											value={groupName}
-											onChangeText={setGroupName}
-										/>
-
-										<Text style={styles.label}>Class *</Text>
-										<TextInput
-											style={styles.input}
-											placeholder="e.g., MATH 101"
-											placeholderTextColor={colors.textLight}
-											value={groupClass}
-											onChangeText={setGroupClass}
-										/>
-
-										<Text style={styles.label}>School or University *</Text>
-										<TextInput
-											style={styles.input}
-											placeholder="e.g., University of California"
-											placeholderTextColor={colors.textLight}
-											value={groupSchool}
-											onChangeText={setGroupSchool}
-										/>
-
-										<Text style={styles.label}>Description</Text>
-										<TextInput
-											style={[styles.input, styles.textArea]}
-											placeholder="Describe the purpose of this study group"
-											placeholderTextColor={colors.textLight}
-											value={groupDescription}
-											onChangeText={setGroupDescription}
-											multiline
-											numberOfLines={4}
-										/>
-										<View style={styles.switchRow}>
-											<View style={{ flex: 1 }}>
-												<Text style={styles.switchLabel}>🔒 Private Group</Text>
-												<Text style={styles.switchSubtext}>
-													Only you can see the invite code
-												</Text>
-											</View>
-											<Switch
-												value={isPrivate}
-												onValueChange={setIsPrivate}
-												trackColor={{ false: colors.border, true: colors.primary }}
-												thumbColor={isPrivate ? colors.surface : colors.textLight}
-											/>
+									<Animated.View
+										style={[styles.modalContent, { transform: [{ scale: scaleAnim }] }]}
+									>
+										<View style={styles.modalHeader}>
+											<Text style={styles.modalTitle}>Create Study Group</Text>
+											<TouchableOpacity onPress={() => setShowCreateGroupModal(false)}>
+												<X size={24} color={colors.text} />
+											</TouchableOpacity>
 										</View>
-										<Button
-											title="Create Group"
-											onPress={handleCreateGroup}
-											isLoading={isSaving}
-											disabled={!groupName || !groupClass || !groupSchool}
-											style={styles.createButton}
-										/>
-									</ScrollView>
-								</Animated.View>
+
+										<ScrollView showsVerticalScrollIndicator={false}>
+											<Text style={styles.label}>Group Name *</Text>
+											<TextInput
+												style={styles.input}
+												placeholder="e.g., Calculus Study Group"
+												placeholderTextColor={colors.textLight}
+												value={groupName}
+												onChangeText={setGroupName}
+											/>
+
+											<Text style={styles.label}>Class *</Text>
+											<TextInput
+												style={styles.input}
+												placeholder="e.g., MATH 101"
+												placeholderTextColor={colors.textLight}
+												value={groupClass}
+												onChangeText={setGroupClass}
+											/>
+
+											<Text style={styles.label}>School or University *</Text>
+											<TextInput
+												style={styles.input}
+												placeholder="e.g., University of California"
+												placeholderTextColor={colors.textLight}
+												value={groupSchool}
+												onChangeText={setGroupSchool}
+											/>
+
+											<Text style={styles.label}>Description</Text>
+											<TextInput
+												style={[styles.input, styles.textArea]}
+												placeholder="Describe the purpose of this study group"
+												placeholderTextColor={colors.textLight}
+												value={groupDescription}
+												onChangeText={setGroupDescription}
+												multiline
+												numberOfLines={4}
+											/>
+											<View style={styles.switchRow}>
+												<View style={{ flex: 1 }}>
+													<Text style={styles.switchLabel}>🔒 Private Group</Text>
+													<Text style={styles.switchSubtext}>
+														Only you can see the invite code
+													</Text>
+												</View>
+												<Switch
+													value={isPrivate}
+													onValueChange={setIsPrivate}
+													trackColor={{ false: colors.border, true: colors.primary }}
+													thumbColor={isPrivate ? colors.surface : colors.textLight}
+												/>
+											</View>
+											<Button
+												title="Create Group"
+												onPress={handleCreateGroup}
+												isLoading={isSaving}
+												disabled={!groupName || !groupClass || !groupSchool}
+												style={styles.createButton}
+											/>
+										</ScrollView>
+									</Animated.View>
+								</TouchableOpacity>
 							</TouchableOpacity>
-						</TouchableOpacity>
-					</KeyboardAvoidingView>
+						</KeyboardAvoidingView>
+					</SafeAreaView>
 				</Modal>
 
 				<Modal
@@ -534,53 +536,55 @@ export default function StudyGroupsScreen() {
 					animationType="fade"
 					onRequestClose={() => setShowJoinGroupModal(false)}
 				>
-					<KeyboardAvoidingView
-						behavior={Platform.OS === "ios" ? "padding" : "height"}
-						style={{ flex: 1 }}
-					>
-						<TouchableOpacity
-							style={styles.modalOverlay}
-							activeOpacity={1}
-							onPress={() => setShowJoinGroupModal(false)}
+					<SafeAreaView style={styles.safeAreaModal}>
+						<KeyboardAvoidingView
+							behavior={Platform.OS === "ios" ? "padding" : "height"}
+							style={{ flex: 1 }}
 						>
 							<TouchableOpacity
+								style={styles.modalOverlay}
 								activeOpacity={1}
-								onPress={(e) => e.stopPropagation()}
-								style={{ width: '100%', alignItems: 'center' }}
+								onPress={() => setShowJoinGroupModal(false)}
 							>
-								<Animated.View
-									style={[styles.modalContent, { transform: [{ scale: scaleAnim }] }]}
+								<TouchableOpacity
+									activeOpacity={1}
+									onPress={(e) => e.stopPropagation()}
+									style={{ width: '100%', alignItems: 'center' }}
 								>
-									<View style={styles.modalHeader}>
-										<Text style={styles.modalTitle}>Join Study Group</Text>
-										<TouchableOpacity onPress={() => setShowJoinGroupModal(false)}>
-											<X size={24} color={colors.text} />
-										</TouchableOpacity>
-									</View>
+									<Animated.View
+										style={[styles.modalContent, { transform: [{ scale: scaleAnim }] }]}
+									>
+										<View style={styles.modalHeader}>
+											<Text style={styles.modalTitle}>Join Study Group</Text>
+											<TouchableOpacity onPress={() => setShowJoinGroupModal(false)}>
+												<X size={24} color={colors.text} />
+											</TouchableOpacity>
+										</View>
 
-									<ScrollView showsVerticalScrollIndicator={false}>
-										<Text style={styles.label}>Group Code *</Text>
-										<TextInput
-											style={styles.input}
-											placeholder="Enter group code"
-											placeholderTextColor={colors.textLight}
-											value={joinCode}
-											onChangeText={setJoinCode}
-											autoCapitalize="characters"
-										/>
+										<ScrollView showsVerticalScrollIndicator={false}>
+											<Text style={styles.label}>Group Code *</Text>
+											<TextInput
+												style={styles.input}
+												placeholder="Enter group code"
+												placeholderTextColor={colors.textLight}
+												value={joinCode}
+												onChangeText={setJoinCode}
+												autoCapitalize="characters"
+											/>
 
-										<Button
-											title="Join Group"
-											onPress={handleJoinGroup}
-											isLoading={isSaving}
-											disabled={!joinCode}
-											style={styles.createButton}
-										/>
-									</ScrollView>
-								</Animated.View>
+											<Button
+												title="Join Group"
+												onPress={handleJoinGroup}
+												isLoading={isSaving}
+												disabled={!joinCode}
+												style={styles.createButton}
+											/>
+										</ScrollView>
+									</Animated.View>
+								</TouchableOpacity>
 							</TouchableOpacity>
-						</TouchableOpacity>
-					</KeyboardAvoidingView>
+						</KeyboardAvoidingView>
+					</SafeAreaView>
 				</Modal>
 
 				{/* Action Sheet Modal */}
@@ -590,23 +594,25 @@ export default function StudyGroupsScreen() {
 					animationType="fade"
 					onRequestClose={() => setShowActionSheet(false)}
 				>
-					<TouchableOpacity
-						style={styles.actionSheetOverlay}
-						activeOpacity={1}
-						onPress={() => setShowActionSheet(false)}
-					>
-						<View style={styles.actionSheetContent}>
-							<TouchableOpacity
-								style={styles.actionButton}
-								onPress={handleDelete}
-							>
-								<Trash2 size={20} color="#FF3B30" />
-								<Text style={[styles.actionButtonText, { color: "#FF3B30" }]}>
-									Delete Study Group
-								</Text>
-							</TouchableOpacity>
-						</View>
-					</TouchableOpacity>
+					<SafeAreaView style={styles.safeAreaModal}>
+						<TouchableOpacity
+							style={styles.actionSheetOverlay}
+							activeOpacity={1}
+							onPress={() => setShowActionSheet(false)}
+						>
+							<View style={styles.actionSheetContent}>
+								<TouchableOpacity
+									style={styles.actionButton}
+									onPress={handleDelete}
+								>
+									<Trash2 size={20} color="#FF3B30" />
+									<Text style={[styles.actionButtonText, { color: "#FF3B30" }]}>
+										Delete Study Group
+									</Text>
+								</TouchableOpacity>
+							</View>
+						</TouchableOpacity>
+					</SafeAreaView>
 				</Modal>
 
 			</SafeAreaView>
@@ -615,6 +621,9 @@ export default function StudyGroupsScreen() {
 }
 
 const styles = StyleSheet.create({
+	safeAreaModal: {
+		flex: 1,
+	},
 	container: {
 		flex: 1,
 		backgroundColor: colors.background,

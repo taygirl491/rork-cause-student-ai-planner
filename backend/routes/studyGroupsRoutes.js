@@ -115,6 +115,15 @@ router.post('/', async (req, res) => {
             pendingMembers: [], // Initialize empty pending members array
         });
 
+        // Award points for creating a group
+        try {
+            const gamificationService = require('../gamificationService');
+            await gamificationService.awardPoints(creatorId, 25, 'feature');
+            console.log(`[StudyGroups] Awarded 25 points to user ${creatorId} for creating group ${group._id}`);
+        } catch (err) {
+            console.error('Error awarding points for group creation:', err);
+        }
+
         console.log('[DEBUG] Group created with admins:', group.admins);
         console.log('[DEBUG] Full group object:', JSON.stringify(group.toObject(), null, 2));
 
@@ -416,6 +425,15 @@ router.post('/:groupId/approve-member', async (req, res) => {
         // Remove from pending
         group.pendingMembers.splice(pendingMemberIndex, 1);
         await group.save();
+
+        // Award points for joining a group (to the member)
+        try {
+            const gamificationService = require('../gamificationService');
+            await gamificationService.awardPoints(pendingMember.userId, 15, 'feature');
+            console.log(`[StudyGroups] Awarded 15 points to user ${pendingMember.userId} for joining group ${groupId}`);
+        } catch (err) {
+            console.error('Error awarding points for group joining:', err);
+        }
 
         // Emit WebSocket events
         const io = req.app.get('io');

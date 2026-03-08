@@ -78,21 +78,23 @@ router.put('/:goalId', async (req, res) => {
         const { goalId } = req.params;
         const updates = req.body;
 
+        const existingGoal = await Goal.findById(goalId);
+        if (!existingGoal) {
+            return res.status(404).json({
+                success: false,
+                error: 'Goal not found',
+            });
+        }
+        const wasCompleted = existingGoal.completed;
+
         const goal = await Goal.findByIdAndUpdate(
             goalId,
             updates,
             { new: true, runValidators: true }
         );
 
-        if (!goal) {
-            return res.status(404).json({
-                success: false,
-                error: 'Goal not found',
-            });
-        }
-
         // Award points for goal completion
-        if (updates.completed === true && !goal.completed) {
+        if (updates.completed === true && !wasCompleted) {
             try {
                 const gamificationService = require('../gamificationService');
                 await gamificationService.awardPoints(goal.userId, 10, 'goal');

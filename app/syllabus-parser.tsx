@@ -436,57 +436,59 @@ export default function SyllabusParserScreen() {
                 transparent={true}
                 onRequestClose={() => setEditModalVisible(false)}
             >
-                <KeyboardAvoidingView
-                    behavior={Platform.OS === "ios" ? "padding" : "height"}
-                    style={styles.modalOverlay}
-                >
-                    <View style={styles.modalContent}>
-                        <View style={styles.modalHeader}>
-                            <Text style={styles.modalTitle}>Edit Item</Text>
-                            <TouchableOpacity onPress={() => setEditModalVisible(false)}>
-                                <X size={24} color={colors.text} />
-                            </TouchableOpacity>
-                        </View>
+                <SafeAreaView style={styles.safeAreaModal}>
+                    <KeyboardAvoidingView
+                        behavior={Platform.OS === "ios" ? "padding" : "height"}
+                        style={styles.modalOverlay}
+                    >
+                        <View style={styles.modalContent}>
+                            <View style={styles.modalHeader}>
+                                <Text style={styles.modalTitle}>Edit Item</Text>
+                                <TouchableOpacity onPress={() => setEditModalVisible(false)}>
+                                    <X size={24} color={colors.text} />
+                                </TouchableOpacity>
+                            </View>
 
-                        <View style={styles.inputGroup}>
-                            <Text style={styles.label}>Title</Text>
-                            <TextInput
-                                style={styles.input}
-                                value={editForm.title}
-                                onChangeText={(text) => setEditForm(prev => ({ ...prev, title: text }))}
-                                placeholder="Assignment Title"
+                            <View style={styles.inputGroup}>
+                                <Text style={styles.label}>Title</Text>
+                                <TextInput
+                                    style={styles.input}
+                                    value={editForm.title}
+                                    onChangeText={(text) => setEditForm(prev => ({ ...prev, title: text }))}
+                                    placeholder="Assignment Title"
+                                />
+                            </View>
+
+                            <View style={styles.inputGroup}>
+                                <Text style={styles.label}>Date (YYYY-MM-DD)</Text>
+                                <TextInput
+                                    style={styles.input}
+                                    value={editForm.date}
+                                    onChangeText={(text) => setEditForm(prev => ({ ...prev, date: text }))}
+                                    placeholder="YYYY-MM-DD"
+                                />
+                            </View>
+
+                            <View style={styles.inputGroup}>
+                                <Text style={styles.label}>Description</Text>
+                                <TextInput
+                                    style={[styles.input, styles.textArea]}
+                                    value={editForm.description}
+                                    onChangeText={(text) => setEditForm(prev => ({ ...prev, description: text }))}
+                                    placeholder="Description"
+                                    multiline
+                                    numberOfLines={3}
+                                />
+                            </View>
+
+                            <Button
+                                title="Save Changes"
+                                onPress={saveEdit}
+                                style={styles.saveButton}
                             />
                         </View>
-
-                        <View style={styles.inputGroup}>
-                            <Text style={styles.label}>Date (YYYY-MM-DD)</Text>
-                            <TextInput
-                                style={styles.input}
-                                value={editForm.date}
-                                onChangeText={(text) => setEditForm(prev => ({ ...prev, date: text }))}
-                                placeholder="YYYY-MM-DD"
-                            />
-                        </View>
-
-                        <View style={styles.inputGroup}>
-                            <Text style={styles.label}>Description</Text>
-                            <TextInput
-                                style={[styles.input, styles.textArea]}
-                                value={editForm.description}
-                                onChangeText={(text) => setEditForm(prev => ({ ...prev, description: text }))}
-                                placeholder="Description"
-                                multiline
-                                numberOfLines={3}
-                            />
-                        </View>
-
-                        <Button
-                            title="Save Changes"
-                            onPress={saveEdit}
-                            style={styles.saveButton}
-                        />
-                    </View>
-                </KeyboardAvoidingView>
+                    </KeyboardAvoidingView>
+                </SafeAreaView>
             </Modal>
 
 
@@ -501,6 +503,9 @@ export default function SyllabusParserScreen() {
 }
 
 const styles = StyleSheet.create({
+    safeAreaModal: {
+        flex: 1,
+    },
     container: {
         flex: 1,
         backgroundColor: colors.background,
