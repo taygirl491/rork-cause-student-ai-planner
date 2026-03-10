@@ -45,7 +45,7 @@ export default function CausesScreen() {
   ];
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
       <View style={styles.header}>
         <View>
           <Text style={styles.title}>Make It Count 🌍</Text>

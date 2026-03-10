@@ -348,7 +348,7 @@ export default function CalendarScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
       <View style={styles.header}>
         <Text style={styles.title}>Your Week at a Glance 🗓️</Text>
         <View style={styles.syncContainer}>

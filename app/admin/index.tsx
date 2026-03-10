@@ -45,6 +45,7 @@ function AdminContent() {
     const [isAdmin, setIsAdmin] = useState(false);
 
     const [homeVideoUrl, setHomeVideoUrl] = useState('');
+    const [homeVideoTitle, setHomeVideoTitle] = useState('');
     const [causesVideo1Url, setCausesVideo1Url] = useState('');
     const [causesVideo2Url, setCausesVideo2Url] = useState('');
     const [causesVideo3Url, setCausesVideo3Url] = useState('');
@@ -79,6 +80,7 @@ function AdminContent() {
             if (docSnap.exists()) {
                 const data = docSnap.data();
                 setHomeVideoUrl(data.homeVideoId ? `https://youtu.be/${data.homeVideoId}` : '');
+                setHomeVideoTitle(data.homeVideoTitle || '');
                 setCausesVideo1Url(data.causesVideo1Id ? `https://youtu.be/${data.causesVideo1Id}` : '');
                 setCausesVideo2Url(data.causesVideo2Id ? `https://youtu.be/${data.causesVideo2Id}` : '');
                 setCausesVideo3Url(data.causesVideo3Id ? `https://youtu.be/${data.causesVideo3Id}` : '');
@@ -168,6 +170,7 @@ function AdminContent() {
             // Use setDoc with merge: true to create if not exists or update
             await setDoc(docRef, {
                 homeVideoId: homeId,
+                homeVideoTitle: homeVideoTitle,
                 causesVideo1Id: causes1Id,
                 causesVideo2Id: causes2Id,
                 causesVideo3Id: causes3Id,
@@ -271,6 +274,17 @@ function AdminContent() {
                         <View style={styles.cardHeader}>
                             <Video size={24} color={colors.primary} />
                             <Text style={styles.cardTitle}>Video Configuration</Text>
+                        </View>
+
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.label}>Home Video Title (appears under video)</Text>
+                            <TextInput
+                                style={styles.input}
+                                placeholder="e.g., Motivation from students like you"
+                                value={homeVideoTitle}
+                                onChangeText={setHomeVideoTitle}
+                                placeholderTextColor={colors.textLight}
+                            />
                         </View>
 
                         <View style={styles.inputGroup}>

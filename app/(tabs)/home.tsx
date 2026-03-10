@@ -16,12 +16,14 @@ import colors from '@/constants/colors';
 import { useApp } from '@/contexts/AppContext';
 import { useStreak } from '@/contexts/StreakContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { Zap, Flame, Trophy, ListChecks, CheckCircle, Circle, Clock } from 'lucide-react-native';
+import { Zap, Flame, Trophy, ListChecks, CheckCircle, Circle, Clock, Sparkles } from 'lucide-react-native';
 import * as Sentry from '@sentry/react-native';
 import { formatStringTime12H } from '@/utils/timeUtils';
 import UpgradeModal from '@/components/UpgradeModal';
+import TrialCountdownModal from '@/components/TrialCountdownModal';
 import DailyStreakModal from '@/components/DailyStreakModal';
 import StreakFireAnimation from '@/components/StreakFireAnimation';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function HomeScreen() {
   const ctx = useApp();
@@ -49,10 +51,11 @@ export default function HomeScreen() {
     isLoading: isStreakLoading
   } = streakCtx;
 
-  const { user, checkPermission } = useAuth();
+  const { user, checkPermission, isTrialActive, getTrialDaysRemaining } = useAuth();
   const router = useRouter();
 
   const [refreshing, setRefreshing] = useState(false);
+  const [showTrialModal, setShowTrialModal] = useState(false);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -74,6 +77,22 @@ export default function HomeScreen() {
 
   const [currentQuote, setCurrentQuote] = useState(educationQuotes[0]);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+
+  useEffect(() => {
+    const checkTrialModal = async () => {
+      if (isTrialActive && isTrialActive()) {
+        const lastShown = await AsyncStorage.getItem('@trial_modal_last_shown');
+        const today = new Date().toDateString();
+
+        if (lastShown !== today) {
+          setShowTrialModal(true);
+          await AsyncStorage.setItem('@trial_modal_last_shown', today);
+        }
+      }
+    };
+
+    checkTrialModal();
+  }, [user]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -129,7 +148,7 @@ export default function HomeScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
       <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
@@ -143,7 +162,7 @@ export default function HomeScreen() {
         }
       >
         <View style={styles.heroSection}>
-          <Text style={styles.appTitle}>Cause AI Planner</Text>
+          <Text style={styles.appTitle}>Cause Student AI Planner</Text>
           <Text style={styles.heroSubtitle}>Making a difference, one task at a time</Text>
 
           <View style={styles.statsGrid}>
@@ -193,7 +212,30 @@ export default function HomeScreen() {
           >
             <Clock size={20} color={colors.primary} />
             <Text style={styles.importButtonText}>Import Syllabus</Text>
+            {isTrialActive && isTrialActive() && (
+              <View style={styles.trialBadge}>
+                <Sparkles size={12} color={colors.premium} />
+                <Text style={styles.trialBadgeText}>Premium</Text>
+              </View>
+            )}
+            {!checkPermission('canSyncSyllabus') && (
+              <Sparkles size={16} color={colors.premium} style={{ marginLeft: 'auto' }} />
+            )}
           </TouchableOpacity>
+        </View>
+
+        <View style={styles.videoSection}>
+          <Text style={styles.sectionTitle}>Student Pep Talk</Text>
+          <Text style={styles.videoSubtitle}>Lights, Camera, Win!  - Submit your vid for prizes</Text>
+          <View style={styles.videoContainer}>
+            <YoutubePlayer
+              height={190}
+              width={"100%"}
+              videoId={videoConfig?.homeVideoId || "VRSnKzgVTiU"}
+              play={false}
+            />
+          </View>
+          <Text style={styles.dynamicVideoTitle}>{videoConfig?.homeVideoTitle || "Motivation from students like you"}</Text>
         </View>
 
         <View style={styles.quoteSection}>
@@ -250,19 +292,6 @@ export default function HomeScreen() {
               ))}
           </View>
         )}
-
-        <View style={styles.videoSection}>
-          <Text style={styles.sectionTitle}>Pep Talk  - Motivation from students like you</Text>
-          <Text style={styles.videoSubtitle}>Lights, Camera, Win!  - Submit your vid for prizes</Text>
-          <View style={styles.videoContainer}>
-            <YoutubePlayer
-              height={190}
-              width={"100%"}
-              videoId={videoConfig?.homeVideoId || "VRSnKzgVTiU"}
-              play={false}
-            />
-          </View>
-        </View>
       </ScrollView>
 
       <UpgradeModal
@@ -282,6 +311,16 @@ export default function HomeScreen() {
         visible={showDailyModal}
         streakCount={streakData?.current || 0}
         onClose={() => setShowDailyModal(false)}
+      />
+
+      <TrialCountdownModal
+        visible={showTrialModal}
+        onClose={() => setShowTrialModal(false)}
+        daysRemaining={getTrialDaysRemaining ? getTrialDaysRemaining() : 0}
+        onUpgrade={() => {
+          setShowTrialModal(false);
+          router.push('/(tabs)/account');
+        }}
       />
     </SafeAreaView >
   );
@@ -310,7 +349,7 @@ const styles = StyleSheet.create({
   },
   heroSection: {
     paddingHorizontal: 20,
-    paddingTop: 20,
+    paddingTop: 8,
     paddingBottom: 20,
     alignItems: 'center',
   },
@@ -329,17 +368,16 @@ const styles = StyleSheet.create({
   },
   statsGrid: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     justifyContent: 'space-between',
     width: '100%',
-    gap: 10,
+    gap: 0,
   },
   statBox: {
     backgroundColor: colors.surface,
-    borderRadius: 16,
-    padding: 16,
+    borderRadius: 12,
+    padding: 8,
     alignItems: 'center',
-    width: '48%', // Approx 2 columns
+    width: '23.5%', // 4 columns side by side
     shadowColor: colors.cardShadow,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -348,22 +386,23 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   statIconContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 8,
+    marginBottom: 4,
   },
   statValue: {
-    fontSize: 24,
+    fontSize: 16,
     fontWeight: '800',
     color: colors.text,
   },
   statLabel: {
-    fontSize: 12,
+    fontSize: 9,
     color: colors.textSecondary,
-    marginTop: 2,
+    marginTop: 1,
+    textAlign: 'center',
   },
   tasksSection: {
     paddingHorizontal: 20,
@@ -482,6 +521,14 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     overflow: 'hidden',
     backgroundColor: colors.cardShadow,
+    marginBottom: 12,
+  },
+  dynamicVideoTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+    textAlign: 'center',
+    marginTop: 4,
   },
   importButton: {
     flexDirection: 'row',
@@ -502,6 +549,21 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: colors.primary,
+  },
+  trialBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.premium + '15',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+    marginLeft: 8,
+    gap: 4,
+  },
+  trialBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.premium,
   },
 });
 

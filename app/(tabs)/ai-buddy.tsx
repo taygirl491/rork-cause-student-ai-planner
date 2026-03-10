@@ -37,7 +37,7 @@ const MAX_SHARED_MESSAGES = 100; // Store more in shared memory for cross-mode c
 type AIMode = 'homework' | 'summarize' | 'quiz' | null;
 
 export default function AIBuddyScreen() {
-  const { user, getFeatureLimit, checkPermission } = useAuth();
+  const { user, getFeatureLimit, checkPermission, isTrialActive } = useAuth();
   const router = useRouter();
   const [mode, setMode] = useState<AIMode>(null);
   const [messages, setMessages] = useState<AIMessage[]>([]);
@@ -244,7 +244,7 @@ export default function AIBuddyScreen() {
 
         // Update usage stats from backend response (accurate source of truth)
         if (usageStats && usageStats.limit !== 'Unlimited') {
-          setUsageStats(prev => prev ? ({ ...prev, remaining: result.usageRemaining }) : null);
+          setUsageStats(prev => prev ? ({ ...prev, remaining: result.usageRemaining ?? prev.remaining }) : null);
         }
 
         // Clear selection
@@ -271,7 +271,7 @@ export default function AIBuddyScreen() {
 
         // Update usage stats from backend response (accurate source of truth)
         if (usageStats && usageStats.limit !== 'Unlimited') {
-          setUsageStats(prev => prev ? ({ ...prev, remaining: response.usageRemaining }) : null);
+          setUsageStats(prev => prev ? ({ ...prev, remaining: response.usageRemaining ?? prev.remaining }) : null);
         }
 
         if (selectedFile) setSelectedFile(null);
@@ -504,7 +504,18 @@ export default function AIBuddyScreen() {
           <BookOpen size={32} color={colors.primary} />
         </View>
         <View style={styles.cardTextContainer}>
-          <Text style={styles.cardTitle}>Your AI Sidekick 🤖</Text>
+          <View style={styles.cardTitleRow}>
+            <Text style={styles.cardTitle}>Your AI Sidekick 🤖</Text>
+            {isTrialActive && isTrialActive() && (
+              <View style={styles.trialBadge}>
+                <Sparkles size={10} color={colors.premium} />
+                <Text style={styles.trialBadgeText}>Premium</Text>
+              </View>
+            )}
+            {!checkPermission('aiInquiryLimit') && (
+              <Sparkles size={14} color={colors.premium} />
+            )}
+          </View>
           <Text style={styles.cardDescription}>Always here to help. Upload photos of homework or assignments.</Text>
         </View>
       </TouchableOpacity>
@@ -520,7 +531,18 @@ export default function AIBuddyScreen() {
           <FileText size={32} color="#10b981" />
         </View>
         <View style={styles.cardTextContainer}>
-          <Text style={styles.cardTitle}>Skip to the Good Parts ⏩</Text>
+          <View style={styles.cardTitleRow}>
+            <Text style={styles.cardTitle}>Skip to the Good Parts ⏩</Text>
+            {isTrialActive && isTrialActive() && (
+              <View style={styles.trialBadge}>
+                <Sparkles size={10} color={colors.premium} />
+                <Text style={styles.trialBadgeText}>Premium</Text>
+              </View>
+            )}
+            {!checkPermission('aiInquiryLimit') && (
+              <Sparkles size={14} color={colors.premium} />
+            )}
+          </View>
           <Text style={styles.cardDescription}>Condense any text in seconds.</Text>
         </View>
       </TouchableOpacity>
@@ -536,7 +558,18 @@ export default function AIBuddyScreen() {
           <BrainCircuit size={32} color="#f59e0b" />
         </View>
         <View style={styles.cardTextContainer}>
-          <Text style={styles.cardTitle}>Brain Workout 🧠</Text>
+          <View style={styles.cardTitleRow}>
+            <Text style={styles.cardTitle}>Brain Workout 🧠</Text>
+            {isTrialActive && isTrialActive() && (
+              <View style={styles.trialBadge}>
+                <Sparkles size={10} color={colors.premium} />
+                <Text style={styles.trialBadgeText}>Premium</Text>
+              </View>
+            )}
+            {!checkPermission('aiInquiryLimit') && (
+              <Sparkles size={14} color={colors.premium} />
+            )}
+          </View>
           <Text style={styles.cardDescription}>Get quizzed on anything you're studying. Upload your notes.</Text>
         </View>
       </TouchableOpacity>
@@ -553,7 +586,18 @@ export default function AIBuddyScreen() {
           <Clock size={32} color={colors.primary} />
         </View>
         <View style={styles.cardTextContainer}>
-          <Text style={styles.cardTitle}>Import Syllabus</Text>
+          <View style={styles.cardTitleRow}>
+            <Text style={styles.cardTitle}>Import Syllabus</Text>
+            {isTrialActive && isTrialActive() && (
+              <View style={styles.trialBadge}>
+                <Sparkles size={10} color={colors.premium} />
+                <Text style={styles.trialBadgeText}>Premium</Text>
+              </View>
+            )}
+            {!checkPermission('canSyncSyllabus') && (
+              <Sparkles size={14} color={colors.premium} />
+            )}
+          </View>
           <Text style={styles.cardDescription}>Automatically add your course schedule from a PDF or image.</Text>
         </View>
       </TouchableOpacity>
@@ -678,7 +722,7 @@ export default function AIBuddyScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
       {mode ? renderChat() : renderDashboard()}
       <UpgradeModal
         visible={showUpgradeModal}
@@ -739,11 +783,30 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
   },
+  cardTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
+  },
   cardTitle: {
     fontSize: 18,
     fontWeight: '600',
     color: colors.text,
-    marginBottom: 4,
+  },
+  trialBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.premium + '15',
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 6,
+    gap: 2,
+  },
+  trialBadgeText: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: colors.premium,
   },
   cardDescription: {
     fontSize: 14,

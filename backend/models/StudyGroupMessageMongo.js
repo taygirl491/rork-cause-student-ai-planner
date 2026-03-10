@@ -2,8 +2,7 @@ const mongoose = require('mongoose');
 
 const studyGroupMessageSchema = new mongoose.Schema({
     groupId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'StudyGroup',
+        type: String,
         required: true,
         index: true,
     },

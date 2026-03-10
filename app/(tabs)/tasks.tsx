@@ -412,7 +412,7 @@ export default function TasksScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
       <FlatList
         data={filteredTasks}
         renderItem={renderTaskItem}

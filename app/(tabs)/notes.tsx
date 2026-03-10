@@ -19,7 +19,7 @@ import {
 import Button from "@/components/Button";
 import { useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Plus, X, FileText, Edit2, Trash2, Download } from "lucide-react-native";
+import { Plus, X, FileText, Edit2, Trash2, Download, Sparkles } from "lucide-react-native";
 import colors from "@/constants/colors";
 import { useApp } from "@/contexts/AppContext";
 import SearchBar from "@/components/SearchBar";
@@ -33,7 +33,7 @@ import * as Sharing from "expo-sharing";
 
 export default function NotesScreen() {
 	const { notes, addNote, updateNote, deleteNote, classes, refreshNotes } = useApp();
-	const { checkPermission } = useAuth();
+	const { checkPermission, isTrialActive } = useAuth();
 	const { awardPoints } = useStreak();
 	const [showModal, setShowModal] = useState(false);
 	const [showDetailModal, setShowDetailModal] = useState(false);
@@ -206,33 +206,48 @@ export default function NotesScreen() {
 		if (!selectedNote) return;
 
 		try {
-			// Create a temporary file path
-			const filename = `${selectedNote.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.txt`;
-			const fileUri = `${FileSystem.cacheDirectory}${filename}`;
+			console.log('[Notes] Starting download for:', selectedNote.title);
+			// Create a temporary file path - more restrictive sanitization for iOS
+			const safeTitle = selectedNote.title.replace(/[^a-z0-9]/gi, '_').substring(0, 30) || 'note';
+			const filename = `${safeTitle}_${Date.now()}.txt`;
+
+			// Use cacheDirectory for sharing as it's cleaner for temporary exports
+			const dir = FileSystem.cacheDirectory;
+			if (!dir) throw new Error("Cache directory not available");
+
+			const fileUri = `${dir}${filename}`;
+			console.log('[Notes] target URI:', fileUri);
 
 			// Write the note content to the file
 			const content = `${selectedNote.title}\n\n${selectedNote.content}`;
-			await FileSystem.writeAsStringAsync(fileUri, content, {
-				encoding: FileSystem.EncodingType.UTF8,
-			});
+			await FileSystem.writeAsStringAsync(fileUri, content);
+			console.log('[Notes] File written successfully');
+
+			// Verify file exists and has size
+			const fileInfo = await FileSystem.getInfoAsync(fileUri);
+			if (!fileInfo.exists) {
+				throw new Error("File creation failed - not found on disk");
+			}
+			console.log('[Notes] File verified, size:', fileInfo.size);
 
 			// Share the file
 			if (await Sharing.isAvailableAsync()) {
+				console.log('[Notes] Sharing via Sharing.shareAsync');
 				await Sharing.shareAsync(fileUri, {
 					mimeType: 'text/plain',
 					dialogTitle: `Download ${selectedNote.title}`,
-					UTI: 'public.plain-text', // iOS specific
+					UTI: 'public.plain-text', // Standard iOS plain text UTI
 				});
 			} else {
-				// Fallback to text share if sharing is not available
+				console.log('[Notes] Sharing API not available, falling back to Share.share');
 				await Share.share({
 					message: content,
 					title: selectedNote.title,
 				});
 			}
-		} catch (error) {
-			console.error("Error sharing note:", error);
-			Alert.alert("Error", "Failed to download/share note");
+		} catch (error: any) {
+			console.error("[Notes] Error sharing note:", error);
+			Alert.alert("Error", `Failed to download: ${error.message || 'Unknown error'}`);
 		}
 	};
 
@@ -266,7 +281,7 @@ export default function NotesScreen() {
 	};
 
 	return (
-		<SafeAreaView style={styles.container} edges={["top"]}>
+		<SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
 			<UpgradeModal
 				visible={showUpgradeModal}
 				onClose={() => setShowUpgradeModal(false)}
@@ -274,9 +289,17 @@ export default function NotesScreen() {
 				message="Upgrade to the Standard plan to create, edit, and organize unlimited notes."
 			/>
 			<View style={styles.header}>
-				<View>
+				<View style={styles.headerTitleRow}>
 					<Text style={styles.title}>Notes</Text>
-					<Text style={styles.subtitle}>{notes.length} notes</Text>
+					{isTrialActive && isTrialActive() && (
+						<View style={styles.trialBadge}>
+							<Sparkles size={12} color={colors.premium} />
+							<Text style={styles.trialBadgeText}>Premium</Text>
+						</View>
+					)}
+					{!checkPermission('canAccessNotes') && (
+						<Sparkles size={16} color={colors.premium} />
+					)}
 				</View>
 				<TouchableOpacity
 					style={styles.addButton}
@@ -660,6 +683,25 @@ const styles = StyleSheet.create({
 		paddingHorizontal: 20,
 		// paddingTop: 20,
 		paddingBottom: 16,
+	},
+	headerTitleRow: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		gap: 10,
+	},
+	trialBadge: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		backgroundColor: colors.premium + '15',
+		paddingHorizontal: 8,
+		paddingVertical: 2,
+		borderRadius: 8,
+		gap: 4,
+	},
+	trialBadgeText: {
+		fontSize: 10,
+		fontWeight: '700',
+		color: colors.premium,
 	},
 	title: {
 		fontSize: 32,

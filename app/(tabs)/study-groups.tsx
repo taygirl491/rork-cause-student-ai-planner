@@ -290,7 +290,7 @@ export default function StudyGroupsScreen() {
 				featureName="Study Groups"
 				message="Upgrade to the Standard plan to create your own study groups."
 			/>
-			<SafeAreaView style={styles.container}>
+			<SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
 				<View style={styles.header}>
 					<View>
 						<Text style={styles.title}>Study Squad 🤝</Text>
