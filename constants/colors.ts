@@ -15,6 +15,7 @@ const colors = {
   error: '#EF4444',
   border: '#E2E8F0',
   cardShadow: 'rgba(0, 19, 112, 0.1)',
+  premium: '#8B5CF6', // Purple for paid features
   
   taskColors: {
     task: '#001370',

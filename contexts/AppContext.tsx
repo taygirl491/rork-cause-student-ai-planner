@@ -64,6 +64,7 @@ export const [AppProvider, useApp] = createContextHook(() => {
 	// Video Configuration State
 	const [videoConfig, setVideoConfig] = useState({
 		homeVideoId: "VRSnKzgVTiU", // Default Home Video
+		homeVideoTitle: "Pep Talk - Motivation from students like you", // Default Title
 		causesVideoId: "dQw4w9WgXcQ", // Default Causes Video
 		causesVideo1Id: "dQw4w9WgXcQ",
 		causesVideo2Id: "dQw4w9WgXcQ",
@@ -228,6 +229,7 @@ export const [AppProvider, useApp] = createContextHook(() => {
 				const data = docSnap.data();
 				setVideoConfig({
 					homeVideoId: data.homeVideoId || "VRSnKzgVTiU",
+					homeVideoTitle: data.homeVideoTitle || "Pep Talk - Motivation from students like you",
 					causesVideoId: data.causesVideoId || "dQw4w9WgXcQ",
 					causesVideo1Id: data.causesVideo1Id || "dQw4w9WgXcQ",
 					causesVideo2Id: data.causesVideo2Id || "dQw4w9WgXcQ",
@@ -1058,6 +1060,7 @@ export const [AppProvider, useApp] = createContextHook(() => {
 		if (!user?.uid || !user?.email) return null;
 
 		try {
+			console.log('[AppContext] Attempting to create study group:', group.name);
 			const newGroup = await studyGroupsAPI.createStudyGroup({
 				name: group.name,
 				className: group.className,
@@ -1070,6 +1073,7 @@ export const [AppProvider, useApp] = createContextHook(() => {
 			});
 
 			if (newGroup) {
+				console.log('[AppContext] Study group created successfully:', newGroup.id);
 				// Don't add to state here - the WebSocket event will handle it
 				// This prevents duplicate groups
 				// Refresh streaks to show new points
@@ -1080,9 +1084,10 @@ export const [AppProvider, useApp] = createContextHook(() => {
 					messages: newGroup.messages || [],
 				} as StudyGroup;
 			}
+			console.warn('[AppContext] Backend returned null for new study group');
 			return null;
 		} catch (error) {
-			console.error("Error creating study group:", error);
+			console.error("[AppContext] Error creating study group:", error);
 			return null;
 		}
 	};

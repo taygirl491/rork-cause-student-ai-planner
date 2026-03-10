@@ -306,7 +306,7 @@ export default function ClassesScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
       <FlatList
         data={filteredClasses}
         renderItem={renderClassItem}

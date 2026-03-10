@@ -2,7 +2,7 @@
 import * as Notifications from "expo-notifications";
 import * as Device from "expo-device";
 import Constants from "expo-constants";
-import { Platform } from "react-native";
+import { Platform, Alert } from "react-native";
 import { doc, setDoc } from "firebase/firestore";
 import { db } from "@/firebaseConfig";
 
@@ -33,7 +33,7 @@ export async function registerForPushNotificationsAsync(): Promise<string | null
 
   // DEVICE CHECK
   if (!Device.isDevice) {
-    alert("Must use a physical device for push notifications");
+    console.log("Push notifications only work on physical devices");
     return null;
   }
 
@@ -47,7 +47,7 @@ export async function registerForPushNotificationsAsync(): Promise<string | null
   }
 
   if (finalStatus !== "granted") {
-    alert("Failed to get push notification permissions");
+    console.warn("Failed to get push notification permissions");
     return null;
   }
 

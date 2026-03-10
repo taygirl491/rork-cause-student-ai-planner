@@ -105,15 +105,31 @@ export async function registerForPushNotificationsAsync(): Promise<string | unde
     return undefined;
   }
 
-  try {
-    const token = (await Notifications.getExpoPushTokenAsync({
-        // projectId: Constants.expoConfig?.extra?.eas?.projectId, // Optional if configured in app.json
-    })).data;
-    console.log("Expo Push Token:", token);
-    return token;
-  } catch (error) {
-    console.error("Error fetching push token:", error);
-    return undefined;
+  let retries = 0;
+  const maxRetries = 3;
+  const baseDelay = 1000; // 1 second
+
+  while (retries < maxRetries) {
+    try {
+      const token = (await Notifications.getExpoPushTokenAsync({
+          // projectId: Constants.expoConfig?.extra?.eas?.projectId, // Optional if configured in app.json
+      })).data;
+      console.log("Expo Push Token:", token);
+      return token;
+    } catch (error: any) {
+      retries++;
+      const isTransient = error.message?.includes('503') || error.message?.includes('SERVICE_UNAVAILABLE');
+      
+      if (isTransient && retries < maxRetries) {
+        const delay = baseDelay * Math.pow(2, retries - 1);
+        console.warn(`Expo push token fetch failed (503). Retrying in ${delay}ms... (Attempt ${retries}/${maxRetries})`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+
+      console.error("Error fetching push token:", error);
+      return undefined;
+    }
   }
 }
 

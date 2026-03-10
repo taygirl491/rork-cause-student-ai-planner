@@ -90,14 +90,15 @@ router.post('/', async (req, res) => {
             });
         }
 
-        // Generate unique code
+        // Generate unique code and _id
         const code = Math.random().toString(36).substring(2, 10).toUpperCase();
+        const groupId = `group_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
-        console.log('[DEBUG] About to create group with creatorId:', creatorId);
-        console.log('[DEBUG] Schema has admins field:', 'admins' in StudyGroup.schema.paths);
+        console.log('[DEBUG] About to create group with _id:', groupId);
         console.log('[DEBUG] Schema paths:', Object.keys(StudyGroup.schema.paths));
 
         const group = await StudyGroup.create({
+            _id: groupId,
             name,
             className,
             school,

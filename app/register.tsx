@@ -43,10 +43,23 @@ export default function RegisterScreen() {
 
     try {
       const user = await register(email.trim(), password, name.trim());
-      const token = await registerForPushNotificationsAsync();
-      if (user && token) {
-        await savePushToken(user.uid, token, email.trim(), name.trim());
-      }
+
+      // Delay push notification registration slightly to allow the bridge to settle
+      // and prevent multiple concurrent native calls during account setup.
+      setTimeout(async () => {
+        try {
+          console.log('[Register] Registering for push notifications...');
+          const token = await registerForPushNotificationsAsync();
+          if (user && token) {
+            await savePushToken(user.uid, token, email.trim(), name.trim());
+            console.log('[Register] Push token saved.');
+          }
+        } catch (pushError) {
+          console.warn('[Register] Push notification registration failed:', pushError);
+          // Don't alert the user, this is non-critical for registration success
+        }
+      }, 1500);
+
       router.replace('/intro-survey');
     } catch (error: any) {
       let errorMessage = 'An error occurred during registration. Please try again.';

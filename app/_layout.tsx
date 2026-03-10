@@ -113,7 +113,7 @@ function CustomHeader() {
   };
 
   return (
-    <View style={[menuStyles.header, { paddingTop: Platform.OS === 'ios' ? Math.max(0, insets.top - 12) : insets.top + (StatusBar.currentHeight ? 0 : 8) }]}>
+    <View style={[menuStyles.header, { paddingTop: Platform.OS === 'ios' ? Math.max(0, insets.top - 16) : Math.max(0, insets.top - 4) }]}>
       <View style={menuStyles.headerLeft}>
         <MenuButton />
       </View>
@@ -150,7 +150,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { registerForPushNotificationsAsync } from "@/functions/Notify";
 
 function RootLayoutNav() {
-  const { isAuthenticated, isLoading, user } = useAuth();
+  const { isAuthenticated, isLoading, user, isRegistering } = useAuth();
   const router = useRouter();
   const [onboardingComplete, setOnboardingComplete] = useState<boolean | null>(null);
 
@@ -158,19 +158,49 @@ function RootLayoutNav() {
 
   // Set Sentry and Analytics user context when user changes
   useEffect(() => {
-    if (user) {
-      Sentry.setUser({
-        id: user.uid,
-        email: user.email || undefined,
-      });
-      Analytics.setUserId(user.uid);
-      if (user.email) {
-        Analytics.setUserProperties({ email: user.email });
+    const updateUserContext = async () => {
+      try {
+        if (user) {
+          // If the user is currently registering, wait significantly longer (5s)
+          // to avoid bridge congestion and potential crashes during TurboModule calls.
+          // Otherwise, wait 1.5s for standard transitions.
+          const registrationBuffer = isRegistering ? 5000 : 1500;
+
+          setTimeout(async () => {
+            const { InteractionManager } = await import('react-native');
+            InteractionManager.runAfterInteractions(async () => {
+              try {
+                console.log('[Layout] Applying Sentry/Analytics context for user:', user.uid);
+
+                Sentry.setUser({
+                  id: user.uid,
+                  email: user.email || undefined,
+                });
+
+                await Analytics.setUserId(user.uid);
+                if (user.email) {
+                  await Analytics.setUserProperties({ email: user.email });
+                }
+                console.log('[Layout] Sentry/Analytics context applied.');
+              } catch (innerError) {
+                console.error('[Layout] Native exception prevented in context update:', innerError);
+              }
+            });
+          }, registrationBuffer);
+        } else {
+          try {
+            Sentry.setUser(null);
+            await Analytics.setUserId(null);
+          } catch (logoutError) {
+            console.warn('[Layout] Error clearing context on logout:', logoutError);
+          }
+        }
+      } catch (error) {
+        console.error('[Layout] Error in updateUserContext setup:', error);
       }
-    } else {
-      Sentry.setUser(null);
-      Analytics.setUserId(null);
-    }
+    };
+
+    updateUserContext();
   }, [user]);
 
   // Track screen views
@@ -400,6 +430,7 @@ const menuStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 12,
+    paddingBottom: 8,
     backgroundColor: colors.surface,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
