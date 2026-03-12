@@ -147,10 +147,11 @@ function CustomHeader() {
 }
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { registerForPushNotificationsAsync } from "@/functions/Notify";
+
+
 
 function RootLayoutNav() {
-  const { isAuthenticated, isLoading, user, isRegistering } = useAuth();
+  const { isAuthenticated, isLoading, user, isRegistering, registeredAt } = useAuth();
   const router = useRouter();
   const [onboardingComplete, setOnboardingComplete] = useState<boolean | null>(null);
 
@@ -161,10 +162,10 @@ function RootLayoutNav() {
     const updateUserContext = async () => {
       try {
         if (user) {
-          // If the user is currently registering, wait significantly longer (5s)
+          // If the user registered within the last 10 seconds, apply a much longer buffer
           // to avoid bridge congestion and potential crashes during TurboModule calls.
-          // Otherwise, wait 1.5s for standard transitions.
-          const registrationBuffer = isRegistering ? 5000 : 1500;
+          const isRecentRegistration = registeredAt && (Date.now() - registeredAt < 10000);
+          const registrationBuffer = isRecentRegistration ? 6000 : 1500;
 
           setTimeout(async () => {
             const { InteractionManager } = await import('react-native');

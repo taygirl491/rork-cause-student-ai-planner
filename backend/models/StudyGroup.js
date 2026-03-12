@@ -29,12 +29,10 @@ const studyGroupSchema = new mongoose.Schema({
         required: true,
         unique: true,
         uppercase: true,
-        index: true,
     },
     creatorId: {
         type: String, // Firebase UID
         required: true,
-        index: true,
     },
     members: [{
         email: {
@@ -78,7 +76,6 @@ const studyGroupSchema = new mongoose.Schema({
     },
 }, {
     timestamps: false,
-    _id: false,
 });
 
 // Indexes

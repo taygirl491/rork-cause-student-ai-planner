@@ -257,8 +257,8 @@ export async function scheduleTaskReminder(task: Task): Promise<string | null> {
 
     console.log(`Scheduled notification ${notificationId} for task ${task.id} at ${triggerDate.toLocaleString()}`);
 
-    // Schedule persistent alarm for reminder if enabled
-    if (task.alarmEnabled) {
+    // Schedule persistent alarm for reminder if enabled (Android only)
+    if (task.alarmEnabled && Platform.OS === 'android') {
       try {
         await scheduleAlarm({
           uid: `alarm_rem_${task.id}`,
@@ -351,8 +351,8 @@ export async function scheduleDueDateNotification(task: Task): Promise<string | 
 
     console.log(`Scheduled due date notification ${notificationId} for task ${task.id} at ${dueDate.toLocaleString()}`);
     
-    // Schedule persistent alarm if enabled
-    if (task.alarmEnabled) {
+    // Schedule persistent alarm if enabled (Android only)
+    if (task.alarmEnabled && Platform.OS === 'android') {
       try {
         await scheduleAlarm({
           uid: `alarm_${task.id}`,
@@ -471,13 +471,15 @@ export async function cancelAllTaskNotifications(taskId: string): Promise<void> 
       }
     }
 
-    // Also cancel any persistent alarms
-    try {
-      await removeAlarm(`alarm_${taskId}`);
-      await removeAlarm(`alarm_rem_${taskId}`);
-      console.log(`Cancelled persistent alarms (due and reminder) for task ${taskId}`);
-    } catch (alarmError) {
-      console.error('Error cancelling persistent alarms:', alarmError);
+    // Also cancel any persistent alarms (Android only)
+    if (Platform.OS === 'android') {
+      try {
+        await removeAlarm(`alarm_${taskId}`);
+        await removeAlarm(`alarm_rem_${taskId}`);
+        console.log(`Cancelled persistent alarms (due and reminder) for task ${taskId}`);
+      } catch (alarmError) {
+        console.error('Error cancelling persistent alarms:', alarmError);
+      }
     }
   } catch (error) {
     console.error('Error cancelling task notifications:', error);

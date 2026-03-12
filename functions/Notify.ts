@@ -6,14 +6,9 @@ import { Platform, Alert } from "react-native";
 import { doc, setDoc } from "firebase/firestore";
 import { db } from "@/firebaseConfig";
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
+// NOTE: setNotificationHandler is intentionally NOT called here.
+// The authoritative handler is registered in utils/notificationService.ts.
+// Registering a second handler here causes a race condition in the native bridge on iOS.
 
 /**
  * Register device and return Expo Push Token

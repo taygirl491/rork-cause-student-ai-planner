@@ -94,8 +94,7 @@ router.post('/', async (req, res) => {
         const code = Math.random().toString(36).substring(2, 10).toUpperCase();
         const groupId = `group_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
-        console.log('[DEBUG] About to create group with _id:', groupId);
-        console.log('[DEBUG] Schema paths:', Object.keys(StudyGroup.schema.paths));
+        console.log('[StudyGroups] Creating group:', { groupId, name, code });
 
         const group = await StudyGroup.create({
             _id: groupId,
@@ -105,7 +104,7 @@ router.post('/', async (req, res) => {
             description: description || '',
             code,
             creatorId,
-            isPrivate: isPrivate || false,
+            isPrivate: !!isPrivate,
             admins: [creatorId], // Creator is first admin
             members: [{
                 email: creatorEmail,
@@ -116,33 +115,41 @@ router.post('/', async (req, res) => {
             pendingMembers: [], // Initialize empty pending members array
         });
 
+        console.log('[StudyGroups] Group created successfully in DB:', groupId);
+
         // Award points for creating a group
         try {
             const gamificationService = require('../gamificationService');
             await gamificationService.awardPoints(creatorId, 25, 'feature');
-            console.log(`[StudyGroups] Awarded 25 points to user ${creatorId} for creating group ${group._id}`);
+            console.log(`[StudyGroups] Awarded 25 points to user ${creatorId}`);
         } catch (err) {
-            console.error('Error awarding points for group creation:', err);
+            console.error('[StudyGroups] Error awarding points:', err.message);
         }
 
-        console.log('[DEBUG] Group created with admins:', group.admins);
-        console.log('[DEBUG] Full group object:', JSON.stringify(group.toObject(), null, 2));
-
         // Emit WebSocket event for group creation
-        const io = req.app.get('io');
-        io.emit('group-created', {
-            group: {
-                ...group.toObject(),
-                id: group._id
+        try {
+            const io = req.app.get('io');
+            if (io) {
+                io.emit('group-created', {
+                    group: {
+                        ...group.toObject(),
+                        id: group._id
+                    }
+                });
+                console.log('[StudyGroups] WebSocket event emitted');
+            } else {
+                console.warn('[StudyGroups] Socket.IO instance not found, skipping emission');
             }
-        });
+        } catch (wsError) {
+            console.error('[StudyGroups] WebSocket emission error:', wsError.message);
+        }
 
-        res.json({
+        res.status(201).json({
             success: true,
-            group,
+            group: group.toObject(),
         });
     } catch (error) {
-        console.error('Error creating study group:', error);
+        console.error('[StudyGroups] CRITICAL ERROR during creation:', error);
         res.status(500).json({
             success: false,
             error: 'Failed to create study group',
