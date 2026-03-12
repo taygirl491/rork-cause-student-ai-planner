@@ -51,78 +51,77 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
   });
   const [isLoading, setIsLoading] = useState(true);
   const isRegisteringRef = useRef(false);
+  const [registeredAt, setRegisteredAt] = useState<number | null>(null);
 
 
   // Listen for auth state changes
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-        if (isRegisteringRef.current) {
-          console.log('[AuthContext] Skipping onAuthStateChanged backend call during registration...');
-          setIsLoading(false);
-          return;
-        }
+      if (isRegisteringRef.current) {
+        console.log('[AuthContext] Skipping onAuthStateChanged backend call during registration...');
+        setIsLoading(false);
+        return;
+      }
 
-        console.log('[AuthContext] Auth state changed:', firebaseUser ? 'User logged in' : 'User logged out');
+      console.log('[AuthContext] Auth state changed:', firebaseUser ? 'User logged in' : 'User logged out');
 
-        if (firebaseUser) {
-          // Set initial local state immediately to allow UI to render/hide splash screen
-          setAuthData({
-            user: {
-              email: firebaseUser.email || '',
-              name: firebaseUser.displayName || 'User',
-              uid: firebaseUser.uid,
-              photoURL: firebaseUser.photoURL || undefined,
-              tier: 'free', // Default to free until backend confirms
-              createdAt: firebaseUser.metadata.creationTime,
-            },
-            isAuthenticated: true,
-          });
+      if (firebaseUser) {
+        // Set initial local state immediately to allow UI to render/hide splash screen
+        setAuthData({
+          user: {
+            email: firebaseUser.email || '',
+            name: firebaseUser.displayName || 'User',
+            uid: firebaseUser.uid,
+            photoURL: firebaseUser.photoURL || undefined,
+            tier: 'free', // Default to free until backend confirms
+            createdAt: firebaseUser.metadata.creationTime,
+          },
+          isAuthenticated: true,
+        });
 
-          // Hide splash screen as soon as we have the basic user info
-          setIsLoading(false);
+        // Hide splash screen as soon as we have the basic user info
+        setIsLoading(false);
 
-          // Fetch additional data from backend in the background
-          try {
-            const apiService = (await import('@/utils/apiService')).default;
-            console.log('[AuthContext] Fetching backend user data in background...');
-            const response = await apiService.getUser(firebaseUser.uid);
+        // Fetch additional data from backend in the background
+        try {
+          const apiService = (await import('@/utils/apiService')).default;
+          console.log('[AuthContext] Fetching backend user data in background...');
+          const response = await apiService.getUser(firebaseUser.uid);
 
-            if (response && response.success && response.user) {
-              console.log('[AuthContext] Backend user data received:', response.user.tier);
-              const backendUser = response.user;
+          if (response && response.success && response.user) {
+            console.log('[AuthContext] Backend user data received:', response.user.tier);
+            const backendUser = response.user;
 
-              setAuthData(prev => {
-                if (!prev.user) return prev;
-                return {
-                  ...prev,
-                  user: {
-                    ...prev.user,
-                    name: backendUser.name || prev.user.name,
-                    tier: (backendUser.tier as SubscriptionTier) || 'free',
-                    createdAt: backendUser.createdAt || prev.user.createdAt,
-                  }
-                };
-              });
-            }
-          } catch (error) {
-            console.error('[AuthContext] Error fetching backend user data:', error);
-            // Non-blocking
+            setAuthData(prev => {
+              if (!prev.user) return prev;
+              return {
+                ...prev,
+                user: {
+                  ...prev.user,
+                  name: backendUser.name || prev.user.name,
+                  tier: (backendUser.tier as SubscriptionTier) || 'free',
+                  createdAt: backendUser.createdAt || prev.user.createdAt,
+                }
+              };
+            });
           }
-
-          syncPurposeStatement(firebaseUser.uid);
-        } else {
-          setAuthData({
-            user: null,
-            isAuthenticated: false,
-          });
-          setIsLoading(false);
+        } catch (error) {
+          console.error('[AuthContext] Error fetching backend user data:', error);
+          // Non-blocking
         }
-      });
+
+        syncPurposeStatement(firebaseUser.uid);
+      } else {
+        setAuthData({
+          user: null,
+          isAuthenticated: false,
+        });
+        setIsLoading(false);
+      }
     });
 
     return () => unsubscribe();
-  }, [queryClient]);
+  }, []);
 
 
   const loginMutation = useMutation({
@@ -326,6 +325,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     registerError: registerMutation.error,
     isLoggingIn: loginMutation.isPending,
     isRegistering: registerMutation.isPending,
+    registeredAt, // Timestamp of when the user just registered
     checkPermission,
     getFeatureLimit,
     isTrialActive,

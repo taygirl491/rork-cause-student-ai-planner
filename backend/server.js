@@ -78,7 +78,11 @@ app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
 // Request logging
 app.use((req, res, next) => {
-	console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
+	const start = Date.now();
+	res.on('finish', () => {
+		const duration = Date.now() - start;
+		console.log(`[${new Date().toISOString()}] ${req.method} ${req.path} ${res.statusCode} - ${duration}ms`);
+	});
 	next();
 });
 

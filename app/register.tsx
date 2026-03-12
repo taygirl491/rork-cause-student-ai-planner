@@ -60,6 +60,9 @@ export default function RegisterScreen() {
         }
       }, 1500);
 
+      // Small delay before navigating to let native views (keyboard, inputs) teardown safely.
+      // This prevents the UIKit "message sent to deallocated view" crash (Thread 0 in crash log).
+      await new Promise(resolve => setTimeout(resolve, 350));
       router.replace('/intro-survey');
     } catch (error: any) {
       let errorMessage = 'An error occurred during registration. Please try again.';
