@@ -90,7 +90,12 @@ app.use((req, res, next) => {
 const limiter = rateLimit({
 	windowMs: 15 * 60 * 1000, // 15 minutes
 	max: 500, // limit each IP to 500 requests per windowMs (increased for polling)
-	message: "Too many requests from this IP, please try again later.",
+	handler: (req, res) => {
+		res.status(429).json({
+			success: false,
+			error: "Too many requests from this IP, please try again later."
+		});
+	}
 });
 app.use("/api", limiter);
 

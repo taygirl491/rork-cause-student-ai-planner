@@ -24,6 +24,8 @@ import TrialCountdownModal from '@/components/TrialCountdownModal';
 import DailyStreakModal from '@/components/DailyStreakModal';
 import StreakFireAnimation from '@/components/StreakFireAnimation';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useResponsive } from '@/utils/responsive';
+import ResponsiveContainer from '@/components/ResponsiveContainer';
 
 export default function HomeScreen() {
   const ctx = useApp();
@@ -94,6 +96,15 @@ export default function HomeScreen() {
     checkTrialModal();
   }, [user]);
 
+  // Refresh gamification points continuously whenever coming back to this screen
+  useFocusEffect(
+    useCallback(() => {
+      if (typeof refreshStreak === 'function') {
+        refreshStreak({ silent: true });
+      }
+    }, [refreshStreak])
+  );
+
   useEffect(() => {
     const interval = setInterval(() => {
       setCurrentQuote(educationQuotes[Math.floor(Math.random() * educationQuotes.length)]);
@@ -138,6 +149,8 @@ export default function HomeScreen() {
     return `In ${diff} days`;
   };
 
+  const { isTablet, normalize, width } = useResponsive();
+
   if (isLoading || isStreakLoading || !ctx) {
     return (
       <View style={styles.loadingContainer}>
@@ -149,55 +162,61 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
-      <ScrollView
-        style={styles.scrollView}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-            colors={[colors.primary]}
-            tintColor={colors.primary}
-          />
-        }
-      >
-        <View style={styles.heroSection}>
-          <Text style={styles.appTitle}>Cause Student AI Planner</Text>
-          <Text style={styles.heroSubtitle}>Making a difference, one task at a time</Text>
+      <ResponsiveContainer>
+        <ScrollView
+          style={styles.scrollView}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={[
+            styles.scrollContent,
+            isTablet && { paddingHorizontal: 40 }
+          ]}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              colors={[colors.primary]}
+              tintColor={colors.primary}
+            />
+          }
+        >
+          <View style={styles.heroSection}>
+            <Text style={[styles.appTitle, { fontSize: normalize(28) }]}>Cause Student AI Planner</Text>
+            <Text style={[styles.heroSubtitle, { fontSize: normalize(14) }]}>Making a difference, one task at a time</Text>
 
-          <View style={styles.statsGrid}>
-            <View style={[styles.statBox, { backgroundColor: '#E0F2FE' }]}>
-              <View style={[styles.statIconContainer, { backgroundColor: 'white' }]}>
-                <ListChecks size={20} color={colors.primary} />
+            <View style={[styles.statsGrid, isTablet && { gap: 16 }]}>
+              <View style={[styles.statBox, isTablet && styles.statBoxTablet, { backgroundColor: '#E0F2FE' }]}>
+                <View style={[styles.statIconContainer, { backgroundColor: 'white' }]}>
+                  <ListChecks size={normalize(20)} color={colors.primary} />
+                </View>
+                <Text style={[styles.statValue, { fontSize: normalize(16) }]}>{todayTasksInfo.remaining}</Text>
+                <Text style={[styles.statLabel, { fontSize: normalize(9) }]}>Today's Tasks</Text>
               </View>
-              <Text style={styles.statValue}>{todayTasksInfo.remaining}</Text>
-              <Text style={styles.statLabel}>Today's Tasks</Text>
+
+              <View style={[styles.statBox, isTablet && styles.statBoxTablet, { backgroundColor: '#EFF6FF' }]}>
+                <View style={[styles.statIconContainer, { backgroundColor: 'white' }]}>
+                  <Flame size={normalize(20)} color={colors.secondary} />
+                </View>
+                <Text style={[styles.statValue, { fontSize: normalize(16) }]}>{streakData?.current || 0}</Text>
+                <Text style={[styles.statLabel, { fontSize: normalize(9) }]}>Current Streak</Text>
+              </View>
+
+              <View style={[styles.statBox, isTablet && styles.statBoxTablet, { backgroundColor: '#DBEAFE' }]}>
+                <View style={[styles.statIconContainer, { backgroundColor: 'white' }]}>
+                  <Zap size={normalize(20)} color={colors.primaryLight} />
+                </View>
+                <Text style={[styles.statValue, { fontSize: normalize(16) }]}>{streakData?.points || 0}</Text>
+                <Text style={[styles.statLabel, { fontSize: normalize(9) }]}>Total Points</Text>
+              </View>
+
+              <View style={[styles.statBox, isTablet && styles.statBoxTablet, { backgroundColor: '#D1FAE5' }]}>
+                <View style={[styles.statIconContainer, { backgroundColor: 'white' }]}>
+                  <Trophy size={normalize(20)} color={colors.success} />
+                </View>
+                <Text style={[styles.statValue, { fontSize: normalize(16) }]}>{streakData?.level || 1}</Text>
+                <Text style={[styles.statLabel, { fontSize: normalize(9) }]}>Levels</Text>
+              </View>
             </View>
 
-            <View style={[styles.statBox, { backgroundColor: '#EFF6FF' }]}>
-              <View style={[styles.statIconContainer, { backgroundColor: 'white' }]}>
-                <Flame size={20} color={colors.secondary} />
-              </View>
-              <Text style={styles.statValue}>{streakData?.current || 0}</Text>
-              <Text style={styles.statLabel}>Current Streak</Text>
-            </View>
-
-            <View style={[styles.statBox, { backgroundColor: '#DBEAFE' }]}>
-              <View style={[styles.statIconContainer, { backgroundColor: 'white' }]}>
-                <Zap size={20} color={colors.primaryLight} />
-              </View>
-              <Text style={styles.statValue}>{streakData?.points || 0}</Text>
-              <Text style={styles.statLabel}>Total Points</Text>
-            </View>
-
-            <View style={[styles.statBox, { backgroundColor: '#D1FAE5' }]}>
-              <View style={[styles.statIconContainer, { backgroundColor: 'white' }]}>
-                <Trophy size={20} color={colors.success} />
-              </View>
-              <Text style={styles.statValue}>{streakData?.level || 1}</Text>
-              <Text style={styles.statLabel}>Levels</Text>
-            </View>
-          </View>
 
 
           <TouchableOpacity
@@ -225,74 +244,78 @@ export default function HomeScreen() {
         </View>
 
         <View style={styles.videoSection}>
-          <Text style={styles.sectionTitle}>Student Pep Talk</Text>
-          <Text style={styles.videoSubtitle}>Lights, Camera, Win!  - Submit your vid for prizes</Text>
-          <View style={styles.videoContainer}>
+          <Text style={[styles.sectionTitle, { fontSize: normalize(20) }]}>Student Pep Talk</Text>
+          <Text style={[styles.videoSubtitle, { fontSize: normalize(14) }]}>Lights, Camera, Win!  - Submit your vid for prizes</Text>
+          <View style={[styles.videoContainer, isTablet && { maxHeight: 400 }]}>
             <YoutubePlayer
-              height={190}
+              height={isTablet ? 360 : 190}
               width={"100%"}
               videoId={videoConfig?.homeVideoId || "VRSnKzgVTiU"}
               play={false}
             />
           </View>
-          <Text style={styles.dynamicVideoTitle}>{videoConfig?.homeVideoTitle || "Motivation from students like you"}</Text>
+          <Text style={[styles.dynamicVideoTitle, { fontSize: normalize(16) }]}>{videoConfig?.homeVideoTitle || "Motivation from students like you"}</Text>
         </View>
 
         <View style={styles.quoteSection}>
-          <Text style={styles.quoteText}>&ldquo;{currentQuote}&rdquo;</Text>
+          <Text style={[styles.quoteText, { fontSize: normalize(15) }]}>&ldquo;{currentQuote}&rdquo;</Text>
         </View>
 
         {upcomingTasks.length > 0 && (
           <View style={styles.tasksSection}>
             <View style={styles.tasksSectionHeader}>
-              <Text style={styles.sectionTitle}> Don't let deadlines sneak up on you!</Text>
+              <Text style={[styles.sectionTitle, { fontSize: normalize(20) }]}> Don't let deadlines sneak up on you!</Text>
               <TouchableOpacity onPress={() => router.push('/(tabs)/tasks')}>
-                <Text style={styles.viewAllText}>View All</Text>
+                <Text style={[styles.viewAllText, { fontSize: normalize(14) }]}>View All</Text>
               </TouchableOpacity>
             </View>
-            {upcomingTasks
-              .filter(task => task.id) // Filter out tasks without IDs
-              .map((task, index) => (
-                <TouchableOpacity
-                  key={`${task.id}-${index}`}
-                  style={styles.taskCard}
-                  onPress={() => router.push('/(tabs)/tasks')}
-                >
-                  <View style={[styles.taskIcon, { backgroundColor: colors.taskColors[task.type] }]}>
-                    {task.completed ? (
-                      <CheckCircle size={20} color={colors.surface} />
-                    ) : (
-                      <Circle size={20} color={colors.surface} />
-                    )}
-                  </View>
-                  <View style={styles.taskContent}>
-                    <Text style={styles.taskTitle} numberOfLines={1}>
-                      {task.description}
-                    </Text>
-                    <View style={styles.taskMeta}>
-                      <View style={[styles.typeBadge, { backgroundColor: colors.taskColors[task.type] + '20' }]}>
-                        <Text style={[styles.typeBadgeText, { color: colors.taskColors[task.type] }]}>
-                          {task.type}
-                        </Text>
-                      </View>
-                      {task.className && (
-                        <Text style={styles.taskClass}>{task.className}</Text>
+            <View style={isTablet ? styles.taskListTablet : null}>
+              {upcomingTasks
+                .filter(task => task.id) 
+                .map((task, index) => (
+                  <TouchableOpacity
+                    key={`${task.id}-${index}`}
+                    style={[styles.taskCard, isTablet && styles.taskCardTablet]}
+                    onPress={() => router.push('/(tabs)/tasks')}
+                  >
+                    <View style={[styles.taskIcon, { backgroundColor: colors.taskColors[task.type] }]}>
+                      {task.completed ? (
+                        <CheckCircle size={20} color={colors.surface} />
+                      ) : (
+                        <Circle size={20} color={colors.surface} />
                       )}
                     </View>
-                    <View style={styles.taskDateRow}>
-                      <Clock size={12} color={colors.textLight} />
-                      <Text style={styles.taskDate}>
-                        {getDaysUntil(task.dueDate)}
-                        {task.dueTime && ` at ${formatStringTime12H(task.dueTime)}`}
+                    <View style={styles.taskContent}>
+                      <Text style={[styles.taskTitle, { fontSize: normalize(15) }]} numberOfLines={1}>
+                        {task.description}
                       </Text>
+                      <View style={styles.taskMeta}>
+                        <View style={[styles.typeBadge, { backgroundColor: colors.taskColors[task.type] + '20' }]}>
+                          <Text style={[styles.typeBadgeText, { color: colors.taskColors[task.type], fontSize: normalize(10) }]}>
+                            {task.type}
+                          </Text>
+                        </View>
+                        {task.className && (
+                          <Text style={[styles.taskClass, { fontSize: normalize(11) }]}>{task.className}</Text>
+                        )}
+                      </View>
+                      <View style={styles.taskDateRow}>
+                        <Clock size={12} color={colors.textLight} />
+                        <Text style={[styles.taskDate, { fontSize: normalize(11) }]}>
+                          {getDaysUntil(task.dueDate)}
+                          {task.dueTime && ` at ${formatStringTime12H(task.dueTime)}`}
+                        </Text>
+                      </View>
                     </View>
-                  </View>
-                  <View style={[styles.priorityDot, { backgroundColor: colors.priorityColors[task.priority] }]} />
-                </TouchableOpacity>
-              ))}
+                    <View style={[styles.priorityDot, { backgroundColor: colors.priorityColors[task.priority] }]} />
+                  </TouchableOpacity>
+                ))}
+            </View>
           </View>
         )}
       </ScrollView>
+      </ResponsiveContainer>
+
 
       <UpgradeModal
         visible={showUpgradeModal}
@@ -347,6 +370,10 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: 20,
+  },
   heroSection: {
     paddingHorizontal: 20,
     paddingTop: 8,
@@ -384,6 +411,11 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
     marginBottom: 10,
+  },
+  statBoxTablet: {
+    width: '22%',
+    padding: 16,
+    borderRadius: 16,
   },
   statIconContainer: {
     width: 32,
@@ -430,6 +462,15 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 2,
+  },
+  taskListTablet: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 16,
+  },
+  taskCardTablet: {
+    width: '48%', // 2 columns
+    marginBottom: 0,
   },
   taskIcon: {
     width: 40,

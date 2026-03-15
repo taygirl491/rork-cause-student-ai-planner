@@ -91,15 +91,28 @@ export function StreakProvider({ children }: { children: ReactNode }) {
                     apiService.get(`/api/gamification/stats/${user.uid}`)
                 ]);
 
-                if (streakRes.success && statsRes) {
-                    const combinedData = {
-                        ...streakRes.streak,
-                        points: statsRes.points || 0,
-                        level: statsRes.level || 1,
-                    };
-                    setStreakData(combinedData);
-                    // Update cache
-                    await AsyncStorage.setItem(STREAK_CACHE_KEY, JSON.stringify(combinedData));
+                if (streakRes || statsRes) {
+                    const combinedData = { ...streakData } as StreakData;
+                    let hasUpdates = false;
+
+                    // If we successfully fetched a streak, merge it in
+                    if (streakRes && streakRes.success && streakRes.streak) {
+                        Object.assign(combinedData, streakRes.streak);
+                        hasUpdates = true;
+                    }
+
+                    // If we successfully fetched gamification stats, merge them in (even if streak failed/empty)
+                    if (statsRes && statsRes.points !== undefined) {
+                        combinedData.points = statsRes.points;
+                        combinedData.level = statsRes.level || 1;
+                        hasUpdates = true;
+                    }
+
+                    if (hasUpdates) {
+                        setStreakData(combinedData);
+                        // Update cache
+                        await AsyncStorage.setItem(STREAK_CACHE_KEY, JSON.stringify(combinedData));
+                    }
                 }
             }
         } catch (error) {

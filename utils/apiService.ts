@@ -654,13 +654,27 @@ class ApiService {
 			);
 
 			if (!response.ok) {
-				const error = await response.json();
-				console.log("[API] Payment intent error:", error);
-				return { success: false, error: error.error || "Failed to create payment intent" };
+				let errorMessage = "Failed to create payment intent";
+				try {
+					const error = await response.json();
+					console.log("[API] Payment intent error JSON:", error);
+					errorMessage = error.error || errorMessage;
+				} catch (e) {
+					const text = await response.text();
+					console.log("[API] Payment intent error text:", text);
+					errorMessage = text || errorMessage;
+				}
+				return { success: false, error: errorMessage };
 			}
 
-			const result = await response.json();
-			return { success: true, ...result };
+			try {
+				const result = await response.json();
+				return { success: true, ...result };
+			} catch (e) {
+				const text = await response.text();
+				console.error("[API] Payment intent result parse error:", text);
+				return { success: false, error: "Invalid server response", details: text };
+			}
 		} catch (error: any) {
 			console.error("[API] Payment intent error:", error);
 			return { success: false, error: error.message || String(error) };
@@ -687,14 +701,28 @@ class ApiService {
 			);
 
 			if (!response.ok) {
-				const error = await response.json();
-				console.log("[API] Subscription cancellation error:", error);
-				return { success: false, error: error.error || "Failed to cancel subscription" };
+				let errorMessage = "Failed to cancel subscription";
+				try {
+					const error = await response.json();
+					console.log("[API] Subscription cancellation error JSON:", error);
+					errorMessage = error.error || errorMessage;
+				} catch (e) {
+					const text = await response.text();
+					console.log("[API] Subscription cancellation error text:", text);
+					errorMessage = text || errorMessage;
+				}
+				return { success: false, error: errorMessage };
 			}
 
-			const result = await response.json();
-			console.log("[API] Subscription cancelled:", result);
-			return result;
+			try {
+				const result = await response.json();
+				console.log("[API] Subscription cancelled:", result);
+				return result;
+			} catch (e) {
+				const text = await response.text();
+				console.error("[API] Subscription cancellation parse error:", text);
+				return { success: false, error: "Invalid server response", details: text };
+			}
 		} catch (error: any) {
 			console.error("[API] Subscription cancellation error:", error.message || error);
 			return { success: false, error: error.message || String(error) };
@@ -720,14 +748,28 @@ class ApiService {
 			);
 
 			if (!response.ok) {
-				const error = await response.json();
-				console.log("[API] Get subscriptions error:", error);
-				return { success: false, error: error.error || "Failed to get subscriptions" };
+				let errorMessage = "Failed to get subscriptions";
+				try {
+					const error = await response.json();
+					console.log("[API] Get subscriptions error JSON:", error);
+					errorMessage = error.error || errorMessage;
+				} catch (e) {
+					const text = await response.text();
+					console.log("[API] Get subscriptions error text:", text);
+					errorMessage = text || errorMessage;
+				}
+				return { success: false, error: errorMessage };
 			}
 
-			const result = await response.json();
-			console.log("[API] Subscriptions retrieved:", result);
-			return result;
+			try {
+				const result = await response.json();
+				console.log("[API] Subscriptions retrieved:", result);
+				return result;
+			} catch (e) {
+				const text = await response.text();
+				console.error("[API] Get subscriptions parse error:", text);
+				return { success: false, error: "Invalid server response", details: text };
+			}
 		} catch (error: any) {
 			console.error("[API] Get subscriptions error:", error.message || error);
 			return { success: false, error: error.message || String(error) };

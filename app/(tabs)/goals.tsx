@@ -28,6 +28,8 @@ import { cancelNotification, scheduleGoalNotification, scheduleHabitReminder } f
 import { formatTime12H, formatStringTime12H, parseTime12H } from '@/utils/timeUtils';
 import UpgradeModal from '@/components/UpgradeModal';
 import * as Analytics from '@/utils/analytics';
+import { useResponsive } from '@/utils/responsive';
+import ResponsiveContainer from '@/components/ResponsiveContainer';
 
 export default function GoalsScreen() {
   const { goals, addGoal, updateGoal, deleteGoal, refreshGoals } = useApp();
@@ -61,6 +63,7 @@ export default function GoalsScreen() {
   const [showHabitTimePicker, setShowHabitTimePicker] = useState(false);
 
   const scaleAnim = React.useRef(new Animated.Value(0)).current;
+	const { isTablet, normalize } = useResponsive();
 
   // Feature Check
   const checkAccess = () => {
@@ -332,177 +335,178 @@ export default function GoalsScreen() {
     setRefreshing(false);
   };
 
-  return (
-    <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
-      <UpgradeModal
-        visible={showUpgradeModal}
-        onClose={() => setShowUpgradeModal(false)}
-        featureName="Goals"
-        message="Upgrade to the Standard plan to set unlimited goals and track your habits."
-      />
-      {/* ... previous header logic unchanged ... */}
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.title}>Goals & Purpose</Text>
-          <Text style={styles.subtitle}>Track your personal goals</Text>
-        </View>
-        <TouchableOpacity style={styles.addButton} onPress={() => {
-          if (checkAccess()) setShowModal(true);
-        }}>
-          <Plus size={24} color={colors.surface} />
-        </TouchableOpacity>
-      </View>
+  	return (
+		<SafeAreaView style={styles.container} edges={["left", "right", "bottom"]}>
+			<UpgradeModal
+				visible={showUpgradeModal}
+				onClose={() => setShowUpgradeModal(false)}
+				featureName="Goals"
+				message="Upgrade to the Standard plan to set unlimited goals and track your habits."
+			/>
+			<ResponsiveContainer>
+				<View style={[styles.header, isTablet && { paddingHorizontal: 40 }]}>
+					<View>
+						<Text style={[styles.title, { fontSize: normalize(32) }]}>Goals & Purpose</Text>
+						<Text style={[styles.subtitle, { fontSize: normalize(14) }]}>Track your personal goals</Text>
+					</View>
+					<TouchableOpacity style={styles.addButton} onPress={() => {
+						if (checkAccess()) setShowModal(true);
+					}}>
+						<Plus size={24} color={colors.surface} />
+					</TouchableOpacity>
+				</View>
 
-      <ScrollView
-        style={styles.scrollView}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            colors={[colors.primary]}
-            tintColor={colors.primary}
-          />
-        }
-      >
-        {purpose && (
-          <View style={styles.purposeSection}>
-            <View style={styles.purposeCard}>
-              <View style={styles.purposeHeader}>
-                <View style={styles.purposeIconContainer}>
-                  <Target size={24} color={colors.primary} />
-                </View>
-                <View>
-                  <Text style={styles.purposeTitle}>My Purpose Statement</Text>
-                  <Text style={styles.purposeSubtitle}>From your introductory survey</Text>
-                </View>
-              </View>
-              <View style={styles.purposeContent}>
-                {purpose[1] && (
-                  <View style={styles.purposeItem}>
-                    <Text style={styles.purposeLabel}>My Vibe:</Text>
-                    <Text style={styles.purposeText}>{purpose[1].join(', ')}</Text>
-                  </View>
-                )}
-                {purpose[2] && (
-                  <View style={styles.purposeItem}>
-                    <Text style={styles.purposeLabel}>School Means:</Text>
-                    <Text style={styles.purposeText}>{purpose[2].join(', ')}</Text>
-                  </View>
-                )}
-                {purpose[3] && (
-                  <View style={styles.purposeItem}>
-                    <Text style={styles.purposeLabel}>Education Matters Because:</Text>
-                    <Text style={styles.purposeText}>{purpose[3].join(', ')}</Text>
-                  </View>
-                )}
-                {purpose[4] && (
-                  <View style={styles.purposeItem}>
-                    <Text style={styles.purposeLabel}>I Wanna Be:</Text>
-                    <Text style={styles.purposeText}>{purpose[4].join(', ')}</Text>
-                  </View>
-                )}
-                {purpose[5] && (
-                  <View style={styles.purposeItem}>
-                    <Text style={styles.purposeLabel}>I Stand For:</Text>
-                    <Text style={styles.purposeText}>{purpose[5].join(', ')}</Text>
-                  </View>
-                )}
-              </View>
-            </View>
-          </View>
-        )}
+				<ScrollView
+					style={styles.scrollView}
+					showsVerticalScrollIndicator={false}
+					refreshControl={
+						<RefreshControl
+							refreshing={refreshing}
+							onRefresh={onRefresh}
+							colors={[colors.primary]}
+							tintColor={colors.primary}
+						/>
+					}
+				>
+					{purpose && (
+						<View style={[styles.purposeSection, isTablet && { paddingHorizontal: 40 }]}>
+							<View style={styles.purposeCard}>
+								<View style={styles.purposeHeader}>
+									<View style={styles.purposeIconContainer}>
+										<Target size={normalize(24)} color={colors.primary} />
+									</View>
+									<View>
+										<Text style={[styles.purposeTitle, { fontSize: normalize(18) }]}>My Purpose Statement</Text>
+										<Text style={[styles.purposeSubtitle, { fontSize: normalize(12) }]}>From your introductory survey</Text>
+									</View>
+								</View>
+								<View style={styles.purposeContent}>
+									{purpose[1] && (
+										<View style={styles.purposeItem}>
+											<Text style={[styles.purposeLabel, { fontSize: normalize(13) }]}>My Vibe:</Text>
+											<Text style={[styles.purposeText, { fontSize: normalize(15) }]}>{purpose[1].join(', ')}</Text>
+										</View>
+									)}
+									{purpose[2] && (
+										<View style={styles.purposeItem}>
+											<Text style={[styles.purposeLabel, { fontSize: normalize(13) }]}>School Means:</Text>
+											<Text style={[styles.purposeText, { fontSize: normalize(15) }]}>{purpose[2].join(', ')}</Text>
+										</View>
+									)}
+									{purpose[3] && (
+										<View style={styles.purposeItem}>
+											<Text style={[styles.purposeLabel, { fontSize: normalize(13) }]}>Education Matters Because:</Text>
+											<Text style={[styles.purposeText, { fontSize: normalize(15) }]}>{purpose[3].join(', ')}</Text>
+										</View>
+									)}
+									{purpose[4] && (
+										<View style={styles.purposeItem}>
+											<Text style={[styles.purposeLabel, { fontSize: normalize(13) }]}>I Wanna Be:</Text>
+											<Text style={[styles.purposeText, { fontSize: normalize(15) }]}>{purpose[4].join(', ')}</Text>
+										</View>
+									)}
+									{purpose[5] && (
+										<View style={styles.purposeItem}>
+											<Text style={[styles.purposeLabel, { fontSize: normalize(13) }]}>I Stand For:</Text>
+											<Text style={[styles.purposeText, { fontSize: normalize(15) }]}>{purpose[5].join(', ')}</Text>
+										</View>
+									)}
+								</View>
+							</View>
+						</View>
+					)}
 
-        {goals.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Target size={64} color={colors.textLight} />
-            <Text style={styles.emptyText}>No goals yet</Text>
-            <Text style={styles.emptySubtext}>Set your first goal and start tracking</Text>
-          </View>
-        ) : (
-          <View style={styles.goalsList}>
-            {goals.map((goal) => (
-              <View key={goal.id} style={styles.goalCard}>
-                <TouchableOpacity
-                  style={styles.goalHeader}
-                  onPress={() => toggleGoalComplete(goal)}
-                  onLongPress={() => handleLongPress(goal)}
-                >
-                  <View style={styles.goalHeaderLeft}>
-                    {goal.completed ? (
-                      <CheckCircle size={28} color={colors.success} />
-                    ) : (
-                      <Circle size={28} color={colors.primary} />
-                    )}
-                    <View style={styles.goalHeaderText}>
-                      <Text style={[styles.goalTitle, goal.completed && styles.goalTitleCompleted]}>
-                        {goal.title}
-                      </Text>
-                      {goal.description && (
-                        <Text style={styles.goalDescription}>{goal.description}</Text>
-                      )}
-                      {goal.dueDate && (
-                        <Text style={styles.goalDueDate}>
-                          Due: {new Date(goal.dueDate).toLocaleDateString()}
-                          {goal.dueTime && ` at ${formatStringTime12H(goal.dueTime)}`}
-                        </Text>
-                      )}
-                    </View>
-                  </View>
-                </TouchableOpacity>
+					{goals.length === 0 ? (
+						<View style={styles.emptyState}>
+							<Target size={normalize(64)} color={colors.textLight} />
+							<Text style={[styles.emptyText, { fontSize: normalize(20) }]}>No goals yet</Text>
+							<Text style={[styles.emptySubtext, { fontSize: normalize(14) }]}>Set your first goal and start tracking</Text>
+						</View>
+					) : (
+						<View style={[styles.goalsList, isTablet && { paddingHorizontal: 40 }]}>
+							{goals.map((goal) => (
+								<View key={goal.id} style={styles.goalCard}>
+									<TouchableOpacity
+										style={styles.goalHeader}
+										onPress={() => toggleGoalComplete(goal)}
+										onLongPress={() => handleLongPress(goal)}
+									>
+										<View style={styles.goalHeaderLeft}>
+											{goal.completed ? (
+												<CheckCircle size={normalize(28)} color={colors.success} />
+											) : (
+												<Circle size={normalize(28)} color={colors.primary} />
+											)}
+											<View style={styles.goalHeaderText}>
+												<Text style={[styles.goalTitle, goal.completed && styles.goalTitleCompleted, { fontSize: normalize(18) }]}>
+													{goal.title}
+												</Text>
+												{goal.description && (
+													<Text style={[styles.goalDescription, { fontSize: normalize(14) }]}>{goal.description}</Text>
+												)}
+												{goal.dueDate && (
+													<Text style={[styles.goalDueDate, { fontSize: normalize(12) }]}>
+														Due: {new Date(goal.dueDate).toLocaleDateString()}
+														{goal.dueTime && ` at ${formatStringTime12H(goal.dueTime)}`}
+													</Text>
+												)}
+											</View>
+										</View>
+									</TouchableOpacity>
 
-                {/* Habits Section */}
-                {goal.habits && goal.habits.length > 0 && (
-                  <View style={styles.habitsSection}>
-                    <View style={styles.progressHeader}>
-                      <Text style={styles.habitsTitle}>Daily Habits</Text>
-                      <Text style={styles.progressText}>
-                        {Math.round(calculateProgress(goal.habits))}%
-                      </Text>
-                    </View>
-                    <View style={styles.progressBarContainer}>
-                      <View
-                        style={[
-                          styles.progressBar,
-                          { width: `${calculateProgress(goal.habits)}%` }
-                        ]}
-                      />
-                    </View>
-                    <View>
-                      {goal.habits.map((habit, index) => (
-                        <TouchableOpacity
-                          key={index}
-                          style={styles.habitItem}
-                          onPress={() => toggleHabit(goal, index)}
-                        >
-                          {habit.completed ? (
-                            <CheckCircle size={20} color={colors.primary} />
-                          ) : (
-                            <Circle size={20} color={colors.border} />
-                          )}
-                          <Text style={[
-                            styles.habitTitle,
-                            habit.completed && styles.habitTitleCompleted
-                          ]}>
-                            {habit.title}
-                          </Text>
-                          {habit.reminderEnabled && habit.reminderTime && (
-                            <View style={styles.habitBadge}>
-                              <Bell size={12} color={colors.primary} />
-                              <Text style={styles.habitBadgeText}>{habit.reminderTime}</Text>
-                            </View>
-                          )}
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  </View>
-                )}
-              </View>
-            ))}
-          </View>
-        )}
-      </ScrollView>
-
+									{/* Habits Section */}
+									{goal.habits && goal.habits.length > 0 && (
+										<View style={styles.habitsSection}>
+											<View style={styles.progressHeader}>
+												<Text style={[styles.habitsTitle, { fontSize: normalize(14) }]}>Daily Habits</Text>
+												<Text style={[styles.progressText, { fontSize: normalize(14) }]}>
+													{Math.round(calculateProgress(goal.habits))}%
+												</Text>
+											</View>
+											<View style={styles.progressBarContainer}>
+												<View
+													style={[
+														styles.progressBar,
+														{ width: `${calculateProgress(goal.habits)}%` }
+													]}
+												/>
+											</View>
+											<View>
+												{goal.habits.map((habit, index) => (
+													<TouchableOpacity
+														key={index}
+														style={styles.habitItem}
+														onPress={() => toggleHabit(goal, index)}
+													>
+														{habit.completed ? (
+															<CheckCircle size={normalize(20)} color={colors.primary} />
+														) : (
+															<Circle size={normalize(20)} color={colors.border} />
+														)}
+														<Text style={[
+															styles.habitTitle,
+															habit.completed && styles.habitTitleCompleted,
+															{ fontSize: normalize(14) }
+														]}>
+															{habit.title}
+														</Text>
+														{habit.reminderEnabled && habit.reminderTime && (
+															<View style={styles.habitBadge}>
+																<Bell size={normalize(12)} color={colors.primary} />
+																<Text style={[styles.habitBadgeText, { fontSize: normalize(12) }]}>{habit.reminderTime}</Text>
+															</View>
+														)}
+													</TouchableOpacity>
+												))}
+											</View>
+										</View>
+									)}
+								</View>
+							))}
+						</View>
+					)}
+				</ScrollView>
+			</ResponsiveContainer>
       <Modal visible={showModal} transparent animationType="fade" onRequestClose={() => setShowModal(false)}>
         <SafeAreaView style={styles.safeAreaModal}>
           <KeyboardAvoidingView
@@ -514,14 +518,18 @@ export default function GoalsScreen() {
               activeOpacity={1}
               onPress={() => setShowModal(false)}
             >
-              <TouchableOpacity
-                activeOpacity={1}
-                onPress={(e) => e.stopPropagation()}
-                style={{ width: '100%', alignItems: 'center' }}
-              >
-                <Animated.View style={[styles.modalContent, { transform: [{ scale: scaleAnim }] }]}>
+              							<TouchableOpacity
+								activeOpacity={1}
+								onPress={(e) => e.stopPropagation()}
+								style={{ width: '100%', alignItems: 'center' }}
+							>
+								<Animated.View style={[
+									styles.modalContent, 
+									isTablet && styles.modalContentTablet,
+									{ transform: [{ scale: scaleAnim }] }
+								]}>
                   <View style={styles.modalHeader}>
-                    <Text style={styles.modalTitle}>{isEditing ? 'Edit Goal' : 'Create Goal'}</Text>
+                    <Text style={[styles.modalTitle, { fontSize: normalize(24) }]}>{isEditing ? 'Edit Goal' : 'Create Goal'}</Text>
                     <TouchableOpacity onPress={() => {
                       setShowModal(false);
                       if (isEditing) {
@@ -530,7 +538,7 @@ export default function GoalsScreen() {
                         resetForm();
                       }
                     }}>
-                      <X size={24} color={colors.text} />
+                      <X size={normalize(24)} color={colors.text} />
                     </TouchableOpacity>
                   </View>
 
@@ -539,18 +547,18 @@ export default function GoalsScreen() {
                     contentContainerStyle={styles.scrollContent}
                     keyboardShouldPersistTaps="handled"
                   >
-                    <Text style={styles.label}>Goal Title *</Text>
+                    <Text style={[styles.label, { fontSize: normalize(14) }]}>Goal Title *</Text>
                     <TextInput
-                      style={styles.input}
+                      style={[styles.input, { fontSize: normalize(16) }]}
                       placeholder="Enter your goal"
                       placeholderTextColor={colors.textLight}
                       value={title}
                       onChangeText={setTitle}
                     />
 
-                    <Text style={styles.label}>Description</Text>
+                    <Text style={[styles.label, { fontSize: normalize(14) }]}>Description</Text>
                     <TextInput
-                      style={[styles.input, styles.textArea]}
+                      style={[styles.input, styles.textArea, { fontSize: normalize(16) }]}
                       placeholder="Describe your goal"
                       placeholderTextColor={colors.textLight}
                       value={description}
@@ -560,12 +568,12 @@ export default function GoalsScreen() {
                     />
 
                     {/* ... Due Date/Time pickers (unchanged code omitted for brevity if not changing) ... */}
-                    <Text style={styles.label}>Due Date *</Text>
+                    <Text style={[styles.label, { fontSize: normalize(14) }]}>Due Date *</Text>
                     <TouchableOpacity
                       style={styles.input}
                       onPress={() => setShowDatePicker(true)}
                     >
-                      <Text style={{ color: colors.text }}>
+                      <Text style={{ color: colors.text, fontSize: normalize(16) }}>
                         {dueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                       </Text>
                     </TouchableOpacity>
@@ -580,12 +588,12 @@ export default function GoalsScreen() {
                       onCancel={() => setShowDatePicker(false)}
                     />
 
-                    <Text style={styles.label}>Due Time</Text>
+                    <Text style={[styles.label, { fontSize: normalize(14) }]}>Due Time</Text>
                     <TouchableOpacity
                       style={styles.input}
                       onPress={() => setShowTimePicker(true)}
                     >
-                      <Text style={{ color: colors.text }}>
+                      <Text style={{ color: colors.text, fontSize: normalize(16) }}>
                         {dueTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
                       </Text>
                     </TouchableOpacity>
@@ -601,10 +609,10 @@ export default function GoalsScreen() {
                     />
 
 
-                    <Text style={styles.label}>Daily Habits</Text>
+                    <Text style={[styles.label, { fontSize: normalize(14) }]}>Daily Habits</Text>
                     <View style={styles.habitInputRow}>
                       <TextInput
-                        style={[styles.input, styles.habitInput]}
+                        style={[styles.input, styles.habitInput, { fontSize: normalize(16) }]}
                         placeholder="Add a habit "
                         placeholderTextColor={colors.textLight}
                         value={newHabit}
@@ -614,7 +622,7 @@ export default function GoalsScreen() {
                         style={[styles.timeButton, newHabitTime && styles.timeButtonActive]}
                         onPress={() => setShowHabitTimePicker(true)}
                       >
-                        {newHabitTime ? <Bell size={20} color="white" /> : <BellOff size={20} color={colors.textLight} />}
+                        {newHabitTime ? <Bell size={normalize(20)} color="white" /> : <BellOff size={normalize(20)} color={colors.textLight} />}
                       </TouchableOpacity>
                       <DateTimePickerModal
                         isVisible={showHabitTimePicker}
@@ -629,16 +637,16 @@ export default function GoalsScreen() {
                         style={styles.addHabitButton}
                         onPress={addHabitToState}
                       >
-                        <Plus size={24} color={colors.surface} />
+                        <Plus size={normalize(24)} color={colors.surface} />
                       </TouchableOpacity>
                     </View>
                     {newHabitTime && (
                       <View style={styles.reminderPreview}>
-                        <Text style={styles.reminderPreviewText}>
+                        <Text style={[styles.reminderPreviewText, { fontSize: normalize(14) }]}>
                           Reminder set for: {formatTime12H(newHabitTime)}
                         </Text>
                         <TouchableOpacity onPress={() => setNewHabitTime(null)}>
-                          <X size={16} color={colors.textSecondary} />
+                          <X size={normalize(16)} color={colors.textSecondary} />
                         </TouchableOpacity>
                       </View>
                     )}
@@ -647,13 +655,13 @@ export default function GoalsScreen() {
                       {habits.map((habit, index) => (
                         <View key={index} style={styles.habitChip}>
                           <View style={{ flex: 1 }}>
-                            <Text style={styles.habitChipText}>{habit.title}</Text>
+                            <Text style={[styles.habitChipText, { fontSize: normalize(14) }]}>{habit.title}</Text>
                             {habit.reminderEnabled && habit.reminderTime && (
-                              <Text style={styles.habitChipSubtext}>🔔 {formatStringTime12H(habit.reminderTime)}</Text>
+                              <Text style={[styles.habitChipSubtext, { fontSize: normalize(12) }]}>🔔 {formatStringTime12H(habit.reminderTime)}</Text>
                             )}
                           </View>
                           <TouchableOpacity onPress={() => removeHabitFromState(index)}>
-                            <X size={20} color={colors.textSecondary} />
+                            <X size={normalize(20)} color={colors.textSecondary} />
                           </TouchableOpacity>
                         </View>
                       ))}
@@ -664,6 +672,7 @@ export default function GoalsScreen() {
                       onPress={handleAddGoal}
                       isLoading={isSaving}
                       style={styles.createButton}
+                      textStyle={{ fontSize: normalize(16) }}
                     />
                   </ScrollView>
                 </Animated.View>
@@ -686,15 +695,15 @@ export default function GoalsScreen() {
             activeOpacity={1}
             onPress={() => setShowActionSheet(false)}
           >
-            <View style={styles.actionSheetContent}>
+            <View style={[styles.actionSheetContent, isTablet && { width: 600, alignSelf: 'center' }]}>
               <TouchableOpacity style={styles.actionButton} onPress={handleEdit}>
-                <Edit2 size={20} color={colors.primary} />
-                <Text style={styles.actionButtonText}>Edit Goal</Text>
+                <Edit2 size={normalize(20)} color={colors.primary} />
+                <Text style={[styles.actionButtonText, { fontSize: normalize(16) }]}>Edit Goal</Text>
               </TouchableOpacity>
               <View style={styles.actionDivider} />
               <TouchableOpacity style={styles.actionButton} onPress={handleDelete}>
-                <Trash2 size={20} color="#FF3B30" />
-                <Text style={[styles.actionButtonText, { color: '#FF3B30' }]}>Delete Goal</Text>
+                <Trash2 size={normalize(20)} color="#FF3B30" />
+                <Text style={[styles.actionButtonText, { color: '#FF3B30', fontSize: normalize(16) }]}>Delete Goal</Text>
               </TouchableOpacity>
             </View>
           </TouchableOpacity>
@@ -865,9 +874,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: 24,
     padding: 24,
-    width: '100%',
-    maxWidth: 500,
+    width: '90%',
+    maxWidth: '90%',
     maxHeight: '90%',
+  },
+  modalContentTablet: {
+    width: 600,
+    maxWidth: '80%',
   },
   modalHeader: {
     flexDirection: 'row',

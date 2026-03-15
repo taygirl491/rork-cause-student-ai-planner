@@ -48,6 +48,8 @@ import apiService from '@/utils/apiService';
 import { TERMS_AND_CONDITIONS, PRIVACY_POLICY } from '@/constants/LegalText';
 import { useStripe } from '@stripe/stripe-react-native';
 import * as Analytics from '@/utils/analytics';
+import { useResponsive } from '@/utils/responsive';
+import ResponsiveContainer from '@/components/ResponsiveContainer';
 
 const SUBSCRIPTION_PLANS = {
   standardMonthly: 'price_1ShIc8P0t2AuYFqK2waTumLy',
@@ -160,6 +162,8 @@ export default function AccountScreen() {
       }
     }, [user?.uid])
   );
+
+  const { isTablet, normalize } = useResponsive();
 
   const fetchSubscription = async () => {
     if (!user?.uid) return;
@@ -318,13 +322,19 @@ export default function AccountScreen() {
       }
       console.log('[Stripe] initPaymentSheet success');
 
-      // Close modal before presenting - essential for Android reliability
-      setShowPaymentModal(false);
-
-      // Small delay to allow modal to clear before presenting native sheet
-      await new Promise(resolve => setTimeout(resolve, 500));
+      if (Platform.OS === 'android') {
+        // Close modal before presenting - essential for Android reliability
+        setShowPaymentModal(false);
+        // Small delay to allow modal to clear before presenting native sheet
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
 
       const { error: paymentError } = await presentPaymentSheet();
+      
+      if (Platform.OS === 'ios') {
+        // On iOS, close the modal after the Payment Sheet
+        setShowPaymentModal(false);
+      }
 
       if (paymentError) {
         if (paymentError.code !== 'Canceled') {
@@ -519,14 +529,14 @@ export default function AccountScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
-
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ResponsiveContainer>
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false} contentContainerStyle={isTablet && { paddingHorizontal: 40 }}>
         <View style={styles.header}>
           <View style={styles.headerIcon}>
             <User size={40} color={colors.primary} />
           </View>
-          <Text style={styles.title}>{user?.name || 'My Account'}</Text>
-          <Text style={styles.subtitle}>{user?.email || 'Manage your subscription and settings'}</Text>
+          <Text style={[styles.title, { fontSize: normalize(32) }]}>{user?.name || 'My Account'}</Text>
+          <Text style={[styles.subtitle, { fontSize: normalize(14) }]}>{user?.email || 'Manage your subscription and settings'}</Text>
         </View>
 
         <View style={styles.subscriptionCard}>
@@ -678,6 +688,7 @@ export default function AccountScreen() {
           <Text style={styles.footerSubtext}>Making the world better while acing your classes 🌍</Text>
         </View>
       </ScrollView>
+      </ResponsiveContainer>
 
       <Modal
         visible={showPaymentModal}
@@ -685,9 +696,9 @@ export default function AccountScreen() {
         animationType="slide"
         onRequestClose={() => setShowPaymentModal(false)}
       >
-        <SafeAreaView style={styles.safeAreaModal}>
+        <View style={styles.safeAreaModal}>
           <View style={styles.modalOverlay}>
-            <View style={[styles.modalContent, { paddingBottom: Math.max(insets.bottom + 24, 24) }]}>
+            <View style={[styles.modalContent, isTablet && styles.modalContentTablet, { paddingBottom: Math.max(insets.bottom, 24) }]}>
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>Choose Your Plan</Text>
                 <TouchableOpacity onPress={() => setShowPaymentModal(false)}>
@@ -858,7 +869,7 @@ export default function AccountScreen() {
               </ScrollView>
             </View>
           </View>
-        </SafeAreaView>
+        </View>
       </Modal>
 
       <Modal
@@ -884,7 +895,7 @@ export default function AccountScreen() {
                   Keyboard.dismiss();
                 }}
               >
-                <View style={[styles.modalContent, { paddingBottom: Math.max(insets.bottom + 24, 24) }]}>
+                <View style={[styles.modalContent, isTablet && styles.modalContentTablet, { paddingBottom: Math.max(insets.bottom + 24, 24) }]}>
                   <View style={styles.modalHeader}>
                     <Text style={styles.modalTitle}>Change Password</Text>
                     <TouchableOpacity onPress={() => setShowPasswordModal(false)}>
@@ -960,7 +971,7 @@ export default function AccountScreen() {
       >
         <SafeAreaView style={styles.safeAreaModal}>
           <View style={styles.modalOverlay}>
-            <View style={[styles.modalContent, styles.legalModalContent, { paddingBottom: Math.max(insets.bottom + 24, 24) }]}>
+            <View style={[styles.modalContent, isTablet && styles.modalContentTablet, styles.legalModalContent, { paddingBottom: Math.max(insets.bottom + 24, 24) }]}>
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>Terms & Conditions</Text>
                 <TouchableOpacity onPress={() => setShowTermsModal(false)}>
@@ -984,7 +995,7 @@ export default function AccountScreen() {
       >
         <SafeAreaView style={styles.safeAreaModal}>
           <View style={styles.modalOverlay}>
-            <View style={[styles.modalContent, styles.legalModalContent, { paddingBottom: Math.max(insets.bottom + 24, 24) }]}>
+            <View style={[styles.modalContent, isTablet && styles.modalContentTablet, styles.legalModalContent, { paddingBottom: Math.max(insets.bottom + 24, 24) }]}>
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>Privacy Policy</Text>
                 <TouchableOpacity onPress={() => setShowPrivacyModal(false)}>
@@ -1029,7 +1040,7 @@ export default function AccountScreen() {
                   Keyboard.dismiss();
                 }}
               >
-                <View style={[styles.modalContent, { paddingBottom: Math.max(insets.bottom + 24, 24) }]}>
+                <View style={[styles.modalContent, isTablet && styles.modalContentTablet, { paddingBottom: Math.max(insets.bottom + 24, 24) }]}>
                   <View style={styles.modalHeader}>
                     <Text style={styles.modalTitle}>
                       {deleteStep === 1 ? 'Why are you leaving?' :
@@ -1328,10 +1339,16 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     backgroundColor: colors.surface,
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
+    borderRadius: 24,
     padding: 24,
-    maxHeight: '100%',
+    width: '90%',
+    maxHeight: '90%',
+  },
+  modalContentTablet: {
+    width: 600,
+    maxWidth: '80%',
+    alignSelf: 'center',
+    justifyContent: 'center',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -1389,6 +1406,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 12,
+    zIndex: 1,
   },
   recommendedBadgeText: {
     fontSize: 11,
@@ -1401,6 +1419,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 12,
+    marginTop: 12, // Added margin to clear the badge
   },
   pricingTitle: {
     fontSize: 20,

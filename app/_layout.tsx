@@ -18,6 +18,8 @@ import { auth } from "@/firebaseConfig";
 import * as Sentry from '@sentry/react-native';
 import { StripeProvider } from '@stripe/stripe-react-native';
 import * as Analytics from "@/utils/analytics";
+import { useResponsive } from '@/utils/responsive';
+import ResponsiveContainer from '@/components/ResponsiveContainer';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -28,6 +30,7 @@ function MenuButton() {
   const router = useRouter();
   const pathname = usePathname();
   const insets = useSafeAreaInsets();
+  const { isTablet } = useResponsive();
 
   const menuItems = [
     { label: 'Home', icon: Home, route: '/home' },
@@ -60,7 +63,7 @@ function MenuButton() {
         onRequestClose={() => setShowMenu(false)}
       >
         <Pressable style={menuStyles.overlay} onPress={() => setShowMenu(false)}>
-          <Pressable style={menuStyles.menuContainer} onPress={(e) => e.stopPropagation()}>
+          <Pressable style={[menuStyles.menuContainer, isTablet && menuStyles.menuContainerTablet]} onPress={(e) => e.stopPropagation()}>
             <View style={[menuStyles.menuHeader, { paddingTop: Platform.OS === 'ios' ? Math.max(20, insets.top) : 20 }]}>
               <Text style={menuStyles.menuTitle}>Menu</Text>
               <TouchableOpacity onPress={() => setShowMenu(false)}>
@@ -105,6 +108,7 @@ function CustomHeader() {
   const { isOnline, refreshAllData } = useApp();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const insets = useSafeAreaInsets();
+  const { isTablet } = useResponsive();
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -113,7 +117,11 @@ function CustomHeader() {
   };
 
   return (
-    <View style={[menuStyles.header, { paddingTop: Platform.OS === 'ios' ? Math.max(0, insets.top - 16) : Math.max(0, insets.top - 4) }]}>
+    <View style={[
+      menuStyles.header, 
+      { paddingTop: Platform.OS === 'ios' ? Math.max(0, insets.top - 16) : Math.max(0, insets.top - 4) },
+      isTablet && { paddingHorizontal: 40 }
+    ]}>
       <View style={menuStyles.headerLeft}>
         <MenuButton />
       </View>
@@ -370,15 +378,22 @@ function RootLayout() {
 
   useEffect(() => {
     // Initialize Sentry inside effect to prevent fatal error at module level if native module is missing
-    try {
-      Sentry.init({
-        dsn: process.env.EXPO_PUBLIC_SENTRY_DSN || 'https://b73520e1b6648db41574a92098b42ec2@o4510577981915136.ingest.us.sentry.io/4510577983356928',
-        debug: true,
-        tracesSampleRate: 1.0,
-      });
-    } catch (e) {
-      console.warn('Sentry initialization failed:', e);
-    }
+    // Added a 500ms delay to allow the React Native bridge/New Architecture to fully stabilize
+    // before making aggressive native module calls that could crash ObjCTurboModule.
+    const sentryTimer = setTimeout(() => {
+      try {
+        Sentry.init({
+          dsn: process.env.EXPO_PUBLIC_SENTRY_DSN || 'https://b73520e1b6648db41574a92098b42ec2@o4510577981915136.ingest.us.sentry.io/4510577983356928',
+          debug: true,
+          // Disable tracing to fix Hermes EXC_BAD_ACCESS memory crash on iOS during auth API calls
+          enableTracing: false,
+        });
+      } catch (e) {
+        console.warn('Sentry initialization failed:', e);
+      }
+    }, 500);
+
+    return () => clearTimeout(sentryTimer);
   }, []);
 
   console.log('[Stripe] Initializing with key:', stripeKey ? stripeKey.substring(0, 10) + '...' : 'MISSING');
@@ -489,6 +504,9 @@ const menuStyles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 10,
     elevation: 10,
+  },
+  menuContainerTablet: {
+    width: 350,
   },
   menuHeader: {
     flexDirection: 'row',

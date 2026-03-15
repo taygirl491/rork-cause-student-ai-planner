@@ -46,6 +46,8 @@ import { StudyGroup } from "@/types";
 import { schedulePushNotification } from "@/functions/Notify";
 import SearchBar from "@/components/SearchBar";
 import { useStreak } from "@/contexts/StreakContext";
+import { useResponsive } from '@/utils/responsive';
+import ResponsiveContainer from '@/components/ResponsiveContainer';
 
 export default function StudyGroupsScreen() {
 	const router = useRouter();
@@ -79,6 +81,8 @@ export default function StudyGroupsScreen() {
 				(group.code?.toLowerCase() || '').includes(query)
 		);
 	}, [studyGroups, searchQuery]);
+
+	const { isTablet, normalize } = useResponsive();
 
 	const [groupName, setGroupName] = useState("");
 	const [groupClass, setGroupClass] = useState("");
@@ -552,7 +556,7 @@ export default function StudyGroupsScreen() {
 									style={{ width: '100%', alignItems: 'center' }}
 								>
 									<Animated.View
-										style={[styles.modalContent, { transform: [{ scale: scaleAnim }] }]}
+										style={[styles.modalContent, { minHeight: 300 }, { transform: [{ scale: scaleAnim }] }]}
 									>
 										<View style={styles.modalHeader}>
 											<Text style={styles.modalTitle}>Join Study Group</Text>

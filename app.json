@@ -16,7 +16,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "app.rork.cause-student-ai-planner",
-      "buildNumber": "1",
+      "buildNumber": "24",
       "infoPlist": {
         "NSPhotoLibraryUsageDescription": "Allow $(PRODUCT_NAME) to access your photos",
         "NSCameraUsageDescription": "Allow $(PRODUCT_NAME) to access your camera",
@@ -85,6 +85,7 @@
         }
       ],
       "expo-alarm-module",
+      "./plugins/withExcludeAlarmModuleIOS",
       [
         "@stripe/stripe-react-native",
         {

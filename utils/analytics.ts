@@ -2,7 +2,7 @@ import { Mixpanel } from "mixpanel-react-native";
 
 // Custom analytics utility to guard against missing native modules
 let analytics: any = null;
-const mixpanel = new Mixpanel("0224f6903ab5d177501450a30c6d819a", true);
+const mixpanel = new Mixpanel("0224f6903ab5d177501450a30c6d819a", false);
 
 let isInitialized = false;
 let initPromise: Promise<void> | null = null;
