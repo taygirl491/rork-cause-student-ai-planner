@@ -1,0 +1,28 @@
+# EAS Build ignore file
+# Includes files that should not be uploaded to EAS Build
+
+# Dependencies
+node_modules/
+
+# Native build artifacts
+android/.gradle/
+android/build/
+android/app/build/
+ios/build/
+ios/Pods/
+
+# Local configuration
+.env
+.env.local
+.env.*.local
+local.properties
+
+# Expo
+.expo/
+dist/
+web-build/
+
+# Debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*

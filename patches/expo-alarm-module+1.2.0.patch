@@ -99,10 +99,29 @@ index 9ad7803..3c4ddad 100644
      
      func remove(_ uid: String) {
 diff --git a/node_modules/expo-alarm-module/ios/ExpoAlarmModule.swift b/node_modules/expo-alarm-module/ios/ExpoAlarmModule.swift
-index 85af3bf..9395ec2 100644
+index 85af3bf..eab72b1 100644
 --- a/node_modules/expo-alarm-module/ios/ExpoAlarmModule.swift
 +++ b/node_modules/expo-alarm-module/ios/ExpoAlarmModule.swift
-@@ -42,7 +42,11 @@ class ExpoAlarmModule: NSObject, UNUserNotificationCenterDelegate, AVAudioPlayer
+@@ -11,6 +11,9 @@ class ExpoAlarmModule: NSObject, UNUserNotificationCenterDelegate, AVAudioPlayer
+     
+     public override init() {
+         super.init()
++        // --- PATCH START ---
++        // Commented out to prevent crash on iOS startup (hijacking UNUserNotificationCenter)
++        /*
+         do {
+             try AVAudioSession.sharedInstance().setCategory(AVAudioSession.Category.playback)
+         } catch let error as NSError{
+@@ -25,6 +28,8 @@ class ExpoAlarmModule: NSObject, UNUserNotificationCenterDelegate, AVAudioPlayer
+         notificationScheduler.requestAuthorization()
+         notificationScheduler.registerNotificationCategories()
+         UNUserNotificationCenter.current().delegate = self
++        */
++        // --- PATCH END ---
+ 
+         // Add observer for applicationDidBecomeActive
+         NotificationCenter.default.addObserver(
+@@ -42,7 +47,11 @@ class ExpoAlarmModule: NSObject, UNUserNotificationCenterDelegate, AVAudioPlayer
  
      @objc(set:withResolver:withRejecter:)
      func set(alarm: NSDictionary, resolve:RCTPromiseResolveBlock, reject:RCTPromiseRejectBlock) -> Void {
@@ -115,7 +134,7 @@ index 85af3bf..9395ec2 100644
  
          manager.schedule(alarmToUse);    
  
-@@ -193,7 +197,10 @@ class ExpoAlarmModule: NSObject, UNUserNotificationCenterDelegate, AVAudioPlayer
+@@ -193,7 +202,10 @@ class ExpoAlarmModule: NSObject, UNUserNotificationCenterDelegate, AVAudioPlayer
              },
              nil)
          

@@ -30,6 +30,8 @@ import { Task, TaskType, Priority, ReminderTime } from '@/types';
 import Mascot from '@/components/Mascot';
 import SearchBar from '@/components/SearchBar';
 import * as Analytics from '@/utils/analytics';
+import { useResponsive } from '@/utils/responsive';
+import ResponsiveContainer from '@/components/ResponsiveContainer';
 
 
 export default function TasksScreen() {
@@ -404,6 +406,8 @@ export default function TasksScreen() {
       </Pressable>
     );
   };
+  const { isTablet, normalize } = useResponsive();
+
   // Pull-to-refresh handler
   const onRefresh = async () => {
     setRefreshing(true);
@@ -413,11 +417,15 @@ export default function TasksScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
+      <ResponsiveContainer>
       <FlatList
+        key={isTablet ? 'tablet' : 'mobile'}
+        numColumns={isTablet ? 2 : 1}
+        columnWrapperStyle={isTablet ? styles.columnWrapper : null}
         data={filteredTasks}
         renderItem={renderTaskItem}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.taskListContent}
+        contentContainerStyle={[styles.taskListContent, isTablet && { paddingHorizontal: 20 }]}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -506,6 +514,7 @@ export default function TasksScreen() {
         )}
         showsVerticalScrollIndicator={false}
       />
+      </ResponsiveContainer>
 
       <Modal visible={showModal} transparent animationType="fade" onRequestClose={() => setShowModal(false)}>
         <SafeAreaView style={styles.safeAreaModal}>
@@ -523,7 +532,11 @@ export default function TasksScreen() {
                 onPress={(e) => e.stopPropagation()}
                 style={{ width: '100%', alignItems: 'center' }}
               >
-                <Animated.View style={[styles.modalContent, { transform: [{ scale: scaleAnim }] }]}>
+                <Animated.View style={[
+                  styles.modalContent, 
+                  { transform: [{ scale: scaleAnim }] },
+                  isTablet && styles.modalContentTablet
+                ]}>
                   <View style={styles.modalHeader}>
                     <Text style={styles.modalTitle}>{isEditing ? 'Edit Task' : 'Create Task'}</Text>
                     <TouchableOpacity onPress={() => {
@@ -1015,8 +1028,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   taskListContent: {
-    paddingHorizontal: 20,
-    paddingBottom: 20,
+    padding: 20,
+    paddingBottom: 100,
   },
   footerLoader: {
     paddingVertical: 20,
@@ -1042,23 +1055,27 @@ const styles = StyleSheet.create({
     color: colors.textLight,
     marginTop: 8,
   },
+  columnWrapper: {
+    justifyContent: 'space-between',
+    gap: 12,
+  },
   taskList: {
     paddingHorizontal: 20,
     paddingBottom: 20,
   },
   taskCard: {
     backgroundColor: colors.surface,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 10,
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     shadowColor: colors.cardShadow,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowRadius: 4,
+    elevation: 2,
+    flex: 1, // Ensure card grows in grid
   },
   taskCardCompleted: {
     opacity: 0.6,
@@ -1130,9 +1147,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: 24,
     padding: 24,
-    width: '100%',
-    maxWidth: 500,
+    width: '90%',
     maxHeight: '90%',
+  },
+  modalContentTablet: {
+    width: 600,
+    maxWidth: '80%',
   },
   modalHeader: {
     flexDirection: 'row',

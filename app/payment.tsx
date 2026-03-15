@@ -354,6 +354,7 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.2,
         shadowRadius: 4,
         elevation: 4,
+        zIndex: 1,
     },
     popularText: {
         color: colors.surface,
@@ -366,6 +367,7 @@ const styles = StyleSheet.create({
         fontWeight: '700',
         color: colors.text,
         marginBottom: 16,
+        marginTop: 8, // Added margin to clear the badge
         textAlign: 'center',
     },
     priceContainer: {

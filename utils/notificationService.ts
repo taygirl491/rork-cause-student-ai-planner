@@ -1,7 +1,14 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import { Task, ReminderTime, Goal } from '@/types';
-import { scheduleAlarm, removeAlarm } from 'expo-alarm-module';
+
+// expo-alarm-module is Android-only. Importing it on iOS causes the native
+// module constructor (ExpoAlarmModule.swift) to run, which calls
+// UNUserNotificationCenter.current().delegate = self — stealing the delegate
+// from expo-notifications and causing a SIGABRT crash.
+const { scheduleAlarm, removeAlarm } = Platform.OS === 'android'
+  ? require('expo-alarm-module')
+  : { scheduleAlarm: null as any, removeAlarm: null as any };
 
 // Configure notification handler
 Notifications.setNotificationHandler({

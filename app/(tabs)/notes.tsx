@@ -24,6 +24,8 @@ import colors from "@/constants/colors";
 import { useApp } from "@/contexts/AppContext";
 import SearchBar from "@/components/SearchBar";
 import * as Analytics from "@/utils/analytics";
+import { useResponsive } from '@/utils/responsive';
+import ResponsiveContainer from '@/components/ResponsiveContainer';
 import { Note } from "@/types";
 import { useStreak } from "@/contexts/StreakContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -96,6 +98,8 @@ export default function NotesScreen() {
 		setSelectedNote(note);
 		setShowActionSheet(true);
 	};
+
+	const { isTablet, normalize } = useResponsive();
 
 	const handleEdit = () => {
 		if (!selectedNote || !checkAccess()) return;
@@ -211,9 +215,10 @@ export default function NotesScreen() {
 			const safeTitle = selectedNote.title.replace(/[^a-z0-9]/gi, '_').substring(0, 30) || 'note';
 			const filename = `${safeTitle}_${Date.now()}.txt`;
 
-			// Use cacheDirectory for sharing as it's cleaner for temporary exports
-			const dir = FileSystem.cacheDirectory;
-			if (!dir) throw new Error("Cache directory not available");
+			// Use documentDirectory for sharing as it's more reliable across platforms
+			// @ts-ignore - Expo types are sometimes missing this property in newer versions
+			const dir = FileSystem.documentDirectory;
+			if (!dir) throw new Error("Document directory not available");
 
 			const fileUri = `${dir}${filename}`;
 			console.log('[Notes] target URI:', fileUri);
@@ -281,16 +286,18 @@ export default function NotesScreen() {
 	};
 
 	return (
-		<SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
+		<SafeAreaView style={styles.container} edges={["left", "right", "bottom"]}>
+			<ResponsiveContainer>
 			<UpgradeModal
 				visible={showUpgradeModal}
 				onClose={() => setShowUpgradeModal(false)}
 				featureName="Notes"
 				message="Upgrade to the Standard plan to create, edit, and organize unlimited notes."
 			/>
-			<View style={styles.header}>
-				<View style={styles.headerTitleRow}>
-					<Text style={styles.title}>Notes</Text>
+			<View style={[styles.header, isTablet && { paddingHorizontal: 40 }]}>
+				<View>
+					<Text style={[styles.title, { fontSize: normalize(32) }]}>My Notes 📓</Text>
+					<Text style={[styles.subtitle, { fontSize: normalize(14) }]}>Capture your thoughts</Text>
 					{isTrialActive && isTrialActive() && (
 						<View style={styles.trialBadge}>
 							<Sparkles size={12} color={colors.premium} />
@@ -392,12 +399,18 @@ export default function NotesScreen() {
 						</Text>
 					</View>
 				) : (
-					<View style={styles.notesList}>
+					<View style={[styles.notesList, isTablet && styles.notesListTablet]}>
 						{filteredNotes.map((note) => (
 							<TouchableOpacity
 								key={note.id}
-								style={styles.noteCard}
-								onPress={() => handleOpenNote(note)}
+								style={[styles.noteCard, isTablet && styles.noteCardTablet]}
+								onPress={() => {
+									if (checkAccess()) {
+										setSelectedNote(note);
+										setEditContent(note.content);
+										setShowDetailModal(true);
+									}
+								}}
 								onLongPress={() => handleLongPress(note)}
 							>
 								<View style={styles.noteHeader}>
@@ -425,6 +438,7 @@ export default function NotesScreen() {
 					</View>
 				)}
 			</ScrollView>
+			</ResponsiveContainer>
 
 			<Modal
 				visible={showModal}
@@ -448,7 +462,11 @@ export default function NotesScreen() {
 								style={{ width: '100%', alignItems: 'center' }}
 							>
 								<Animated.View
-									style={[styles.modalContent, { transform: [{ scale: scaleAnim }] }]}
+									style={[
+										styles.modalContent,
+										{ transform: [{ scale: scaleAnim }] },
+										isTablet && styles.modalContentTablet
+									]}
 								>
 									<View style={styles.modalHeader}>
 										<Text style={styles.modalTitle}>
@@ -557,6 +575,7 @@ export default function NotesScreen() {
 									style={[
 										styles.modalContent,
 										{ transform: [{ scale: detailScaleAnim }] },
+										isTablet && styles.modalContentTablet
 									]}
 								>
 									<View style={styles.modalHeader}>
@@ -790,6 +809,12 @@ const styles = StyleSheet.create({
 		paddingHorizontal: 20,
 		paddingBottom: 20,
 	},
+	notesListTablet: {
+		flexDirection: 'row',
+		flexWrap: 'wrap',
+		paddingHorizontal: 40,
+		gap: 16,
+	},
 	noteCard: {
 		backgroundColor: colors.surface,
 		borderRadius: 16,
@@ -800,6 +825,10 @@ const styles = StyleSheet.create({
 		shadowOpacity: 0.1,
 		shadowRadius: 8,
 		elevation: 3,
+	},
+	noteCardTablet: {
+		width: '48%', // 2 columns
+		marginBottom: 0,
 	},
 	noteHeader: {
 		flexDirection: "row",
@@ -847,7 +876,10 @@ const styles = StyleSheet.create({
 		borderRadius: 24,
 		padding: 24,
 		width: "100%",
-		maxWidth: 500,
+	},
+	modalContentTablet: {
+		width: 600,
+		maxWidth: '80%',
 	},
 	modalHeader: {
 		flexDirection: "row",

@@ -28,6 +28,8 @@ import { AIMessage } from '@/types';
 import Markdown from 'react-native-markdown-display';
 import { Image } from 'react-native';
 import UpgradeModal from '@/components/UpgradeModal';
+import { useResponsive } from '@/utils/responsive';
+import ResponsiveContainer from '@/components/ResponsiveContainer';
 
 const STORAGE_KEY_PREFIX = 'ai-buddy-conversation-';
 const SHARED_MEMORY_KEY = 'ai-buddy-shared-memory';
@@ -395,6 +397,8 @@ export default function AIBuddyScreen() {
     );
   };
 
+  const { isTablet, normalize } = useResponsive();
+
   const getModeTitle = (m: AIMode) => {
     switch (m) {
       case 'homework': return 'Your AI Sidekick 🤖';
@@ -487,120 +491,122 @@ export default function AIBuddyScreen() {
   };
 
   const renderDashboard = () => (
-    <ScrollView style={styles.dashboardContainer} contentContainerStyle={styles.dashboardContent}>
+    <ScrollView style={styles.dashboardContainer} contentContainerStyle={[styles.dashboardContent, isTablet && { paddingHorizontal: 40 }]}>
       <View style={styles.dashboardHeader}>
-        <Text style={styles.dashboardTitle}>How can I help you?</Text>
-        <Text style={styles.dashboardSubtitle}>Choose a mode to get started</Text>
+        <Text style={[styles.dashboardTitle, { fontSize: normalize(28) }]}>How can I help you?</Text>
+        <Text style={[styles.dashboardSubtitle, { fontSize: normalize(16) }]}>Choose a mode to get started</Text>
       </View>
 
-      <TouchableOpacity style={styles.card} onPress={() => {
-        if (getFeatureLimit && getFeatureLimit('aiInquiryLimit') === 0) {
-          setShowUpgradeModal(true);
-          return;
-        }
-        setMode('homework');
-      }}>
-        <View style={[styles.cardIcon, { backgroundColor: colors.primaryLight + '30' }]}>
-          <BookOpen size={32} color={colors.primary} />
-        </View>
-        <View style={styles.cardTextContainer}>
-          <View style={styles.cardTitleRow}>
-            <Text style={styles.cardTitle}>Your AI Sidekick 🤖</Text>
-            {isTrialActive && isTrialActive() && (
-              <View style={styles.trialBadge}>
-                <Sparkles size={10} color={colors.premium} />
-                <Text style={styles.trialBadgeText}>Premium</Text>
-              </View>
-            )}
-            {!checkPermission('aiInquiryLimit') && (
-              <Sparkles size={14} color={colors.premium} />
-            )}
+      <View style={isTablet ? styles.cardGridTablet : null}>
+        <TouchableOpacity style={[styles.card, isTablet && styles.cardTablet]} onPress={() => {
+          if (getFeatureLimit && getFeatureLimit('aiInquiryLimit') === 0) {
+            setShowUpgradeModal(true);
+            return;
+          }
+          setMode('homework');
+        }}>
+          <View style={[styles.cardIcon, { backgroundColor: colors.primaryLight + '30' }]}>
+            <BookOpen size={32} color={colors.primary} />
           </View>
-          <Text style={styles.cardDescription}>Always here to help. Upload photos of homework or assignments.</Text>
-        </View>
-      </TouchableOpacity>
-
-      <TouchableOpacity style={styles.card} onPress={() => {
-        if (getFeatureLimit && getFeatureLimit('aiInquiryLimit') === 0) {
-          setShowUpgradeModal(true);
-          return;
-        }
-        setMode('summarize');
-      }}>
-        <View style={[styles.cardIcon, { backgroundColor: '#10b98130' }]}>
-          <FileText size={32} color="#10b981" />
-        </View>
-        <View style={styles.cardTextContainer}>
-          <View style={styles.cardTitleRow}>
-            <Text style={styles.cardTitle}>Skip to the Good Parts ⏩</Text>
-            {isTrialActive && isTrialActive() && (
-              <View style={styles.trialBadge}>
-                <Sparkles size={10} color={colors.premium} />
-                <Text style={styles.trialBadgeText}>Premium</Text>
-              </View>
-            )}
-            {!checkPermission('aiInquiryLimit') && (
-              <Sparkles size={14} color={colors.premium} />
-            )}
+          <View style={styles.cardTextContainer}>
+            <View style={styles.cardTitleRow}>
+              <Text style={[styles.cardTitle, { fontSize: normalize(18) }]}>Your AI Sidekick 🤖</Text>
+              {isTrialActive && isTrialActive() && (
+                <View style={styles.trialBadge}>
+                  <Sparkles size={10} color={colors.premium} />
+                  <Text style={styles.trialBadgeText}>Premium</Text>
+                </View>
+              )}
+              {!checkPermission('aiInquiryLimit') && (
+                <Sparkles size={14} color={colors.premium} />
+              )}
+            </View>
+            <Text style={[styles.cardDescription, { fontSize: normalize(14) }]}>Always here to help. Upload photos of homework or assignments.</Text>
           </View>
-          <Text style={styles.cardDescription}>Condense any text in seconds.</Text>
-        </View>
-      </TouchableOpacity>
+        </TouchableOpacity>
 
-      <TouchableOpacity style={styles.card} onPress={() => {
-        if (getFeatureLimit && getFeatureLimit('aiInquiryLimit') === 0) {
-          setShowUpgradeModal(true);
-          return;
-        }
-        setMode('quiz');
-      }}>
-        <View style={[styles.cardIcon, { backgroundColor: '#f59e0b30' }]}>
-          <BrainCircuit size={32} color="#f59e0b" />
-        </View>
-        <View style={styles.cardTextContainer}>
-          <View style={styles.cardTitleRow}>
-            <Text style={styles.cardTitle}>Brain Workout 🧠</Text>
-            {isTrialActive && isTrialActive() && (
-              <View style={styles.trialBadge}>
-                <Sparkles size={10} color={colors.premium} />
-                <Text style={styles.trialBadgeText}>Premium</Text>
-              </View>
-            )}
-            {!checkPermission('aiInquiryLimit') && (
-              <Sparkles size={14} color={colors.premium} />
-            )}
+        <TouchableOpacity style={[styles.card, isTablet && styles.cardTablet]} onPress={() => {
+          if (getFeatureLimit && getFeatureLimit('aiInquiryLimit') === 0) {
+            setShowUpgradeModal(true);
+            return;
+          }
+          setMode('summarize');
+        }}>
+          <View style={[styles.cardIcon, { backgroundColor: '#10b98130' }]}>
+            <FileText size={32} color="#10b981" />
           </View>
-          <Text style={styles.cardDescription}>Get quizzed on anything you're studying. Upload your notes.</Text>
-        </View>
-      </TouchableOpacity>
-
-
-      <TouchableOpacity style={styles.card} onPress={() => {
-        if (checkPermission && checkPermission('canSyncSyllabus')) {
-          router.push('/syllabus-parser');
-        } else {
-          setShowUpgradeModal(true);
-        }
-      }}>
-        <View style={[styles.cardIcon, { backgroundColor: colors.primaryLight + '30' }]}>
-          <Clock size={32} color={colors.primary} />
-        </View>
-        <View style={styles.cardTextContainer}>
-          <View style={styles.cardTitleRow}>
-            <Text style={styles.cardTitle}>Import Syllabus</Text>
-            {isTrialActive && isTrialActive() && (
-              <View style={styles.trialBadge}>
-                <Sparkles size={10} color={colors.premium} />
-                <Text style={styles.trialBadgeText}>Premium</Text>
-              </View>
-            )}
-            {!checkPermission('canSyncSyllabus') && (
-              <Sparkles size={14} color={colors.premium} />
-            )}
+          <View style={styles.cardTextContainer}>
+            <View style={styles.cardTitleRow}>
+              <Text style={[styles.cardTitle, { fontSize: normalize(18) }]}>Skip to the Good Parts ⏩</Text>
+              {isTrialActive && isTrialActive() && (
+                <View style={styles.trialBadge}>
+                  <Sparkles size={10} color={colors.premium} />
+                  <Text style={styles.trialBadgeText}>Premium</Text>
+                </View>
+              )}
+              {!checkPermission('aiInquiryLimit') && (
+                <Sparkles size={14} color={colors.premium} />
+              )}
+            </View>
+            <Text style={[styles.cardDescription, { fontSize: normalize(14) }]}>Condense any text in seconds.</Text>
           </View>
-          <Text style={styles.cardDescription}>Automatically add your course schedule from a PDF or image.</Text>
-        </View>
-      </TouchableOpacity>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={[styles.card, isTablet && styles.cardTablet]} onPress={() => {
+          if (getFeatureLimit && getFeatureLimit('aiInquiryLimit') === 0) {
+            setShowUpgradeModal(true);
+            return;
+          }
+          setMode('quiz');
+        }}>
+          <View style={[styles.cardIcon, { backgroundColor: '#f59e0b30' }]}>
+            <BrainCircuit size={32} color="#f59e0b" />
+          </View>
+          <View style={styles.cardTextContainer}>
+            <View style={styles.cardTitleRow}>
+              <Text style={[styles.cardTitle, { fontSize: normalize(18) }]}>Brain Workout 🧠</Text>
+              {isTrialActive && isTrialActive() && (
+                <View style={styles.trialBadge}>
+                  <Sparkles size={10} color={colors.premium} />
+                  <Text style={styles.trialBadgeText}>Premium</Text>
+                </View>
+              )}
+              {!checkPermission('aiInquiryLimit') && (
+                <Sparkles size={14} color={colors.premium} />
+              )}
+            </View>
+            <Text style={[styles.cardDescription, { fontSize: normalize(14) }]}>Get quizzed on anything you're studying. Upload your notes.</Text>
+          </View>
+        </TouchableOpacity>
+
+
+        <TouchableOpacity style={[styles.card, isTablet && styles.cardTablet]} onPress={() => {
+          if (checkPermission && checkPermission('canSyncSyllabus')) {
+            router.push('/syllabus-parser');
+          } else {
+            setShowUpgradeModal(true);
+          }
+        }}>
+          <View style={[styles.cardIcon, { backgroundColor: colors.primaryLight + '30' }]}>
+            <Clock size={32} color={colors.primary} />
+          </View>
+          <View style={styles.cardTextContainer}>
+            <View style={styles.cardTitleRow}>
+              <Text style={[styles.cardTitle, { fontSize: normalize(18) }]}>Import Syllabus</Text>
+              {isTrialActive && isTrialActive() && (
+                <View style={styles.trialBadge}>
+                  <Sparkles size={10} color={colors.premium} />
+                  <Text style={styles.trialBadgeText}>Premium</Text>
+                </View>
+              )}
+              {!checkPermission('canSyncSyllabus') && (
+                <Sparkles size={14} color={colors.premium} />
+              )}
+            </View>
+            <Text style={[styles.cardDescription, { fontSize: normalize(14) }]}>Automatically add your course schedule from a PDF or image.</Text>
+          </View>
+        </TouchableOpacity>
+      </View>
     </ScrollView>
   );
 
@@ -723,7 +729,9 @@ export default function AIBuddyScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
-      {mode ? renderChat() : renderDashboard()}
+      <ResponsiveContainer>
+        {mode ? renderChat() : renderDashboard()}
+      </ResponsiveContainer>
       <UpgradeModal
         visible={showUpgradeModal}
         onClose={() => setShowUpgradeModal(false)}
@@ -770,6 +778,15 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 3,
+  },
+  cardGridTablet: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 16,
+  },
+  cardTablet: {
+    width: '48%', // 2 columns
+    marginBottom: 0,
   },
   cardIcon: {
     width: 60,

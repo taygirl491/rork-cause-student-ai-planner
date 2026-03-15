@@ -14,6 +14,8 @@ import { formatStringTime12H } from '@/utils/timeUtils';
 import colors from '@/constants/colors';
 import { useApp } from '@/contexts/AppContext';
 import * as Analytics from '@/utils/analytics';
+import { useResponsive } from '@/utils/responsive';
+import ResponsiveContainer from '@/components/ResponsiveContainer';
 
 type ViewMode = 'month' | 'week' | 'day';
 
@@ -347,12 +349,15 @@ export default function CalendarScreen() {
     }
   };
 
+  const { isTablet, normalize } = useResponsive();
+
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Your Week at a Glance 🗓️</Text>
+      <ResponsiveContainer>
+      <View style={[styles.header, isTablet && { paddingHorizontal: 40 }]}>
+        <Text style={[styles.title, { fontSize: normalize(32) }]}>Your Week at a Glance 🗓️</Text>
         <View style={styles.syncContainer}>
-          <Text style={styles.calendarSyncText}>Sync Calendar</Text>
+          <Text style={[styles.calendarSyncText, { fontSize: normalize(14) }]}>Sync Calendar</Text>
           <Switch
             value={calendarSyncEnabled}
             onValueChange={handleToggleCalendarSync}
@@ -465,6 +470,7 @@ export default function CalendarScreen() {
         {viewMode === 'week' && renderWeekView()}
         {viewMode === 'day' && renderDayView()}
       </ScrollView>
+      </ResponsiveContainer>
     </SafeAreaView>
   );
 }
@@ -543,6 +549,8 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700' as const,
     color: colors.text,
+    textAlign: 'center',
+    flex: 1,
   },
   calendarScrollView: {
     flex: 1,

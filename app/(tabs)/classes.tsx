@@ -28,6 +28,8 @@ import { useApp } from '@/contexts/AppContext';
 import { Class } from '@/types';
 import SearchBar from '@/components/SearchBar';
 import * as Analytics from '@/utils/analytics';
+import { useResponsive } from '@/utils/responsive';
+import ResponsiveContainer from '@/components/ResponsiveContainer';
 
 const CLASS_COLORS = [colors.primary, colors.secondary, colors.success, colors.warning, '#56CCF2', '#f24a9eff'];
 const DAYS_OF_WEEK = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -254,6 +256,8 @@ export default function ClassesScreen() {
     );
   };
 
+  const { isTablet, normalize } = useResponsive();
+
   // Pull-to-refresh handler
   const onRefresh = async () => {
     setRefreshing(true);
@@ -307,11 +311,15 @@ export default function ClassesScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
+      <ResponsiveContainer>
       <FlatList
+        key={isTablet ? 'tablet' : 'mobile'}
+        numColumns={isTablet ? 2 : 1}
+        columnWrapperStyle={isTablet ? styles.columnWrapper : null}
         data={filteredClasses}
         renderItem={renderClassItem}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.classList}
+        contentContainerStyle={[styles.classList, isTablet && { paddingHorizontal: 20 }]}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -354,6 +362,7 @@ export default function ClassesScreen() {
         )}
         showsVerticalScrollIndicator={false}
       />
+      </ResponsiveContainer>
 
       <Modal visible={showClassModal} transparent animationType="fade" onRequestClose={() => setShowClassModal(false)}>
         <SafeAreaView style={styles.safeAreaModal}>
@@ -371,7 +380,11 @@ export default function ClassesScreen() {
                 onPress={(e) => e.stopPropagation()}
                 style={{ width: '100%', alignItems: 'center' }}
               >
-                <Animated.View style={[styles.modalContent, { transform: [{ scale: scaleAnim }] }]}>
+                <Animated.View style={[
+                  styles.modalContent, 
+                  { transform: [{ scale: scaleAnim }] },
+                  isTablet && styles.modalContentTablet
+                ]}>
                   <View style={styles.modalHeader}>
                     <Text style={styles.modalTitle}>{isEditing ? 'Edit Class' : 'Add Class'}</Text>
                     <TouchableOpacity onPress={() => {
@@ -584,6 +597,10 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
   },
   title: { fontSize: 32, fontWeight: '800', color: colors.text },
+  columnWrapper: {
+    justifyContent: 'space-between',
+    gap: 12,
+  },
   subtitle: { fontSize: 14, color: colors.textSecondary, marginTop: 4 },
   addButton: {
     width: 56,
@@ -609,7 +626,16 @@ const styles = StyleSheet.create({
 
   classList: { paddingHorizontal: 20, paddingBottom: 20 },
 
-  classCard: { backgroundColor: colors.surface, borderRadius: 16, padding: 16, marginBottom: 12, flexDirection: 'row', borderLeftWidth: 6, elevation: 3 },
+  classCard: { 
+    backgroundColor: colors.surface, 
+    borderRadius: 16, 
+    padding: 16, 
+    marginBottom: 12, 
+    flexDirection: 'row', 
+    borderLeftWidth: 6, 
+    elevation: 3,
+    flex: 1, // Add flex: 1 for grid rows
+  },
   classIconContainer: { width: 56, height: 56, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
   classContent: { flex: 1 },
   className: { fontSize: 17, fontWeight: '700', color: colors.text, marginBottom: 4 },
@@ -621,7 +647,17 @@ const styles = StyleSheet.create({
   classDates: { fontSize: 12, color: colors.textLight, marginTop: 8 },
 
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 },
-  modalContent: { backgroundColor: colors.surface, borderRadius: 24, padding: 24, width: '100%', maxWidth: 500, maxHeight: '90%' },
+  modalContent: { 
+    backgroundColor: colors.surface, 
+    borderRadius: 24, 
+    padding: 24, 
+    width: '90%', 
+    maxHeight: '90%' 
+  },
+  modalContentTablet: {
+    width: 600,
+    maxWidth: '80%',
+  },
 
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
   modalTitle: { fontSize: 24, fontWeight: '700', color: colors.text },
