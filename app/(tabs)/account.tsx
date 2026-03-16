@@ -697,7 +697,7 @@ export default function AccountScreen() {
         onRequestClose={() => setShowPaymentModal(false)}
       >
         <View style={styles.safeAreaModal}>
-          <View style={styles.modalOverlay}>
+          <View style={[styles.modalOverlay, isTablet && styles.modalOverlayTablet]}>
             <View style={[styles.modalContent, isTablet && styles.modalContentTablet, { paddingBottom: Math.max(insets.bottom, 24) }]}>
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>Choose Your Plan</Text>
@@ -886,7 +886,7 @@ export default function AccountScreen() {
             <TouchableOpacity
               activeOpacity={1}
               onPress={() => setShowPasswordModal(false)}
-              style={styles.modalOverlay}
+              style={[styles.modalOverlay, isTablet && styles.modalOverlayTablet]}
             >
               <TouchableOpacity
                 activeOpacity={1}
@@ -970,7 +970,7 @@ export default function AccountScreen() {
         onRequestClose={() => setShowTermsModal(false)}
       >
         <SafeAreaView style={styles.safeAreaModal}>
-          <View style={styles.modalOverlay}>
+          <View style={[styles.modalOverlay, isTablet && styles.modalOverlayTablet]}>
             <View style={[styles.modalContent, isTablet && styles.modalContentTablet, styles.legalModalContent, { paddingBottom: Math.max(insets.bottom + 24, 24) }]}>
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>Terms & Conditions</Text>
@@ -994,7 +994,7 @@ export default function AccountScreen() {
         onRequestClose={() => setShowPrivacyModal(false)}
       >
         <SafeAreaView style={styles.safeAreaModal}>
-          <View style={styles.modalOverlay}>
+          <View style={[styles.modalOverlay, isTablet && styles.modalOverlayTablet]}>
             <View style={[styles.modalContent, isTablet && styles.modalContentTablet, styles.legalModalContent, { paddingBottom: Math.max(insets.bottom + 24, 24) }]}>
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>Privacy Policy</Text>
@@ -1031,7 +1031,7 @@ export default function AccountScreen() {
                 setShowDeleteModal(false);
                 setDeletePassword('');
               }}
-              style={styles.modalOverlay}
+              style={[styles.modalOverlay, isTablet && styles.modalOverlayTablet]}
             >
               <TouchableOpacity
                 activeOpacity={1}
@@ -1336,19 +1336,27 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'flex-end',
+    alignItems: 'center',
+  },
+  modalOverlayTablet: {
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   modalContent: {
     backgroundColor: colors.surface,
-    borderRadius: 24,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     padding: 24,
-    width: '90%',
+    width: '100%',
     maxHeight: '90%',
   },
   modalContentTablet: {
     width: 600,
-    maxWidth: '80%',
+    maxWidth: '90%',
     alignSelf: 'center',
-    justifyContent: 'center',
+    borderRadius: 24,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
   },
   modalHeader: {
     flexDirection: 'row',

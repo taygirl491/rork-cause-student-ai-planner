@@ -1,5 +1,9 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
+import { doc, setDoc } from 'firebase/firestore';
+import { db } from '@/firebaseConfig';
+import Constants from 'expo-constants';
+import * as Device from 'expo-device';
 import { Task, ReminderTime, Goal } from '@/types';
 
 // expo-alarm-module is Android-only. Importing it on iOS causes the native
@@ -10,16 +14,21 @@ const { scheduleAlarm, removeAlarm } = Platform.OS === 'android'
   ? require('expo-alarm-module')
   : { scheduleAlarm: null as any, removeAlarm: null as any };
 
-// Configure notification handler
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
+/**
+ * Configure notification handler
+ * Note: This should be called only ONCE from the root layout
+ */
+export function initNotifications() {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+      shouldShowBanner: true,
+      shouldShowList: true,
+    }),
+  });
+}
 
 /**
  * Request notification permissions from the user
@@ -86,6 +95,16 @@ export async function setupNotificationChannels() {
  * @returns Promise<string | undefined> - The Expo push token
  */
 export async function registerForPushNotificationsAsync(): Promise<string | undefined> {
+  if (Platform.OS === 'web') {
+    return undefined;
+  }
+
+  // DEVICE CHECK
+  if (!Device.isDevice) {
+    console.log("Push notifications only work on physical devices");
+    return undefined;
+  }
+
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync('task-reminders-v3', {
       name: 'Task Reminders',
@@ -93,10 +112,6 @@ export async function registerForPushNotificationsAsync(): Promise<string | unde
       vibrationPattern: [0, 250, 250, 250],
       lightColor: '#6366F1',
     });
-  }
-
-  if (Platform.OS === 'web') {
-    return undefined;
   }
 
   const { status: existingStatus } = await Notifications.getPermissionsAsync();
@@ -118,9 +133,16 @@ export async function registerForPushNotificationsAsync(): Promise<string | unde
 
   while (retries < maxRetries) {
     try {
+      const projectId =
+        Constants?.expoConfig?.extra?.eas?.projectId ??
+        Constants?.easConfig?.projectId;
+
+      if (!projectId) throw new Error("EAS Project ID not found");
+
       const token = (await Notifications.getExpoPushTokenAsync({
-          // projectId: Constants.expoConfig?.extra?.eas?.projectId, // Optional if configured in app.json
+        projectId,
       })).data;
+      
       console.log("Expo Push Token:", token);
       return token;
     } catch (error: any) {
@@ -137,6 +159,23 @@ export async function registerForPushNotificationsAsync(): Promise<string | unde
       console.error("Error fetching push token:", error);
       return undefined;
     }
+  }
+}
+
+/**
+ * Save push token to Firestore
+ */
+export async function savePushToken(userId: string, token: string, email?: string, name?: string) {
+  try {
+    const userRef = doc(db, "users", userId);
+    const data: any = { pushToken: token };
+    if (email) data.email = email;
+    if (name) data.name = name;
+    
+    await setDoc(userRef, data, { merge: true });
+    console.log("Push token and user data saved to Firestore");
+  } catch (e) {
+    console.error("Error saving push token to Firestore:", e);
   }
 }
 
@@ -625,3 +664,16 @@ export async function scheduleHabitReminder(goalTitle: string, habitTitle: strin
   }
 }
 
+/**
+ * Schedule a simple push notification
+ */
+export async function schedulePushNotification(content: { title: string, body: string, data?: any }) {
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title: content.title,
+      body: content.body,
+      data: content.data || {},
+    },
+    trigger: null, // deliver immediately
+  });
+}

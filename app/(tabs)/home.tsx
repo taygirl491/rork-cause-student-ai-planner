@@ -96,10 +96,16 @@ export default function HomeScreen() {
     checkTrialModal();
   }, [user]);
 
-  // Refresh gamification points continuously whenever coming back to this screen
+  const lastFocusRef = React.useRef(0);
+
+  // Refresh gamification points whenever coming back to this screen
   useFocusEffect(
     useCallback(() => {
-      if (typeof refreshStreak === 'function') {
+      const now = Date.now();
+      // Only refresh if it's been more than 30 seconds since last focus refresh
+      // This prevents loops if focus triggers too rapidly
+      if (typeof refreshStreak === 'function' && now - lastFocusRef.current > 30000) {
+        lastFocusRef.current = now;
         refreshStreak({ silent: true });
       }
     }, [refreshStreak])

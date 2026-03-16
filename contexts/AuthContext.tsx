@@ -183,13 +183,14 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
           createdAt: backendUser?.createdAt || new Date().toISOString(),
         };
 
+        // 6. Sync purpose statement if exists
+        syncPurposeStatement(firebaseUser.uid);
+
+        setRegisteredAt(Date.now());
         setAuthData({
           user: userData,
           isAuthenticated: true,
         });
-
-        // 6. Sync purpose statement if exists
-        syncPurposeStatement(firebaseUser.uid);
 
         console.log('[AuthContext] Registration complete.');
         return firebaseUser;
@@ -197,10 +198,13 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         console.error('[AuthContext] Registration error details:', error.code, error.message);
         throw error;
       } finally {
-        // Delay flag reset to let Sentry/Analytics/Navigation settle
+        // Keep the registering flag true for a few more seconds to prevent layout effects 
+        // (like Sentry/Analytics context updates) from firing while the bridge is still 
+        // busy with registration cleanup and navigation.
         setTimeout(() => {
+          console.log('[AuthContext] Registration flag reset.');
           isRegisteringRef.current = false;
-        }, 2000);
+        }, 5000); // 5 seconds of safety
       }
     },
     onSuccess: () => {
