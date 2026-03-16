@@ -89,7 +89,7 @@ app.use((req, res, next) => {
 // Rate limiting
 const limiter = rateLimit({
 	windowMs: 15 * 60 * 1000, // 15 minutes
-	max: 500, // limit each IP to 500 requests per windowMs (increased for polling)
+	max: 2000, // limit each IP to 2000 requests per windowMs (increased for polling and development)
 	handler: (req, res) => {
 		res.status(429).json({
 			success: false,

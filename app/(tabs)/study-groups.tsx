@@ -43,7 +43,7 @@ import colors from "@/constants/colors";
 import { useApp } from "@/contexts/AppContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { StudyGroup } from "@/types";
-import { schedulePushNotification } from "@/functions/Notify";
+import * as NotificationService from "@/utils/notificationService";
 import SearchBar from "@/components/SearchBar";
 import { useStreak } from "@/contexts/StreakContext";
 import { useResponsive } from '@/utils/responsive';
@@ -148,7 +148,7 @@ export default function StudyGroupsScreen() {
 						{ text: "OK" }
 					]
 				);
-				schedulePushNotification({
+				NotificationService.schedulePushNotification({
 					title: "Group Created!",
 					body: `Group Code: ${newGroup.code}\n\nShare this code with others to join the group.`,
 					data: { group: newGroup },
@@ -221,7 +221,7 @@ export default function StudyGroupsScreen() {
 
 			// Otherwise it's a successful join (result.status === 'joined')
 			if ('name' in result) {
-				schedulePushNotification({
+				NotificationService.schedulePushNotification({
 					title: "Group Joined!",
 					body: `You have joined the group: ${result.name}`,
 					data: { group: result },

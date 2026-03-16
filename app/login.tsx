@@ -7,7 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Mail, Lock, GraduationCap, Eye, EyeOff } from 'lucide-react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import colors from '@/constants/colors';
-import { registerForPushNotificationsAsync, savePushToken } from '@/functions/Notify';
+import * as NotificationService from '@/utils/notificationService';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '@/firebaseConfig';
 import Button from '@/components/Button';
@@ -57,9 +57,9 @@ export default function LoginScreen() {
       // Ensure onboarding is marked as complete on successful login
       await AsyncStorage.setItem('@onboarding_complete', 'true');
 
-      const token = await registerForPushNotificationsAsync();
+      const token = await NotificationService.registerForPushNotificationsAsync();
       if (user && token) {
-        await savePushToken(user.uid, token, user.email || undefined);
+        await NotificationService.savePushToken(user.uid, token, user.email || undefined);
       }
 
       // Let _layout.tsx handle admin routing automatically

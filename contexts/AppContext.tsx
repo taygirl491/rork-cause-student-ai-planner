@@ -130,11 +130,8 @@ export const [AppProvider, useApp] = createContextHook(() => {
 		try {
 			const token = await NotificationService.registerForPushNotificationsAsync();
 			if (token && user?.uid) {
-				console.log("Registering push token:", token);
-				await apiService.post('/users/push-token', {
-					userId: user.uid,
-					token
-				});
+				console.log("Registering push token using consolidated service...");
+				await NotificationService.savePushToken(user.uid, token, user.email || undefined, user.name || undefined);
 			}
 		} catch (error) {
 			console.error("Error registering push token:", error);

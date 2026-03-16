@@ -74,7 +74,7 @@ export function StreakProvider({ children }: { children: ReactNode }) {
         }
     };
 
-    const loadStreakData = async (options?: { silent?: boolean }) => {
+    const loadStreakData = React.useCallback(async (options?: { silent?: boolean }) => {
         try {
             if (!options?.silent) setIsLoading(true);
 
@@ -92,27 +92,32 @@ export function StreakProvider({ children }: { children: ReactNode }) {
                 ]);
 
                 if (streakRes || statsRes) {
-                    const combinedData = { ...streakData } as StreakData;
-                    let hasUpdates = false;
+                    setStreakData(prevData => {
+                        const combinedData = { ...prevData } as StreakData;
+                        let hasUpdates = false;
 
-                    // If we successfully fetched a streak, merge it in
-                    if (streakRes && streakRes.success && streakRes.streak) {
-                        Object.assign(combinedData, streakRes.streak);
-                        hasUpdates = true;
-                    }
+                        // If we successfully fetched a streak, merge it in
+                        if (streakRes && streakRes.success && streakRes.streak) {
+                            Object.assign(combinedData, streakRes.streak);
+                            hasUpdates = true;
+                        }
 
-                    // If we successfully fetched gamification stats, merge them in (even if streak failed/empty)
-                    if (statsRes && statsRes.points !== undefined) {
-                        combinedData.points = statsRes.points;
-                        combinedData.level = statsRes.level || 1;
-                        hasUpdates = true;
-                    }
+                        // If we successfully fetched gamification stats, merge them in (even if streak failed/empty)
+                        if (statsRes && statsRes.points !== undefined) {
+                            combinedData.points = statsRes.points;
+                            combinedData.level = statsRes.level || 1;
+                            hasUpdates = true;
+                        }
 
-                    if (hasUpdates) {
-                        setStreakData(combinedData);
-                        // Update cache
-                        await AsyncStorage.setItem(STREAK_CACHE_KEY, JSON.stringify(combinedData));
-                    }
+                        if (hasUpdates) {
+                            // Update cache asynchronously
+                            AsyncStorage.setItem(STREAK_CACHE_KEY, JSON.stringify(combinedData)).catch(err => 
+                                console.error('Error caching streak data:', err)
+                            );
+                            return combinedData;
+                        }
+                        return prevData;
+                    });
                 }
             }
         } catch (error) {
@@ -120,14 +125,14 @@ export function StreakProvider({ children }: { children: ReactNode }) {
         } finally {
             if (!options?.silent) setIsLoading(false);
         }
-    };
+    }, [user?.uid]);
 
     const triggerAnimation = (streakNumber?: number) => {
         setAnimStreakNumber(streakNumber || streakData?.current || 0);
         setShowAnimation(true);
     };
 
-    const updateStreak = async (): Promise<{ increased: boolean; milestone: number | false }> => {
+    const updateStreak = React.useCallback(async (): Promise<{ increased: boolean; milestone: number | false }> => {
         try {
             if (!user?.uid) {
                 throw new Error('User not authenticated');
@@ -138,16 +143,25 @@ export function StreakProvider({ children }: { children: ReactNode }) {
             });
 
             if (response.success) {
-                const newStreakData = {
-                    ...streakData,
-                    ...response.streak,
-                    // If points were awarded in the same backend call, they might not be here
-                    // but we'll fetch stats soon anyway
-                } as StreakData;
+                let milestone: number | false = false;
+                let increased = false;
 
-                setStreakData(newStreakData);
-                // Update cache
-                await AsyncStorage.setItem(STREAK_CACHE_KEY, JSON.stringify(newStreakData));
+                setStreakData(prevData => {
+                    const newStreakData = {
+                        ...prevData,
+                        ...response.streak,
+                    } as StreakData;
+                    
+                    // Update cache
+                    AsyncStorage.setItem(STREAK_CACHE_KEY, JSON.stringify(newStreakData)).catch(err => 
+                        console.error('Error caching streak data:', err)
+                    );
+
+                    milestone = response.milestone;
+                    increased = response.increased;
+                    
+                    return newStreakData;
+                });
 
                 if (response.increased) {
                     triggerAnimation(response.streak.current);
@@ -164,15 +178,13 @@ export function StreakProvider({ children }: { children: ReactNode }) {
             console.error('Error updating streak:', error);
             return { increased: false, milestone: false };
         }
-    };
+    }, [user?.uid, streakData?.current]);
 
-    const refreshStreak = async (options?: { silent?: boolean }) => {
+    const refreshStreak = React.useCallback(async (options?: { silent?: boolean }) => {
         const oldStreak = streakData?.current || 0;
         await loadStreakData(options);
 
         // After loading fresh data, check if streak increased
-        // We do this here as well to capture increases that might happen 
-        // silently (e.g. from background tasks or sync)
         setStreakData(current => {
             if (current && current.current > oldStreak) {
                 // Trigger animation if it increased
@@ -180,9 +192,9 @@ export function StreakProvider({ children }: { children: ReactNode }) {
             }
             return current;
         });
-    };
+    }, [loadStreakData, streakData?.current]);
 
-    const awardPoints = async (points: number, activityType: 'task' | 'streak' | 'goal' | 'habit' | 'feature') => {
+    const awardPoints = React.useCallback(async (points: number, activityType: 'task' | 'streak' | 'goal' | 'habit' | 'feature') => {
         try {
             if (!user?.uid) return null;
 
@@ -205,7 +217,7 @@ export function StreakProvider({ children }: { children: ReactNode }) {
             console.error('Error awarding points:', error);
             return null;
         }
-    };
+    }, [user?.uid]);
 
     return (
         <StreakContext.Provider value={{

@@ -179,6 +179,12 @@ function RootLayoutNav() {
             const { InteractionManager } = await import('react-native');
             InteractionManager.runAfterInteractions(async () => {
               try {
+                // One more check to ensure we aren't still registering
+                if (isRegistering) {
+                  console.log('[Layout] Skipping context update while registration flag is active.');
+                  return;
+                }
+
                 console.log('[Layout] Applying Sentry/Analytics context for user:', user.uid);
 
                 Sentry.setUser({
@@ -274,6 +280,9 @@ function RootLayoutNav() {
 
   // Request notification permissions and setup handler
   useEffect(() => {
+    // Initialize the authoritative notification handler
+    NotificationService.initNotifications();
+
     // Request permissions on app start
     NotificationService.requestNotificationPermissions();
 
@@ -382,12 +391,10 @@ function RootLayout() {
     // before making aggressive native module calls that could crash ObjCTurboModule.
     const sentryTimer = setTimeout(() => {
       try {
-        Sentry.init({
-          dsn: process.env.EXPO_PUBLIC_SENTRY_DSN || 'https://b73520e1b6648db41574a92098b42ec2@o4510577981915136.ingest.us.sentry.io/4510577983356928',
-          debug: true,
-          // Disable tracing to fix Hermes EXC_BAD_ACCESS memory crash on iOS during auth API calls
-          enableTracing: false,
-        });
+          Sentry.init({
+            dsn: process.env.EXPO_PUBLIC_SENTRY_DSN || 'https://b73520e1b6648db41574a92098b42ec2@o4510577981915136.ingest.us.sentry.io/4510577983356928',
+            debug: true,
+          });
       } catch (e) {
         console.warn('Sentry initialization failed:', e);
       }

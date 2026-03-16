@@ -1,13 +1,14 @@
 import { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Alert, Image } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Alert, Image, Keyboard } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Mail, Lock, User as UserIcon, ArrowLeft, Eye, EyeOff } from 'lucide-react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import colors from '@/constants/colors';
-import { registerForPushNotificationsAsync, savePushToken } from '@/functions/Notify';
+import * as NotificationService from '@/utils/notificationService';
 import Button from '@/components/Button';
+import { InteractionManager } from 'react-native';
 
 export default function RegisterScreen() {
   const [name, setName] = useState('');
@@ -44,26 +45,30 @@ export default function RegisterScreen() {
     try {
       const user = await register(email.trim(), password, name.trim());
 
-      // Delay push notification registration slightly to allow the bridge to settle
-      // and prevent multiple concurrent native calls during account setup.
-      setTimeout(async () => {
+      // Use InteractionManager to ensure expensive native work (like push registration)
+      // happens AFTER initial registration processing is complete and UI is idle.
+      InteractionManager.runAfterInteractions(async () => {
         try {
           console.log('[Register] Registering for push notifications...');
-          const token = await registerForPushNotificationsAsync();
+          const token = await NotificationService.registerForPushNotificationsAsync();
           if (user && token) {
-            await savePushToken(user.uid, token, email.trim(), name.trim());
+            await NotificationService.savePushToken(user.uid, token, email.trim(), name.trim());
             console.log('[Register] Push token saved.');
           }
         } catch (pushError) {
           console.warn('[Register] Push notification registration failed:', pushError);
-          // Don't alert the user, this is non-critical for registration success
         }
-      }, 1500);
+      });
 
-      // Small delay before navigating to let native views (keyboard, inputs) teardown safely.
-      // This prevents the UIKit "message sent to deallocated view" crash (Thread 0 in crash log).
-      await new Promise(resolve => setTimeout(resolve, 350));
-      router.replace('/intro-survey');
+      // Dismiss keyboard and wait for its animation to finish
+      Keyboard.dismiss();
+      await new Promise(resolve => setTimeout(resolve, 750));
+
+      // Final wait to let the bridge settle before the heavy navigation transition
+      InteractionManager.runAfterInteractions(() => {
+        console.log('[Register] Navigating to intro-survey...');
+        router.replace('/intro-survey');
+      });
     } catch (error: any) {
       let errorMessage = 'An error occurred during registration. Please try again.';
 
