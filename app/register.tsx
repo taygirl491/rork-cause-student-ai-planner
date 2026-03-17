@@ -62,12 +62,15 @@ export default function RegisterScreen() {
 
       // Dismiss keyboard and wait for its animation to finish
       Keyboard.dismiss();
-      await new Promise(resolve => setTimeout(resolve, 750));
+      await new Promise(resolve => setTimeout(resolve, 1200));
 
       // Final wait to let the bridge settle before the heavy navigation transition
-      InteractionManager.runAfterInteractions(() => {
-        console.log('[Register] Navigating to intro-survey...');
-        router.replace('/intro-survey');
+      await new Promise<void>(resolve => {
+        InteractionManager.runAfterInteractions(() => {
+          console.log('[Register] Navigating to intro-survey...');
+          router.replace('/intro-survey');
+          resolve();
+        });
       });
     } catch (error: any) {
       let errorMessage = 'An error occurred during registration. Please try again.';

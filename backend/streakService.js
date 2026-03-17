@@ -153,8 +153,8 @@ async function getStreakData(userId) {
         const yesterday = getYesterday(today);
         const lastDate = streakData.lastCompletionDate;
 
-        // If user has never completed a task, ensure streak is 0
-        if (!lastDate || streakData.totalTasksCompleted === 0) {
+        // If user has never checked in, ensure streak is 0
+        if (!lastDate) {
             streakData.current = 0;
         }
         // If last completion was before yesterday, streak is broken

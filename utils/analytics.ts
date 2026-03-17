@@ -1,4 +1,5 @@
 import { Mixpanel } from "mixpanel-react-native";
+import { InteractionManager } from "react-native";
 
 // Custom analytics utility to guard against missing native modules
 let analytics: any = null;
@@ -12,6 +13,27 @@ try {
 } catch (e) {
   console.warn('[Analytics] Firebase Analytics native module not found.');
 }
+
+/**
+ * Safely execute a native module call after interactions complete.
+ * Catches native Obj-C / TurboModule exceptions that would otherwise
+ * propagate through ObjCTurboModule::performVoidMethodInvocation and abort().
+ */
+const _safeNativeCall = (label: string, fn: () => void | Promise<void>) => {
+  InteractionManager.runAfterInteractions(() => {
+    try {
+      const result = fn();
+      // If the call returns a promise, catch async failures too
+      if (result && typeof (result as any).catch === 'function') {
+        (result as Promise<void>).catch(err => {
+          console.warn(`[Analytics] Native call failed (async) [${label}]:`, err);
+        });
+      }
+    } catch (err) {
+      console.warn(`[Analytics] Native call failed (sync) [${label}]:`, err);
+    }
+  });
+};
 
 /**
  * Initialize Mixpanel and other services
@@ -54,9 +76,9 @@ export const logCustomEvent = async (eventName: string, params?: { [key: string]
     console.log(`[Analytics] Logging event: ${eventName}`, params);
     
     if (analytics) {
-      await analytics().logEvent(eventName, params);
+      _safeNativeCall(`logEvent:${eventName}`, () => analytics().logEvent(eventName, params));
     }
-    mixpanel.track(eventName, params);
+    _safeNativeCall(`mixpanel.track:${eventName}`, () => mixpanel.track(eventName, params));
   } catch (error) {
     console.error(`[Analytics] Error logging event ${eventName}:`, error);
   }
@@ -71,15 +93,19 @@ export const logScreenView = async (screenName: string, screenClass?: string) =>
     console.log(`[Analytics] Logging screen: ${screenName}`);
     
     if (analytics) {
-      await analytics().logScreenView({
+      _safeNativeCall(`logScreenView:${screenName}`, () =>
+        analytics().logScreenView({
+          screen_name: screenName,
+          screen_class: screenClass || screenName,
+        })
+      );
+    }
+    _safeNativeCall(`mixpanel.screen:${screenName}`, () =>
+      mixpanel.track('screen_view', {
         screen_name: screenName,
         screen_class: screenClass || screenName,
-      });
-    }
-    mixpanel.track('screen_view', {
-      screen_name: screenName,
-      screen_class: screenClass || screenName,
-    });
+      })
+    );
   } catch (error) {
     console.error(`[Analytics] Error logging screen view ${screenName}:`, error);
   }
@@ -94,10 +120,12 @@ export const setUserProperties = async (properties: { [key: string]: any }) => {
     console.log('[Analytics] Setting user properties:', Object.keys(properties));
     
     if (analytics) {
-      await analytics().setUserProperties(properties);
+      _safeNativeCall('setUserProperties', () => analytics().setUserProperties(properties));
     }
-    Object.keys(properties).forEach(key => {
-      mixpanel.getPeople().set(key, properties[key]);
+    _safeNativeCall('mixpanel.setProperties', () => {
+      Object.keys(properties).forEach(key => {
+        mixpanel.getPeople().set(key, properties[key]);
+      });
     });
   } catch (error) {
     console.error('[Analytics] Error setting user properties:', error);
@@ -113,14 +141,16 @@ export const setUserId = async (userId: string | null) => {
     console.log(`[Analytics] Setting user ID: ${userId ? 'PRESENT' : 'NULL'}`);
     
     if (analytics) {
-      await analytics().setUserId(userId);
+      _safeNativeCall('setUserId', () => analytics().setUserId(userId));
     }
     
-    if (userId) {
-      mixpanel.identify(userId);
-    } else {
-      mixpanel.reset();
-    }
+    _safeNativeCall('mixpanel.identify', () => {
+      if (userId) {
+        mixpanel.identify(userId);
+      } else {
+        mixpanel.reset();
+      }
+    });
     console.log('[Analytics] User ID set successfully.');
   } catch (error) {
     console.error('[Analytics] Error setting user ID:', error);
@@ -135,7 +165,9 @@ export const logRevenue = async (amount: number, currency: string = 'USD') => {
     await ensureInitialized();
     console.log(`[Analytics] Logging revenue: ${amount} ${currency}`);
     
-    mixpanel.getPeople().trackCharge(amount, { '$currency': currency });
+    _safeNativeCall('trackCharge', () =>
+      mixpanel.getPeople().trackCharge(amount, { '$currency': currency })
+    );
     await logCustomEvent('purchase_complete', { 
       amount, 
       currency,

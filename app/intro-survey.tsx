@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
     View,
     Text,
@@ -8,6 +8,7 @@ import {
     Dimensions,
     Animated,
     Platform,
+    InteractionManager,
 } from 'react-native';
 import Button from '@/components/Button';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -210,7 +211,10 @@ export default function IntroSurveyScreen() {
     const stepStartTimeRef = useRef<number>(Date.now());
 
     useEffect(() => {
-        Analytics.logCustomEvent('onboarding_started');
+        const handle = InteractionManager.runAfterInteractions(() => {
+            Analytics.logCustomEvent('onboarding_started');
+        });
+        return () => handle.cancel();
     }, []);
 
     const toggleOption = (id: number, type: string, option: string) => {

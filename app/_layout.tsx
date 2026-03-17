@@ -5,7 +5,7 @@ import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { View, TouchableOpacity, StyleSheet, Modal, Text, ScrollView, Pressable, StatusBar, Image, Platform } from "react-native";
+import { View, TouchableOpacity, StyleSheet, Modal, Text, ScrollView, Pressable, StatusBar, Image, Platform, InteractionManager } from "react-native";
 import { Menu, CheckSquare, Calendar, Target, FileText, BookOpen, Heart, Sparkles, User, Home, X, Users, WifiOff, RefreshCw } from "lucide-react-native";
 import { AppProvider, useApp } from "@/contexts/AppContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
@@ -218,10 +218,22 @@ function RootLayoutNav() {
     updateUserContext();
   }, [user]);
 
-  // Track screen views
+  // Track screen views — deferred to avoid native TurboModule calls during transitions
   useEffect(() => {
     if (segments) {
-      Analytics.logScreenView(segments);
+      // Skip screen view logging during the post-registration transition window
+      // to avoid firing native module calls while react-native-screens is unmounting
+      const isRecentRegistration = registeredAt && (Date.now() - registeredAt < 5000);
+      if (isRecentRegistration) {
+        console.log('[Layout] Skipping screen view log during registration grace period.');
+        return;
+      }
+
+      // Defer to after the screen transition animation completes
+      const handle = InteractionManager.runAfterInteractions(() => {
+        Analytics.logScreenView(segments);
+      });
+      return () => handle.cancel();
     }
   }, [segments]);
 
