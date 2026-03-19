@@ -323,22 +323,40 @@ app.delete("/api/users/:userId", authenticate, async (req, res) => {
 		const StudyGroup = require('./models/StudyGroup');
 		const Subscription = require('./models/Subscription');
 
+		// 0. Fetch the user first to get their email
+		const userToDelete = await User.findById(userId);
+		const userEmail = userToDelete?.email;
+
 		// Get Socket.IO instance
 		const io = req.app.get('io');
 
 		// Handle study groups properly
-		// 1. Find all groups where user is a member or admin
+		// 1. Find all groups where user is a member, creator, admin, or pending member
 		const userGroups = await StudyGroup.find({
 			$or: [
-				{ 'members.userId': userId },
 				{ creatorId: userId },
-				{ admins: userId }
+				{ admins: userId },
+				{ 'members.userId': userId },
+				{ 'pendingMembers.userId': userId },
+				...(userEmail ? [
+					{ 'members.email': userEmail },
+					{ 'pendingMembers.email': userEmail }
+				] : [])
 			]
 		});
 
 		for (const group of userGroups) {
-			// Remove user from members array
-			group.members = group.members.filter(member => member.userId !== userId);
+			console.log(`[Delete] Cleaning up user from group: ${group.name}`);
+
+			// Remove user from members array (using both UID and email for safety)
+			group.members = group.members.filter(member =>
+				member.userId !== userId && (userEmail ? member.email !== userEmail : true)
+			);
+
+			// Remove user from pendingMembers array
+			group.pendingMembers = group.pendingMembers.filter(member =>
+				member.userId !== userId && (userEmail ? member.email !== userEmail : true)
+			);
 
 			// Remove user from admins array if present
 			if (group.admins && group.admins.includes(userId)) {
@@ -362,9 +380,13 @@ app.delete("/api/users/:userId", authenticate, async (req, res) => {
 						group.creatorId = group.admins[0];
 					} else if (group.members.length > 0) {
 						group.creatorId = group.members[0].userId;
-						// Also make them an admin
-						if (!group.admins) group.admins = [];
-						group.admins.push(group.members[0].userId);
+						// Also make them an admin if they have a userId
+						if (group.members[0].userId) {
+							if (!group.admins) group.admins = [];
+							if (!group.admins.includes(group.members[0].userId)) {
+								group.admins.push(group.members[0].userId);
+							}
+						}
 					}
 					console.log(`✓ Transferred ownership of group "${group.name}" to ${group.creatorId}`);
 				}
