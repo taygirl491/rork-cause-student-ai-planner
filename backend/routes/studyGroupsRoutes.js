@@ -2,11 +2,10 @@ const express = require('express');
 const router = express.Router();
 const StudyGroup = require('../models/StudyGroup');
 const StudyGroupMessage = require('../models/StudyGroupMessageMongo');
-const {
-    sendJoinNotification,
     sendMessageNotification,
     sendMemberApprovalNotification,
-    sendMemberRejectionNotification
+    sendMemberRejectionNotification,
+    sendJoinRequestNotification
 } = require('../notificationService');
 const User = require('../models/User');
 
@@ -227,6 +226,13 @@ router.post('/join', async (req, res) => {
             groupId: group._id.toString(),
             pendingMember: { email, name, userId },
         });
+        
+        // Send Push Notification to admins
+        try {
+            await sendJoinRequestNotification(group.admins, group.name, name || email, group._id.toString());
+        } catch (notifError) {
+            console.error('[StudyGroups] Error sending join request notification:', notifError);
+        }
 
         res.json({
             success: true,
