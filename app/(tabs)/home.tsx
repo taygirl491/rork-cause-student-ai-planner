@@ -95,7 +95,6 @@ export default function HomeScreen() {
 
     checkTrialModal();
   }, [user]);
-
   const lastFocusRef = React.useRef(0);
 
   // Refresh gamification points whenever coming back to this screen

@@ -878,7 +878,7 @@ export default function AccountScreen() {
         animationType="slide"
         onRequestClose={() => setShowPasswordModal(false)}
       >
-        <SafeAreaView style={styles.safeAreaModal}>
+        <View style={styles.safeAreaModal}>
           <KeyboardAvoidingView
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
             style={{ flex: 1 }}
@@ -886,10 +886,14 @@ export default function AccountScreen() {
             <TouchableOpacity
               activeOpacity={1}
               onPress={() => setShowPasswordModal(false)}
-              style={[styles.modalOverlay, isTablet && styles.modalOverlayTablet]}
+              style={[
+                styles.modalOverlay,
+                isTablet && styles.modalOverlayTablet
+              ]}
             >
               <TouchableOpacity
                 activeOpacity={1}
+                style={!isTablet ? { width: '100%' } : null}
                 onPress={(e) => {
                   e.stopPropagation();
                   Keyboard.dismiss();
@@ -959,7 +963,7 @@ export default function AccountScreen() {
               </TouchableOpacity>
             </TouchableOpacity>
           </KeyboardAvoidingView>
-        </SafeAreaView>
+        </View>
       </Modal>
 
       {/* Terms Modal */}
@@ -969,7 +973,7 @@ export default function AccountScreen() {
         animationType="slide"
         onRequestClose={() => setShowTermsModal(false)}
       >
-        <SafeAreaView style={styles.safeAreaModal}>
+        <View style={styles.safeAreaModal}>
           <View style={[styles.modalOverlay, isTablet && styles.modalOverlayTablet]}>
             <View style={[styles.modalContent, isTablet && styles.modalContentTablet, styles.legalModalContent, { paddingBottom: Math.max(insets.bottom + 24, 24) }]}>
               <View style={styles.modalHeader}>
@@ -983,7 +987,7 @@ export default function AccountScreen() {
               </ScrollView>
             </View>
           </View>
-        </SafeAreaView>
+        </View>
       </Modal>
 
       {/* Privacy Modal */}
@@ -993,7 +997,7 @@ export default function AccountScreen() {
         animationType="slide"
         onRequestClose={() => setShowPrivacyModal(false)}
       >
-        <SafeAreaView style={styles.safeAreaModal}>
+        <View style={styles.safeAreaModal}>
           <View style={[styles.modalOverlay, isTablet && styles.modalOverlayTablet]}>
             <View style={[styles.modalContent, isTablet && styles.modalContentTablet, styles.legalModalContent, { paddingBottom: Math.max(insets.bottom + 24, 24) }]}>
               <View style={styles.modalHeader}>
@@ -1007,20 +1011,20 @@ export default function AccountScreen() {
               </ScrollView>
             </View>
           </View>
-        </SafeAreaView>
+        </View>
       </Modal>
 
       {/* Delete Account Modal */}
       <Modal
         visible={showDeleteModal}
         transparent
-        animationType="fade"
+        animationType="slide"
         onRequestClose={() => {
           setShowDeleteModal(false);
           setDeletePassword('');
         }}
       >
-        <SafeAreaView style={styles.safeAreaModal}>
+        <View style={styles.safeAreaModal}>
           <KeyboardAvoidingView
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
             style={{ flex: 1 }}
@@ -1035,6 +1039,7 @@ export default function AccountScreen() {
             >
               <TouchableOpacity
                 activeOpacity={1}
+                style={!isTablet ? { width: '100%' } : null}
                 onPress={(e) => {
                   e.stopPropagation();
                   Keyboard.dismiss();
@@ -1162,7 +1167,7 @@ export default function AccountScreen() {
               </TouchableOpacity>
             </TouchableOpacity>
           </KeyboardAvoidingView>
-        </SafeAreaView>
+        </View>
       </Modal>
     </SafeAreaView>
   );
@@ -1336,7 +1341,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'flex-end',
-    alignItems: 'center',
+    alignItems: 'stretch', // Fill width on mobile
   },
   modalOverlayTablet: {
     justifyContent: 'center',

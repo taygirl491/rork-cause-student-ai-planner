@@ -215,17 +215,20 @@ export default function NotesScreen() {
 			const safeTitle = selectedNote.title.replace(/[^a-z0-9]/gi, '_').substring(0, 30) || 'note';
 			const filename = `${safeTitle}_${Date.now()}.txt`;
 
-			// Use documentDirectory for sharing as it's more reliable across platforms
-			// @ts-ignore - Expo types are sometimes missing this property in newer versions
-			const dir = FileSystem.documentDirectory;
-			if (!dir) throw new Error("Document directory not available");
+			// Use cacheDirectory for sharing as it's more reliable across platforms for temporary files
+			// @ts-ignore - Expo types are sometimes missing this property
+			const dir = FileSystem.cacheDirectory;
+			if (!dir) throw new Error("Cache directory not available");
 
-			const fileUri = `${dir}${filename}`;
+			// Ensure directory URI ends with /
+			const normalizedDir = dir.endsWith('/') ? dir : `${dir}/`;
+			const fileUri = `${normalizedDir}${filename}`;
 			console.log('[Notes] target URI:', fileUri);
 
 			// Write the note content to the file
 			const content = `${selectedNote.title}\n\n${selectedNote.content}`;
-			await FileSystem.writeAsStringAsync(fileUri, content);
+			// @ts-ignore - Expo types are sometimes missing EncodingType
+			await FileSystem.writeAsStringAsync(fileUri, content, { encoding: FileSystem.EncodingType.UTF8 });
 			console.log('[Notes] File written successfully');
 
 			// Verify file exists and has size
@@ -238,6 +241,7 @@ export default function NotesScreen() {
 			// Share the file
 			if (await Sharing.isAvailableAsync()) {
 				console.log('[Notes] Sharing via Sharing.shareAsync');
+				// On iOS, sharing from cacheDirectory is generally more reliable
 				await Sharing.shareAsync(fileUri, {
 					mimeType: 'text/plain',
 					dialogTitle: `Download ${selectedNote.title}`,

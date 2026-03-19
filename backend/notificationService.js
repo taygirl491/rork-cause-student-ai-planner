@@ -42,6 +42,35 @@ async function getTokensForEmails(emails) {
 }
 
 /**
+ * Get push tokens for a list of user IDs
+ * @param {string[]} userIds - List of Firebase UIDs
+ * @returns {Promise<string[]>} - List of push tokens
+ */
+async function getTokensForUserIds(userIds) {
+    try {
+        if (!userIds || userIds.length === 0) return [];
+
+        console.log('[PushDebug] Looking for userIds:', userIds);
+
+        const tokens = [];
+        const users = await User.find({ _id: { $in: userIds } });
+
+        console.log(`[PushDebug] DB Query Result: Found ${users.length} users`);
+        
+        users.forEach((user) => {
+            if (user.expoPushToken && Expo.isExpoPushToken(user.expoPushToken)) {
+                tokens.push(user.expoPushToken);
+            }
+        });
+
+        return tokens;
+    } catch (error) {
+        console.error("Error fetching tokens for userIds:", error);
+        return [];
+    }
+}
+
+/**
  * Send push notifications
  * @param {string[]} tokens - List of expo push tokens
  * @param {string} title - Notification title
@@ -235,10 +264,43 @@ async function sendMemberRejectionNotification(email, groupName, groupId) {
     }
 }
 
+/**
+ * Send notification to admins about a new join request
+ * @param {string[]} adminUserIds - List of admin user IDs
+ * @param {string} groupName - Name of the study group
+ * @param {string} requesterName - Name of the user requesting to join
+ * @param {string} groupId - ID of the study group
+ */
+async function sendJoinRequestNotification(adminUserIds, groupName, requesterName, groupId) {
+    try {
+        if (!adminUserIds || adminUserIds.length === 0) return;
+
+        const tokens = await getTokensForUserIds(adminUserIds);
+        
+        if (tokens.length === 0) {
+            console.log(`No push tokens found for admins of group: ${groupName}`);
+            return;
+        }
+
+        await sendPushNotifications(
+            tokens,
+            `New Join Request: ${groupName}`,
+            `${requesterName} has requested to join your study group.`,
+            { groupId, type: "join_request" }
+        );
+
+        console.log(`Sent join request notifications to ${tokens.length} admins`);
+    } catch (error) {
+        console.error("Error sending join request push notification:", error);
+    }
+}
+
 module.exports = {
     sendJoinNotification,
     sendMessageNotification,
     sendTaskReminder,
     sendMemberApprovalNotification,
-    sendMemberRejectionNotification
+    sendMemberRejectionNotification,
+    sendJoinRequestNotification,
+    getTokensForUserIds
 };
