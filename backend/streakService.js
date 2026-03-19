@@ -78,11 +78,11 @@ async function updateStreak(userId) {
             pointsToAward = 5; // 5 points for maintaining streak
 
             // Update longest streak if needed
-            if (streakData.current > streakData.longest) {
+            if (streakData.current > (streakData.longest || 0)) {
                 streakData.longest = streakData.current;
             }
 
-            // Check for milestones (10 points for milestone)
+            // Check for milestones
             const milestones = [3, 7, 14, 30, 50, 100];
             if (milestones.includes(streakData.current)) {
                 milestone = streakData.current;
@@ -96,14 +96,21 @@ async function updateStreak(userId) {
             pointsToAward = 2; // 2 points for starting/restarting streak
         }
 
-        // Award points if any
+        // Apply streak data to user object
+        user.streak = streakData;
+
+        // Award points if any - pass user instance to avoid double save
         if (pointsToAward > 0) {
-            const gamificationService = require('./gamificationService');
-            await gamificationService.awardPoints(userId, pointsToAward, 'streak');
+            try {
+                const gamificationService = require('./gamificationService');
+                await gamificationService.awardPoints(userId, pointsToAward, 'streak', user);
+            } catch (gpError) {
+                console.error("Error awarding streak points:", gpError);
+                // Continue anyway, streak is more important than points
+            }
         }
 
-        // Update MongoDB
-        user.streak = streakData;
+        // Single Mongo update for everything
         await user.save();
 
         return {
@@ -112,6 +119,7 @@ async function updateStreak(userId) {
                 current: streakData.current,
                 longest: streakData.longest,
                 totalTasksCompleted: streakData.totalTasksCompleted,
+                lastCompletionDate: streakData.lastCompletionDate
             },
             increased,
             milestone,
@@ -167,7 +175,15 @@ async function getStreakData(userId) {
 
         return {
             success: true,
-            streak: streakData,
+            streak: {
+                current: streakData.current || 0,
+                longest: streakData.longest || 0,
+                totalTasksCompleted: streakData.totalTasksCompleted || 0,
+                lastCompletionDate: streakData.lastCompletionDate || null,
+                streakFreezes: streakData.streakFreezes || 0,
+                points: user.points || 0,
+                level: user.level || 1
+            },
         };
     } catch (error) {
         console.error("Error getting streak data:", error);

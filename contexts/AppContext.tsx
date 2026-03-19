@@ -39,6 +39,7 @@ const STORAGE_KEYS = {
 
 	NOTES: "cause-student-notes",
 	STUDY_GROUPS: "cause-student-study-groups",
+	GROUP_LAST_READ: "cause-student-group-last-read",
 	CALENDAR_SYNC_ENABLED: "cause-student-calendar-sync-enabled",
 	APP_CALENDAR_ID: "cause-student-app-calendar-id",
 };
@@ -60,6 +61,7 @@ export const [AppProvider, useApp] = createContextHook(() => {
 	const [appCalendarId, setAppCalendarId] = useState<string | null>(null);
 	const [isOnline, setIsOnline] = useState(true);
 	const [pendingOperations, setPendingOperations] = useState(0);
+	const [groupLastRead, setGroupLastRead] = useState<Record<string, string>>({});
 
 	// Video Configuration State
 	const [videoConfig, setVideoConfig] = useState({
@@ -306,6 +308,46 @@ export const [AppProvider, useApp] = createContextHook(() => {
 
 		loadCalendarSettings();
 	}, []);
+
+	// Load last read timestamps
+	useEffect(() => {
+		const loadLastRead = async () => {
+			try {
+				const stored = await AsyncStorage.getItem(STORAGE_KEYS.GROUP_LAST_READ);
+				if (stored) {
+					setGroupLastRead(JSON.parse(stored));
+				}
+			} catch (error) {
+				console.error("Error loading last read timestamps:", error);
+			}
+		};
+		loadLastRead();
+	}, []);
+
+	const markGroupAsRead = async (groupId: string) => {
+		try {
+			const now = new Date().toISOString();
+			const updated = { ...groupLastRead, [groupId]: now };
+			setGroupLastRead(updated);
+			await AsyncStorage.setItem(STORAGE_KEYS.GROUP_LAST_READ, JSON.stringify(updated));
+		} catch (error) {
+			console.error("Error saving last read timestamp:", error);
+		}
+	};
+
+	const totalUnreadCount = useMemo(() => {
+		let total = 0;
+		studyGroups.forEach(group => {
+			const lastRead = groupLastRead[group.id] || "1970-01-01T00:00:00.000Z";
+			const unreadMessages = group.messages?.filter(msg => {
+				// Don't count user's own messages as unread
+				if (user?.email && msg.senderEmail === user.email) return false;
+				return msg.createdAt > lastRead;
+			}) || [];
+			total += unreadMessages.length;
+		});
+		return total;
+	}, [studyGroups, groupLastRead, user?.email]);
 
 	const addTask = async (task: Task) => {
 		if (!user?.uid) return;
@@ -1335,6 +1377,8 @@ export const [AppProvider, useApp] = createContextHook(() => {
 		videoConfig,
 		isOnline,
 		pendingOperations,
+		totalUnreadCount,
+		markGroupAsRead,
 	};
 });
 

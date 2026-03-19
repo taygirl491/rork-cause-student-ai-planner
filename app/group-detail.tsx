@@ -39,7 +39,7 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 export default function GroupDetailScreen() {
     const router = useRouter();
     const { groupId } = useLocalSearchParams<{ groupId: string }>();
-    const { studyGroups, sendGroupMessage } = useApp();
+    const { studyGroups, sendGroupMessage, markGroupAsRead } = useApp();
     const { user } = useAuth();
 
     const [messageText, setMessageText] = useState("");
@@ -66,6 +66,13 @@ export default function GroupDetailScreen() {
             }, 100);
         }
     }, [group?.messages]);
+
+    // Mark group as read when screen is focused or new messages arrive
+    useEffect(() => {
+        if (groupId) {
+            markGroupAsRead(groupId);
+        }
+    }, [groupId, group?.messages?.length, markGroupAsRead]);
 
     const handleSendMessage = async () => {
         if (!group || !messageText.trim() || !user?.email || isSending) return;

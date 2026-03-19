@@ -11,8 +11,11 @@ import {
 } from "lucide-react-native";
 import colors from "@/constants/colors";
 
+import { useApp } from "@/contexts/AppContext";
+
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
+  const { totalUnreadCount } = useApp();
 
   return (
     <Tabs
@@ -78,6 +81,11 @@ export default function TabLayout() {
           tabBarIcon: ({ color, size }) => (
             <Users size={size} color={color} />
           ),
+          tabBarBadge: totalUnreadCount > 0 ? totalUnreadCount : undefined,
+          tabBarBadgeStyle: {
+            backgroundColor: colors.primary,
+            fontSize: 10,
+          },
         }}
       />
 

@@ -36,13 +36,17 @@ function calculateLevel(points) {
  * @param {string} userId 
  * @param {number} pointsToAdd 
  * @param {string} activityType - 'task', 'streak', 'goal', 'habit', 'feature'
+ * @param {Object} [userDoc] - Optional existing user document to modify
  * @returns {Promise<Object>} Updated points and level
  */
-async function awardPoints(userId, pointsToAdd, activityType) {
+async function awardPoints(userId, pointsToAdd, activityType, userDoc = null) {
     try {
-        const user = await User.findById(userId);
+        let user = userDoc;
         if (!user) {
-            throw new Error('User not found');
+            user = await User.findById(userId);
+            if (!user) {
+                throw new Error('User not found');
+            }
         }
 
         user.points = (user.points || 0) + pointsToAdd;
@@ -58,7 +62,10 @@ async function awardPoints(userId, pointsToAdd, activityType) {
         const leveledUp = newLevel > (user.level || 1);
         user.level = newLevel;
 
-        await user.save();
+        // Only save if we fetched the user here
+        if (!userDoc) {
+            await user.save();
+        }
 
         return {
             points: user.points,
