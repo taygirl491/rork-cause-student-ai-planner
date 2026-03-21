@@ -1,7 +1,8 @@
 const express = require("express");
 const router = express.Router();
 const { db } = require("./firebase");
-const { generateChatResponse, analyzeImage } = require("./openaiService");
+const { generateChatResponse, analyzeImage, analyzeDocument } = require("./openaiService");
+const pdfParse = require('pdf-parse');
 const multer = require('multer');
 const User = require("./models/User");
 
@@ -103,14 +104,22 @@ router.post("/analyze-image", upload.single('file'), async (req, res) => {
             });
         }
 
-        // Convert image to base64
-        const imageBase64 = req.file.buffer.toString('base64');
-
-        // Fetch user context
+        let analysis;
+        const mimeType = req.file.mimetype;
         const userContext = await fetchUserContext(userId);
 
-        // Analyze image
-        const analysis = await analyzeImage(imageBase64, prompt, userContext);
+        if (mimeType === 'application/pdf') {
+            // Extract text from PDF
+            console.log("[AI] Extracting text from PDF for analysis");
+            const pdfData = await pdfParse(req.file.buffer);
+            const text = pdfData.text.substring(0, 50000); // Truncate to avoid token limits
+            
+            analysis = await analyzeDocument(text, prompt, userContext, req.body.mode || 'homework');
+        } else {
+            // Image handling (existing logic)
+            const imageBase64 = req.file.buffer.toString('base64');
+            analysis = await analyzeImage(imageBase64, prompt, userContext, req.body.mode || 'homework');
+        }
 
         res.json({
             success: true,

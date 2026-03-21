@@ -143,13 +143,24 @@ export async function registerForPushNotificationsAsync(): Promise<string | unde
         projectId,
       })).data;
       
-      console.log("Expo Push Token:", token);
+      console.log(`[Notification] ${Platform.OS.toUpperCase()} Expo Push Token:`, token);
+      
+      // Extra validation for iOS: Ensure the token is in the correct format
+      if (Platform.OS === 'ios' && !token.startsWith('ExponentPushToken')) {
+        console.warn('[Notification] WARNING: iOS token does not look like an Expo push token. This might indicate a configuration issue.');
+      }
+
       return token;
     } catch (error: any) {
       retries++;
       const isTransient = error.message?.includes('503') || error.message?.includes('SERVICE_UNAVAILABLE');
       
-      if (isTransient && retries < maxRetries) {
+      if (Platform.OS === 'ios') {
+        console.error(`[Notification] iOS Token Fetch Error (Attempt ${retries}):`, error);
+        if (error.message?.includes('not find the project')) {
+          console.error('[Notification] ERROR: Project ID mismatch or app.json configuration error.');
+        }
+      }
         const delay = baseDelay * Math.pow(2, retries - 1);
         console.warn(`Expo push token fetch failed (503). Retrying in ${delay}ms... (Attempt ${retries}/${maxRetries})`);
         await new Promise(resolve => setTimeout(resolve, delay));

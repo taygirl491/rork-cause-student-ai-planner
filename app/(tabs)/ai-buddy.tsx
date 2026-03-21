@@ -234,17 +234,18 @@ export default function AIBuddyScreen() {
     try {
       let response: { reply: string; timestamp: string; usageRemaining?: number };
 
-      if (selectedFile && selectedFile.type === 'image') {
-        // Use server-side vision analysis for images
-        console.log("Analyzing image with backend:", selectedFile.uri);
-        const result = await analyzeImage(selectedFile.uri, inputText.trim(), user.uid);
+      if (selectedFile) {
+        // Use server-side analysis for both images and documents
+        console.log(`Analyzing ${selectedFile.type} with backend:`, selectedFile.uri);
+        const result = await analyzeImage(selectedFile.uri, inputText.trim(), user.uid, mode);
 
         response = {
           reply: result.analysis,
-          timestamp: result.timestamp
+          timestamp: result.timestamp,
+          usageRemaining: result.usageRemaining
         };
 
-        // Update usage stats from backend response (accurate source of truth)
+        // Update usage stats
         if (usageStats && usageStats.limit !== 'Unlimited') {
           setUsageStats(prev => prev ? ({ ...prev, remaining: result.usageRemaining ?? prev.remaining }) : null);
         }
@@ -252,31 +253,16 @@ export default function AIBuddyScreen() {
         // Clear selection
         setSelectedFile(null);
       } else {
-        // Regular text message or document placeholder
-        // Load shared memory for cross-mode context
+        // Regular text message
         const sharedMemory = await loadSharedMemory();
-
-        // Get relevant context from other modes (last 10 messages from each mode)
-        const otherModesContext = sharedMemory
-          .filter(msg => msg.mode !== mode)
-          .slice(-10);
-
-        // Combine current conversation with cross-mode context
+        const otherModesContext = sharedMemory.filter(msg => msg.mode !== mode).slice(-10);
         const contextMessages = [...otherModesContext.map(({ mode: _, ...msg }) => msg), ...messages];
 
-        response = await sendMessage(
-          userMessage.content,
-          user.uid,
-          contextMessages,
-          mode
-        );
+        response = await sendMessage(userMessage.content, user.uid, contextMessages, mode);
 
-        // Update usage stats from backend response (accurate source of truth)
         if (usageStats && usageStats.limit !== 'Unlimited') {
           setUsageStats(prev => prev ? ({ ...prev, remaining: response.usageRemaining ?? prev.remaining }) : null);
         }
-
-        if (selectedFile) setSelectedFile(null);
       }
 
       const assistantMessage: AIMessage = {
@@ -655,7 +641,7 @@ export default function AIBuddyScreen() {
                   <Text style={styles.emptyStateText}>Start a conversation!</Text>
                   <Text style={styles.emptyStateSubtext}>
                     {(mode === 'summarize' || mode === 'quiz') 
-                      ? `Please upload a ${mode === 'summarize' ? 'document' : 'file'} to get started`
+                      ? `Please upload a document to get started. I'll ${mode === 'summarize' ? 'summarize' : 'quiz you on'} it.`
                       : `Ask me anything about ${getModeTitle(mode)?.toLowerCase()}`}
                   </Text>
                 </View>
@@ -720,7 +706,9 @@ export default function AIBuddyScreen() {
             ) : (
               <View style={styles.fileOnlyPlaceholder}>
                 <Text style={styles.fileOnlyText}>
-                  {selectedFile ? 'File ready to send' : 'Upload a file to begin'}
+                  {selectedFile 
+                    ? `Ready to ${mode === 'summarize' ? 'summarize' : 'quiz'}: ${selectedFile.name}`
+                    : 'Upload a document to begin'}
                 </Text>
               </View>
             )}

@@ -59,7 +59,8 @@ export async function sendMessage(
 export async function analyzeImage(
   fileUri: string,
   prompt: string,
-  userId: string
+  userId: string,
+  mode: 'homework' | 'summarize' | 'quiz' = 'homework'
 ): Promise<{ analysis: string; timestamp: string; usageRemaining: number }> {
   try {
     const formData = new FormData();
@@ -67,7 +68,14 @@ export async function analyzeImage(
     // Add file
     const filename = fileUri.split('/').pop() || 'file';
     const match = /\.(\w+)$/.exec(filename);
-    const type = match ? `image/${match[1]}` : 'image/jpeg';
+    const extension = match ? match[1].toLowerCase() : 'jpeg';
+    
+    let type = 'image/jpeg';
+    if (extension === 'pdf') {
+      type = 'application/pdf';
+    } else if (['png', 'webp', 'gif'].includes(extension)) {
+      type = `image/${extension}`;
+    }
     
     formData.append('file', {
       uri: fileUri,
@@ -77,6 +85,7 @@ export async function analyzeImage(
     
     formData.append('prompt', prompt);
     formData.append('userId', userId);
+    formData.append('mode', mode);
     
     const response = await apiService.postFormData('/api/ai/analyze-image', formData);
     

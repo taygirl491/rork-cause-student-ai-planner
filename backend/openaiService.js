@@ -120,15 +120,48 @@ async function generateChatResponse(messages, userContext = {}, mode = 'homework
 }
 
 /**
+ * Analyze text extracted from a document
+ * @param {string} text - Extracted document text
+ * @param {string} prompt - User's question/instruction
+ * @param {Object} userContext - User context
+ * @param {string} mode - AI mode
+ * @returns {Promise<string>} AI analysis
+ */
+async function analyzeDocument(text, prompt, userContext = {}, mode = 'homework') {
+    try {
+        const systemPrompt = buildSystemPrompt(userContext, mode);
+        
+        const completion = await openai.chat.completions.create({
+            model: "gpt-4o-mini",
+            messages: [
+                { role: "system", content: systemPrompt },
+                {
+                    role: "user",
+                    content: `Document Content:\n${text}\n\nInstruction: ${prompt || "Analyze this document based on the current mode."}`
+                }
+            ],
+            max_tokens: 1500,
+            temperature: 0.7,
+        });
+
+        return completion.choices[0].message.content;
+    } catch (error) {
+        console.error("OpenAI Document API Error:", error);
+        throw new Error(`Failed to analyze document: ${error.message}`);
+    }
+}
+
+/**
  * Analyze an image using GPT-4 Vision
  * @param {string} imageBase64 - Base64 encoded image
  * @param {string} prompt - User's question about the image
  * @param {Object} userContext - User's tasks, classes, and goals
+ * @param {string} mode - AI mode
  * @returns {Promise<string>} AI analysis
  */
-async function analyzeImage(imageBase64, prompt, userContext = {}) {
+async function analyzeImage(imageBase64, prompt, userContext = {}, mode = 'homework') {
     try {
-        const systemPrompt = buildSystemPrompt(userContext, 'homework');
+        const systemPrompt = buildSystemPrompt(userContext, mode);
 
         const completion = await openai.chat.completions.create({
             model: "gpt-4o", // Has vision built-in
@@ -260,5 +293,6 @@ module.exports = {
     generateChatResponse,
     buildSystemPrompt,
     analyzeImage,
+    analyzeDocument,
     parseSyllabus,
 };
