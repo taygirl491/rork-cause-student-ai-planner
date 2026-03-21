@@ -58,6 +58,7 @@ export default function StudyGroupsScreen() {
 		sendGroupMessage,
 		deleteStudyGroup,
 		refreshStudyGroups,
+		unreadCountMapping,
 	} = useApp();
 	const { awardPoints } = useStreak();
 	const [refreshing, setRefreshing] = useState(false);
@@ -370,12 +371,20 @@ export default function StudyGroupsScreen() {
 										<Users size={28} color={colors.primary} />
 									</View>
 									<View style={styles.groupContent}>
-										<View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-											<Text style={styles.groupName}>{group.name}</Text>
+										<View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
+											<Text style={styles.groupName} numberOfLines={1}>{group.name}</Text>
 											{/* Show admin badge if user is an admin */}
 											{group.admins?.includes(user?.uid || '') && (
 												<View style={styles.adminBadge}>
 													<Text style={styles.adminBadgeText}>ADMIN</Text>
+												</View>
+											)}
+											{/* Unread Message Badge */}
+											{unreadCountMapping[group.id] > 0 && (
+												<View style={styles.unreadBadge}>
+													<Text style={styles.unreadBadgeText}>
+														{unreadCountMapping[group.id] > 99 ? '99+' : unreadCountMapping[group.id]}
+													</Text>
 												</View>
 											)}
 										</View>
@@ -800,6 +809,21 @@ const styles = StyleSheet.create({
 		width: "100%",
 		maxWidth: 500,
 		maxHeight: "90%",
+	},
+	unreadBadge: {
+		backgroundColor: colors.error,
+		minWidth: 20,
+		height: 20,
+		borderRadius: 10,
+		justifyContent: 'center',
+		alignItems: 'center',
+		paddingHorizontal: 6,
+		marginLeft: 'auto',
+	},
+	unreadBadgeText: {
+		color: colors.surface,
+		fontSize: 10,
+		fontWeight: '800',
 	},
 	detailModalContent: {
 		maxHeight: "85%",

@@ -87,6 +87,8 @@ async function sendPushNotifications(tokens, title, body, data = {}, options = {
             title,
             body,
             data,
+            priority: 'high', // Critical for iOS delivery
+            expiration: 0,    // deliver immediately
         };
 
         if (channelId && channelId !== 'default') {
@@ -117,19 +119,26 @@ async function sendPushNotifications(tokens, title, body, data = {}, options = {
  */
 async function sendJoinNotification(groupData, newMembers, existingMembers) {
     try {
-        const existingMemberEmails = existingMembers.map((m) => m.email);
-
         const tokens = [];
-        // Process in batches of 10
-        const chunkSize = 10;
-        for (let i = 0; i < existingMemberEmails.length; i += chunkSize) {
-            const chunk = existingMemberEmails.slice(i, i + chunkSize);
-            const chunkTokens = await getTokensForEmails(chunk);
-            tokens.push(...chunkTokens);
+
+        // 1. Get tokens by User IDs (most reliable)
+        const adminUserIds = existingMembers.map(m => m.userId).filter(Boolean);
+        if (adminUserIds.length > 0) {
+            const idTokens = await getTokensForUserIds(adminUserIds);
+            tokens.push(...idTokens);
         }
 
+        // 2. Fallback/Supplement with Emails
+        const memberEmails = existingMembers.map(m => m.email).filter(Boolean);
+        const emailTokens = await getTokensForEmails(memberEmails);
+        
+        // Merge tokens and remove duplicates
+        emailTokens.forEach(token => {
+            if (!tokens.includes(token)) tokens.push(token);
+        });
+
         if (tokens.length === 0) {
-            console.log("No push tokens found for existing members");
+            console.log(`[PushDebug] No push tokens found for ${existingMembers.length} members`);
             return;
         }
 
@@ -155,18 +164,26 @@ async function sendJoinNotification(groupData, newMembers, existingMembers) {
  */
 async function sendMessageNotification(groupData, message, recipients) {
     try {
-        const recipientEmails = recipients.map((m) => m.email);
-
         const tokens = [];
-        const chunkSize = 10;
-        for (let i = 0; i < recipientEmails.length; i += chunkSize) {
-            const chunk = recipientEmails.slice(i, i + chunkSize);
-            const chunkTokens = await getTokensForEmails(chunk);
-            tokens.push(...chunkTokens);
+
+        // 1. Get tokens by User IDs (Primary lookup)
+        const recipientIds = recipients.map(m => m.userId).filter(Boolean);
+        if (recipientIds.length > 0) {
+            const idTokens = await getTokensForUserIds(recipientIds);
+            tokens.push(...idTokens);
         }
 
+        // 2. Get tokens by Emails (Secondary/Fallback)
+        const recipientEmails = recipients.map(m => m.email).filter(Boolean);
+        const emailTokens = await getTokensForEmails(recipientEmails);
+
+        // Merge and remove duplicates
+        emailTokens.forEach(token => {
+            if (!tokens.includes(token)) tokens.push(token);
+        });
+
         if (tokens.length === 0) {
-            console.log("No push tokens found for recipients");
+            console.log(`[PushDebug] No push tokens found for ${recipients.length} recipients of message from ${message.senderEmail}`);
             return;
         }
 

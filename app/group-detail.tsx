@@ -39,7 +39,7 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 export default function GroupDetailScreen() {
     const router = useRouter();
     const { groupId } = useLocalSearchParams<{ groupId: string }>();
-    const { studyGroups, sendGroupMessage, markGroupAsRead } = useApp();
+    const { studyGroups, sendGroupMessage, markGroupAsRead, groupLastRead } = useApp();
     const { user } = useAuth();
 
     const [messageText, setMessageText] = useState("");
@@ -58,21 +58,25 @@ export default function GroupDetailScreen() {
         [studyGroups, groupId]
     );
 
-    // Auto-scroll to bottom when messages change
-    useEffect(() => {
-        if (group?.messages && group.messages.length > 0) {
-            setTimeout(() => {
-                scrollViewRef.current?.scrollToEnd({ animated: true });
-            }, 100);
-        }
-    }, [group?.messages]);
+    // Messages are reversed for the inverted FlatList
+    const reversedMessages = useMemo(
+        () => [...(group?.messages || [])].reverse(),
+        [group?.messages]
+    );
 
     // Mark group as read when screen is focused or new messages arrive
     useEffect(() => {
-        if (groupId) {
-            markGroupAsRead(groupId);
+        if (groupId && group?.messages) {
+            const lastRead = groupLastRead[groupId] || "1970-01-01T00:00:00.000Z";
+            const hasUnread = group.messages.some(
+                (msg) => msg.createdAt > lastRead && msg.senderEmail !== user?.email
+            );
+
+            if (hasUnread) {
+                markGroupAsRead(groupId);
+            }
         }
-    }, [groupId, group?.messages?.length, markGroupAsRead]);
+    }, [groupId, group?.messages, markGroupAsRead, groupLastRead, user?.email]);
 
     const handleSendMessage = async () => {
         if (!group || !messageText.trim() || !user?.email || isSending) return;
@@ -227,53 +231,51 @@ export default function GroupDetailScreen() {
             >
                 <View style={styles.content}>
                     {/* Messages Area */}
-                    <ScrollView
-                        ref={scrollViewRef}
-                        style={styles.scrollView}
-                        contentContainerStyle={styles.scrollContent}
+                    <FlatList
+                        data={reversedMessages}
+                        inverted
+                        keyExtractor={(item) => item.id}
+                        renderItem={({ item: msg }) => (
+                            <View style={styles.messageItem}>
+                                <Text style={styles.messageSender}>{msg.senderEmail}</Text>
+                                <Text style={styles.messageText}>{msg.message}</Text>
+                                {msg.attachments && msg.attachments.length > 0 && (
+                                    <View style={styles.attachmentsList}>
+                                        {msg.attachments.map((attachment: any, idx: number) => (
+                                            <TouchableOpacity
+                                                key={`${msg.id}-${attachment.name}-${idx}`}
+                                                style={styles.attachmentChip}
+                                                onPress={() => openAttachment(attachment.uri, attachment.type, attachment.name)}
+                                            >
+                                                <FileText size={14} color={colors.primary} />
+                                                <Text
+                                                    style={styles.attachmentName}
+                                                    numberOfLines={1}
+                                                >
+                                                    {attachment.name}
+                                                </Text>
+                                            </TouchableOpacity>
+                                        ))}
+                                    </View>
+                                )}
+                                <Text style={styles.messageTime}>
+                                    {new Date(msg.createdAt).toLocaleString()}
+                                </Text>
+                            </View>
+                        )}
+                        contentContainerStyle={styles.flatListContent}
                         showsVerticalScrollIndicator={false}
                         keyboardDismissMode="on-drag"
                         keyboardShouldPersistTaps="handled"
-                        onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
-                    >
-                        <View style={styles.section}>
-                            <Text style={styles.sectionTitle}>Messages</Text>
-                            <View style={styles.messagesContainer}>
-                                {(!group.messages || group.messages.length === 0) ? (
+                        ListFooterComponent={() => (
+                            <View style={styles.section}>
+                                <Text style={styles.sectionTitle}>Messages</Text>
+                                {reversedMessages.length === 0 && (
                                     <Text style={styles.emptyText}>No messages yet</Text>
-                                ) : (
-                                    group.messages.map((msg) => (
-                                        <View key={msg.id} style={styles.messageItem}>
-                                            <Text style={styles.messageSender}>{msg.senderEmail}</Text>
-                                            <Text style={styles.messageText}>{msg.message}</Text>
-                                            {msg.attachments && msg.attachments.length > 0 && (
-                                                <View style={styles.attachmentsList}>
-                                                    {msg.attachments.map((attachment: any, idx: number) => (
-                                                        <TouchableOpacity
-                                                            key={`${msg.id}-${attachment.name}-${idx}`}
-                                                            style={styles.attachmentChip}
-                                                            onPress={() => openAttachment(attachment.uri, attachment.type, attachment.name)}
-                                                        >
-                                                            <FileText size={14} color={colors.primary} />
-                                                            <Text
-                                                                style={styles.attachmentName}
-                                                                numberOfLines={1}
-                                                            >
-                                                                {attachment.name}
-                                                            </Text>
-                                                        </TouchableOpacity>
-                                                    ))}
-                                                </View>
-                                            )}
-                                            <Text style={styles.messageTime}>
-                                                {new Date(msg.createdAt).toLocaleString()}
-                                            </Text>
-                                        </View>
-                                    ))
                                 )}
                             </View>
-                        </View>
-                    </ScrollView>
+                        )}
+                    />
 
                     {/* Message Input Container (Fixed at Bottom) */}
                     <View style={styles.messageInputContainer}>
@@ -436,6 +438,12 @@ const styles = StyleSheet.create({
         fontWeight: "700" as const,
         color: colors.text,
     },
+    sectionTitle: {
+        fontSize: 16,
+        fontWeight: "700" as const,
+        color: colors.text,
+        marginBottom: 12,
+    },
     shareButton: {
         padding: 8,
     },
@@ -468,16 +476,12 @@ const styles = StyleSheet.create({
     },
     section: {
         paddingHorizontal: 20,
-        marginTop: 20,
+        marginVertical: 20,
     },
-    sectionTitle: {
-        fontSize: 18,
-        fontWeight: "700" as const,
-        color: colors.text,
-        marginBottom: 12,
-    },
-    messagesContainer: {
-        gap: 12,
+    flatListContent: {
+        paddingHorizontal: 20,
+        paddingBottom: 20,
+        paddingTop: 10,
     },
     messageItem: {
         backgroundColor: colors.surface,

@@ -211,52 +211,60 @@ export default function NotesScreen() {
 
 		try {
 			console.log('[Notes] Starting download for:', selectedNote.title);
-			// Create a temporary file path - more restrictive sanitization for iOS
-			const safeTitle = selectedNote.title.replace(/[^a-z0-9]/gi, '_').substring(0, 30) || 'note';
-			const filename = `${safeTitle}_${Date.now()}.txt`;
-
-			// Use cacheDirectory for sharing as it's more reliable across platforms for temporary files
-			// @ts-ignore - Expo types are sometimes missing this property
-			const dir = FileSystem.cacheDirectory;
-			if (!dir) throw new Error("Cache directory not available");
-
-			// Ensure directory URI ends with /
-			const normalizedDir = dir.endsWith('/') ? dir : `${dir}/`;
-			const fileUri = `${normalizedDir}${filename}`;
-			console.log('[Notes] target URI:', fileUri);
-
-			// Write the note content to the file
 			const content = `${selectedNote.title}\n\n${selectedNote.content}`;
-			// @ts-ignore - Expo types are sometimes missing EncodingType
-			await FileSystem.writeAsStringAsync(fileUri, content, { encoding: FileSystem.EncodingType.UTF8 });
-			console.log('[Notes] File written successfully');
 
-			// Verify file exists and has size
-			const fileInfo = await FileSystem.getInfoAsync(fileUri);
-			if (!fileInfo.exists) {
-				throw new Error("File creation failed - not found on disk");
-			}
-			console.log('[Notes] File verified, size:', fileInfo.size);
+			// Try to get a directory for file-based sharing
+			const dir = FileSystem.cacheDirectory || FileSystem.documentDirectory;
+			const sharingAvailable = await Sharing.isAvailableAsync();
 
-			// Share the file
-			if (await Sharing.isAvailableAsync()) {
-				console.log('[Notes] Sharing via Sharing.shareAsync');
-				// On iOS, sharing from cacheDirectory is generally more reliable
-				await Sharing.shareAsync(fileUri, {
-					mimeType: 'text/plain',
-					dialogTitle: `Download ${selectedNote.title}`,
-					UTI: 'public.plain-text', // Standard iOS plain text UTI
+			if (dir && sharingAvailable) {
+				console.log('[Notes] File system and Sharing available. Using file-based sharing.');
+				// Create a temporary file path
+				const safeTitle = selectedNote.title.replace(/[^a-z0-9]/gi, '_').substring(0, 30) || 'note';
+				const filename = `${safeTitle}_${Date.now()}.txt`;
+
+				// Ensure directory URI ends with /
+				const normalizedDir = dir.endsWith('/') ? dir : `${dir}/`;
+				const fileUri = `${normalizedDir}${filename}`;
+
+				// Write the note content to the file
+				// @ts-ignore - Expo types are sometimes missing EncodingType
+				await FileSystem.writeAsStringAsync(fileUri, content, {
+					encoding: FileSystem.EncodingType.UTF8
 				});
-			} else {
-				console.log('[Notes] Sharing API not available, falling back to Share.share');
-				await Share.share({
-					message: content,
-					title: selectedNote.title,
-				});
+
+				// Verify file exists
+				const fileInfo = await FileSystem.getInfoAsync(fileUri);
+				if (fileInfo.exists) {
+					await Sharing.shareAsync(fileUri, {
+						mimeType: 'text/plain',
+						dialogTitle: `Download ${selectedNote.title}`,
+						UTI: 'public.plain-text',
+					});
+					return;
+				}
+				console.warn('[Notes] File creation verification failed, falling back to text sharing');
 			}
+
+			// Fallback to simple text sharing if file system or sharing is unavailable
+			console.log('[Notes] Falling back to standard text sharing');
+			await Share.share({
+				message: content,
+				title: selectedNote.title,
+			});
+
 		} catch (error: any) {
 			console.error("[Notes] Error sharing note:", error);
-			Alert.alert("Error", `Failed to download: ${error.message || 'Unknown error'}`);
+			// Final attempt at sharing text if everything else fails
+			try {
+				const content = `${selectedNote?.title}\n\n${selectedNote?.content}`;
+				await Share.share({
+					message: content,
+					title: selectedNote?.title,
+				});
+			} catch (fallbackError) {
+				Alert.alert("Share Error", `Could not share note: ${error.message || 'Unknown error'}`);
+			}
 		}
 	};
 

@@ -18,7 +18,8 @@ class SocketService {
      */
     connect(userId: string) {
         if (this.socket?.connected) {
-            console.log('Socket already connected');
+            console.log('Socket already connected, ensuring user channel joined');
+            this.joinUser(userId);
             return;
         }
 
@@ -34,6 +35,8 @@ class SocketService {
 
         this.socket.on('connect', () => {
             console.log('✓ Socket connected:', this.socket?.id);
+            // Join the user channel for personal notifications
+            this.joinUser(userId);
         });
 
         this.socket.on('disconnect', (reason) => {

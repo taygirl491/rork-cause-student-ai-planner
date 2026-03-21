@@ -322,8 +322,7 @@ function RootLayoutNav() {
   // 3. User is not authenticated AND not yet on an auth screen (redirect in-flight)
   const shouldShowCover =
     isLoading ||
-    onboardingComplete === null ||
-    (!isAuthenticated && !inAuthGroup && !isInvite);
+    onboardingComplete === null;
 
   if (shouldShowCover) {
     return (
