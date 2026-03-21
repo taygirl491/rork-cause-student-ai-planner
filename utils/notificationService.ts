@@ -167,6 +167,7 @@ export async function registerForPushNotificationsAsync(): Promise<string | unde
  */
 export async function savePushToken(userId: string, token: string, email?: string, name?: string) {
   try {
+    // 1. Save to Firestore (Current behavior)
     const userRef = doc(db, "users", userId);
     const data: any = { pushToken: token };
     if (email) data.email = email;
@@ -174,8 +175,27 @@ export async function savePushToken(userId: string, token: string, email?: strin
     
     await setDoc(userRef, data, { merge: true });
     console.log("Push token and user data saved to Firestore");
+
+    // 2. Sync to Backend MongoDB (Fix for server-side notifications)
+    try {
+      const apiService = (await import('@/utils/apiService')).default;
+      console.log(`[PushToken] Syncing token to backend for user: ${userId}`);
+      const response = await apiService.post('/api/users/push-token', {
+        userId,
+        token
+      });
+      
+      if (response && response.success) {
+        console.log("[PushToken] Successfully synced push token to backend MongoDB");
+      } else {
+        console.warn("[PushToken] Backend push token sync returned failure:", response?.error);
+      }
+    } catch (apiError) {
+      console.error("[PushToken] Error syncing push token to backend API:", apiError);
+      // Non-blocking, we still saved to Firestore
+    }
   } catch (e) {
-    console.error("Error saving push token to Firestore:", e);
+    console.error("Error saving push token:", e);
   }
 }
 
@@ -301,6 +321,41 @@ export async function scheduleTaskReminder(task: Task): Promise<string | null> {
       },
     });
 
+    // IMPLEMENTATION FOR iOS: "Chasing" notifications to simulate persistent alarm
+    // iOS standard notification sounds only ring once. We schedule a "burst" of 
+    // identical notifications to keep it ringing.
+    if (task.alarmEnabled && Platform.OS === 'ios') {
+      try {
+        console.log(`[Notification] Scheduling chasing burst for task ${task.id} (iOS)`);
+        // Schedule 10 more notifications at 30s intervals (total ~5 mins of ringing)
+        for (let i = 1; i <= 10; i++) {
+          await Notifications.scheduleNotificationAsync({
+            content: {
+              title: `Reminder: ${task.type.toUpperCase()} (${i + 1})`,
+              body: task.description,
+              data: { 
+                taskId: task.id, 
+                type: 'task_reminder_chaser',
+                className: task.className,
+              },
+              sound: sound,
+              badge: 1,
+              color: '#6366F1',
+              // @ts-ignore
+              channelId: channelId,
+            } as Notifications.NotificationContentInput,
+            trigger: {
+              type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+              seconds: secondsUntilTrigger + (i * 30),
+              repeats: false,
+            },
+          });
+        }
+      } catch (chaseError) {
+        console.error('Error scheduling chasing notifications:', chaseError);
+      }
+    }
+
     console.log(`Scheduled notification ${notificationId} for task ${task.id} at ${triggerDate.toLocaleString()}`);
 
     // Schedule persistent alarm for reminder if enabled (Android only)
@@ -394,6 +449,37 @@ export async function scheduleDueDateNotification(task: Task): Promise<string | 
         repeats: false,
       },
     });
+
+    // IMPLEMENTATION FOR iOS: "Chasing" notifications to simulate persistent alarm
+    if (task.alarmEnabled && Platform.OS === 'ios') {
+      try {
+        console.log(`[Notification] Scheduling chasing burst for task (due) ${task.id} (iOS)`);
+        for (let i = 1; i <= 10; i++) {
+          await Notifications.scheduleNotificationAsync({
+            content: {
+              title: `Task Due: ${task.type.toUpperCase()} (${i + 1})`,
+              body: `${task.description}${task.className ? ` (${task.className})` : ''}`,
+              data: { 
+                taskId: task.id, 
+                type: 'task_due_chaser',
+                className: task.className,
+              },
+              sound: sound,
+              badge: 1,
+              color: '#6366F1',
+              // @ts-ignore
+              channelId: channelId,
+            } as Notifications.NotificationContentInput,
+            trigger: {
+              type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+              seconds: secondsUntilDue + (i * 30),
+            },
+          });
+        }
+      } catch (chaseError) {
+        console.error('Error scheduling chasing notifications:', chaseError);
+      }
+    }
 
     console.log(`Scheduled due date notification ${notificationId} for task ${task.id} at ${dueDate.toLocaleString()}`);
     

@@ -505,18 +505,18 @@ export default function AIBuddyScreen() {
           }
           setMode('homework');
         }}>
+          {isTrialActive && isTrialActive() && (
+            <View style={styles.trialBadge}>
+              <Sparkles size={10} color={colors.premium} />
+              <Text style={styles.trialBadgeText}>Premium</Text>
+            </View>
+          )}
           <View style={[styles.cardIcon, { backgroundColor: colors.primaryLight + '30' }]}>
             <BookOpen size={32} color={colors.primary} />
           </View>
           <View style={styles.cardTextContainer}>
             <View style={styles.cardTitleRow}>
               <Text style={[styles.cardTitle, { fontSize: normalize(18) }]}>Your AI Sidekick 🤖</Text>
-              {isTrialActive && isTrialActive() && (
-                <View style={styles.trialBadge}>
-                  <Sparkles size={10} color={colors.premium} />
-                  <Text style={styles.trialBadgeText}>Premium</Text>
-                </View>
-              )}
               {!checkPermission('aiInquiryLimit') && (
                 <Sparkles size={14} color={colors.premium} />
               )}
@@ -532,18 +532,18 @@ export default function AIBuddyScreen() {
           }
           setMode('summarize');
         }}>
+          {isTrialActive && isTrialActive() && (
+            <View style={styles.trialBadge}>
+              <Sparkles size={10} color={colors.premium} />
+              <Text style={styles.trialBadgeText}>Premium</Text>
+            </View>
+          )}
           <View style={[styles.cardIcon, { backgroundColor: '#10b98130' }]}>
             <FileText size={32} color="#10b981" />
           </View>
           <View style={styles.cardTextContainer}>
             <View style={styles.cardTitleRow}>
               <Text style={[styles.cardTitle, { fontSize: normalize(18) }]}>Skip to the Good Parts ⏩</Text>
-              {isTrialActive && isTrialActive() && (
-                <View style={styles.trialBadge}>
-                  <Sparkles size={10} color={colors.premium} />
-                  <Text style={styles.trialBadgeText}>Premium</Text>
-                </View>
-              )}
               {!checkPermission('aiInquiryLimit') && (
                 <Sparkles size={14} color={colors.premium} />
               )}
@@ -559,18 +559,18 @@ export default function AIBuddyScreen() {
           }
           setMode('quiz');
         }}>
+          {isTrialActive && isTrialActive() && (
+            <View style={styles.trialBadge}>
+              <Sparkles size={10} color={colors.premium} />
+              <Text style={styles.trialBadgeText}>Premium</Text>
+            </View>
+          )}
           <View style={[styles.cardIcon, { backgroundColor: '#f59e0b30' }]}>
             <BrainCircuit size={32} color="#f59e0b" />
           </View>
           <View style={styles.cardTextContainer}>
             <View style={styles.cardTitleRow}>
               <Text style={[styles.cardTitle, { fontSize: normalize(18) }]}>Brain Workout 🧠</Text>
-              {isTrialActive && isTrialActive() && (
-                <View style={styles.trialBadge}>
-                  <Sparkles size={10} color={colors.premium} />
-                  <Text style={styles.trialBadgeText}>Premium</Text>
-                </View>
-              )}
               {!checkPermission('aiInquiryLimit') && (
                 <Sparkles size={14} color={colors.premium} />
               )}
@@ -587,18 +587,18 @@ export default function AIBuddyScreen() {
             setShowUpgradeModal(true);
           }
         }}>
+          {isTrialActive && isTrialActive() && (
+            <View style={styles.trialBadge}>
+              <Sparkles size={10} color={colors.premium} />
+              <Text style={styles.trialBadgeText}>Premium</Text>
+            </View>
+          )}
           <View style={[styles.cardIcon, { backgroundColor: colors.primaryLight + '30' }]}>
             <Clock size={32} color={colors.primary} />
           </View>
           <View style={styles.cardTextContainer}>
             <View style={styles.cardTitleRow}>
               <Text style={[styles.cardTitle, { fontSize: normalize(18) }]}>Import Syllabus</Text>
-              {isTrialActive && isTrialActive() && (
-                <View style={styles.trialBadge}>
-                  <Sparkles size={10} color={colors.premium} />
-                  <Text style={styles.trialBadgeText}>Premium</Text>
-                </View>
-              )}
               {!checkPermission('canSyncSyllabus') && (
                 <Sparkles size={14} color={colors.premium} />
               )}
@@ -654,7 +654,9 @@ export default function AIBuddyScreen() {
                   <Sparkles size={48} color={colors.primary} />
                   <Text style={styles.emptyStateText}>Start a conversation!</Text>
                   <Text style={styles.emptyStateSubtext}>
-                    Ask me anything about {getModeTitle(mode)?.toLowerCase()}
+                    {(mode === 'summarize' || mode === 'quiz') 
+                      ? `Please upload a ${mode === 'summarize' ? 'document' : 'file'} to get started`
+                      : `Ask me anything about ${getModeTitle(mode)?.toLowerCase()}`}
                   </Text>
                 </View>
               ) : (
@@ -704,20 +706,28 @@ export default function AIBuddyScreen() {
                 )}
               </View>
             )}
-            <TextInput
-              style={styles.input}
-              placeholder="Type your message..."
-              placeholderTextColor={colors.textLight}
-              value={inputText}
-              onChangeText={setInputText}
-              multiline
-              maxLength={1000}
-              editable={!isLoading}
-            />
+            {(mode !== 'summarize' && mode !== 'quiz') ? (
+              <TextInput
+                style={styles.input}
+                placeholder="Type your message..."
+                placeholderTextColor={colors.textLight}
+                value={inputText}
+                onChangeText={setInputText}
+                multiline
+                maxLength={1000}
+                editable={!isLoading}
+              />
+            ) : (
+              <View style={styles.fileOnlyPlaceholder}>
+                <Text style={styles.fileOnlyText}>
+                  {selectedFile ? 'File ready to send' : 'Upload a file to begin'}
+                </Text>
+              </View>
+            )}
             <TouchableOpacity
-              style={[styles.sendButton, (!inputText.trim() || isLoading) && styles.sendButtonDisabled]}
+              style={[styles.sendButton, ((mode === 'homework' && !inputText.trim() && !selectedFile) || ((mode === 'summarize' || mode === 'quiz') && !selectedFile) || isLoading) && styles.sendButtonDisabled]}
               onPress={handleSend}
-              disabled={!inputText.trim() || isLoading}
+              disabled={((mode === 'homework' && !inputText.trim() && !selectedFile) || ((mode === 'summarize' || mode === 'quiz') && !selectedFile) || isLoading)}
             >
               <Send size={20} color={colors.surface} />
             </TouchableOpacity>
@@ -805,6 +815,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     marginBottom: 4,
+    paddingRight: 60, // Give space for absolute Premium badge
   },
   cardTitle: {
     fontSize: 18,
@@ -812,13 +823,17 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   trialBadge: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.premium + '15',
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: 6,
-    gap: 2,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    gap: 4,
+    zIndex: 10,
   },
   trialBadgeText: {
     fontSize: 9,
@@ -1024,5 +1039,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1.5,
     borderColor: 'white',
+  },
+  fileOnlyPlaceholder: {
+    flex: 1,
+    backgroundColor: colors.background,
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    marginHorizontal: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderStyle: 'dashed',
+  },
+  fileOnlyText: {
+    color: colors.textSecondary,
+    fontSize: 14,
+    fontWeight: '500',
   },
 });

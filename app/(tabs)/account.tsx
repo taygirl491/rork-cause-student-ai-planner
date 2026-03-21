@@ -1384,6 +1384,7 @@ const styles = StyleSheet.create({
   pricingCards: {
     gap: 16,
     marginBottom: 24,
+    paddingTop: 16, // Space for the first card's floating badge
   },
   pricingCard: {
     backgroundColor: colors.background,
@@ -1392,7 +1393,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: colors.border,
     position: 'relative',
-    overflow: 'hidden',
+    // Removed overflow: 'hidden' to prevent badge clipping
   },
   pricingCardLoading: {
     opacity: 0.6,
@@ -1403,6 +1404,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 10,
+    borderRadius: 18, // Match the card's borderRadius (20 - border)
   },
   pricingCardRecommended: {
     borderColor: colors.secondary,

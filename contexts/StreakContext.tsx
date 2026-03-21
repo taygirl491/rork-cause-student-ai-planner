@@ -63,11 +63,23 @@ export function StreakProvider({ children }: { children: ReactNode }) {
         if (!user?.uid || sessionChecked) return;
 
         try {
+            // Use AsyncStorage to double-check if we already showed the modal today
+            // This persists even if the app process is restarted
+            const today = new Date().toDateString();
+            const lastShown = await AsyncStorage.getItem(`@streak_modal_shown_${user.uid}`);
+            
+            if (lastShown === today) {
+                console.log('[Streak] Already shown today, skipping check-in animation');
+                setSessionChecked(true);
+                return;
+            }
+
             const result = await updateStreak();
             setSessionChecked(true);
 
             if (result.increased) {
                 setShowDailyModal(true);
+                await AsyncStorage.setItem(`@streak_modal_shown_${user.uid}`, today);
             }
         } catch (error) {
             console.error('Error in daily check-in:', error);
@@ -181,18 +193,8 @@ export function StreakProvider({ children }: { children: ReactNode }) {
     }, [user?.uid, streakData?.current]);
 
     const refreshStreak = React.useCallback(async (options?: { silent?: boolean }) => {
-        const oldStreak = streakData?.current || 0;
         await loadStreakData(options);
-
-        // After loading fresh data, check if streak increased
-        setStreakData(current => {
-            if (current && current.current > oldStreak) {
-                // Trigger animation if it increased
-                triggerAnimation(current.current);
-            }
-            return current;
-        });
-    }, [loadStreakData, streakData?.current]);
+    }, [loadStreakData]);
 
     const awardPoints = React.useCallback(async (points: number, activityType: 'task' | 'streak' | 'goal' | 'habit' | 'feature') => {
         try {

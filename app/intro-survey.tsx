@@ -434,8 +434,9 @@ export default function IntroSurveyScreen() {
                         isLoading={isSubmitting}
                         loadingText="Saving..."
                         disabled={!(answers[QUESTIONS[currentStep].id]?.length > 0)}
-                        icon={currentStep === QUESTIONS.length - 1 ? null : <ChevronRight size={20} color="#fff" />}
+                        icon={currentStep === QUESTIONS.length - 1 ? null : <ChevronRight size={20} color={colors.primary} />}
                         style={styles.nextButton}
+                        textStyle={styles.nextButtonText}
                     />
                 </View>
             </SafeAreaView>

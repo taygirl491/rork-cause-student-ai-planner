@@ -146,12 +146,14 @@ export default function OnboardingScreen() {
                                 title="Next"
                                 onPress={handleNext}
                                 style={styles.nextButton}
+                                textStyle={styles.nextButtonText}
                             />
                         ) : (
                             <Button
                                 title="Get Started"
                                 onPress={handleGetStarted}
                                 style={styles.getStartedButton}
+                                textStyle={styles.getStartedButtonText}
                             />
                         )}
                     </View>

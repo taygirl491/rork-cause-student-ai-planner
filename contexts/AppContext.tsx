@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import createContextHook from "@nkzw/create-context-hook";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import {
 	Task,
 	Class,
@@ -77,7 +77,7 @@ export const [AppProvider, useApp] = createContextHook(() => {
 	});
 
 	// Manual refresh function for tasks
-	const refreshTasks = async (options?: { silent?: boolean }) => {
+	const refreshTasks = useCallback(async (options?: { silent?: boolean }) => {
 		if (!user?.uid) return;
 		try {
 			if (!options?.silent) setTasksLoading(true);
@@ -88,7 +88,7 @@ export const [AppProvider, useApp] = createContextHook(() => {
 		} finally {
 			if (!options?.silent) setTasksLoading(false);
 		}
-	};
+	}, [user?.uid]);
 
 	// Auto-load tasks and register push token
 	useEffect(() => {
@@ -142,7 +142,7 @@ export const [AppProvider, useApp] = createContextHook(() => {
 
 
 	// Manual refresh function for classes
-	const refreshClasses = async (options?: { silent?: boolean }) => {
+	const refreshClasses = useCallback(async (options?: { silent?: boolean }) => {
 		if (!user?.uid) return;
 		try {
 			if (!options?.silent) setClassesLoading(true);
@@ -159,7 +159,7 @@ export const [AppProvider, useApp] = createContextHook(() => {
 		} finally {
 			if (!options?.silent) setClassesLoading(false);
 		}
-	};
+	}, [user?.uid]);
 
 	// Auto-load classes when user logs in
 	useEffect(() => {
@@ -171,7 +171,7 @@ export const [AppProvider, useApp] = createContextHook(() => {
 
 
 	// Manual refresh function for goals
-	const refreshGoals = async (options?: { silent?: boolean }) => {
+	const refreshGoals = useCallback(async (options?: { silent?: boolean }) => {
 		if (!user?.uid) return;
 		try {
 			if (!options?.silent) setGoalsLoading(true);
@@ -188,7 +188,7 @@ export const [AppProvider, useApp] = createContextHook(() => {
 		} finally {
 			if (!options?.silent) setGoalsLoading(false);
 		}
-	};
+	}, [user?.uid]);
 
 	// Auto-load goals when user logs in
 	useEffect(() => {
@@ -199,7 +199,7 @@ export const [AppProvider, useApp] = createContextHook(() => {
 
 
 	// Manual refresh function for notes
-	const refreshNotes = async (options?: { silent?: boolean }) => {
+	const refreshNotes = useCallback(async (options?: { silent?: boolean }) => {
 		if (!user?.uid) return;
 		try {
 			if (!options?.silent) setNotesLoading(true);
@@ -210,7 +210,7 @@ export const [AppProvider, useApp] = createContextHook(() => {
 		} finally {
 			if (!options?.silent) setNotesLoading(false);
 		}
-	};
+	}, [user?.uid]);
 
 	// Auto-load notes when user logs in
 	useEffect(() => {
@@ -312,42 +312,56 @@ export const [AppProvider, useApp] = createContextHook(() => {
 	// Load last read timestamps
 	useEffect(() => {
 		const loadLastRead = async () => {
+			if (!user?.uid) {
+				setGroupLastRead({});
+				return;
+			}
 			try {
-				const stored = await AsyncStorage.getItem(STORAGE_KEYS.GROUP_LAST_READ);
+				const storageKey = `${STORAGE_KEYS.GROUP_LAST_READ}_${user.uid}`;
+				const stored = await AsyncStorage.getItem(storageKey);
 				if (stored) {
 					setGroupLastRead(JSON.parse(stored));
+				} else {
+					setGroupLastRead({});
 				}
 			} catch (error) {
 				console.error("Error loading last read timestamps:", error);
 			}
 		};
 		loadLastRead();
-	}, []);
+	}, [user?.uid]);
 
-	const markGroupAsRead = async (groupId: string) => {
+	const markGroupAsRead = useCallback(async (groupId: string) => {
+		if (!user?.uid) return;
 		try {
 			const now = new Date().toISOString();
-			const updated = { ...groupLastRead, [groupId]: now };
-			setGroupLastRead(updated);
-			await AsyncStorage.setItem(STORAGE_KEYS.GROUP_LAST_READ, JSON.stringify(updated));
+			setGroupLastRead(prev => {
+				const updated = { ...prev, [groupId]: now };
+				const storageKey = `${STORAGE_KEYS.GROUP_LAST_READ}_${user.uid}`;
+				AsyncStorage.setItem(storageKey, JSON.stringify(updated));
+				return updated;
+			});
 		} catch (error) {
 			console.error("Error saving last read timestamp:", error);
 		}
-	};
+	}, [user?.uid]);
 
-	const totalUnreadCount = useMemo(() => {
-		let total = 0;
+	const unreadCountMapping = useMemo(() => {
+		const mapping: Record<string, number> = {};
 		studyGroups.forEach(group => {
 			const lastRead = groupLastRead[group.id] || "1970-01-01T00:00:00.000Z";
-			const unreadMessages = group.messages?.filter(msg => {
-				// Don't count user's own messages as unread
+			const unreadMessages = (group.messages || []).filter(msg => {
 				if (user?.email && msg.senderEmail === user.email) return false;
 				return msg.createdAt > lastRead;
-			}) || [];
-			total += unreadMessages.length;
+			});
+			mapping[group.id] = unreadMessages.length;
 		});
-		return total;
+		return mapping;
 	}, [studyGroups, groupLastRead, user?.email]);
+
+	const totalUnreadCount = useMemo(() => {
+		return Object.values(unreadCountMapping).reduce((acc, count) => acc + count, 0);
+	}, [unreadCountMapping]);
 
 	const addTask = async (task: Task) => {
 		if (!user?.uid) return;
@@ -703,24 +717,21 @@ export const [AppProvider, useApp] = createContextHook(() => {
 	};
 
 	// Manual refresh function for study groups
-	const refreshStudyGroups = async () => {
+	const refreshStudyGroups = useCallback(async () => {
 		if (!user?.uid || !user?.email) return;
 		try {
 			const groupsData = await studyGroupsAPI.getStudyGroups(user.uid, user.email);
 			setStudyGroups(groupsData);
 
 			// Join rooms for all fetched groups
-			// Now that socketService supports buffering (we modified it), this is safe even if still connecting
-			if (socketService.isConnected() || true) { // Explicitly allow since we added buffering
-				groupsData.forEach(group => {
-					console.log(`[AppContext] Joining group room: ${group.id}`);
-					socketService.joinGroup(group.id);
-				});
-			}
+			groupsData.forEach(group => {
+				console.log(`[AppContext] Joining group room: ${group.id}`);
+				socketService.joinGroup(group.id);
+			});
 		} catch (error) {
 			console.error("Error loading study groups:", error);
 		}
-	};
+	}, [user?.uid, user?.email]);
 
 	// WebSocket-based study groups with real-time updates
 	useEffect(() => {
@@ -1090,7 +1101,7 @@ export const [AppProvider, useApp] = createContextHook(() => {
 		};
 	}, [user?.uid, user?.email]);
 
-	const createStudyGroup = async (
+	const createStudyGroup = useCallback(async (
 		group: Omit<
 			StudyGroup,
 			"id" | "code" | "members" | "messages" | "createdAt" | "creatorId" | "admins" | "pendingMembers"
@@ -1113,9 +1124,6 @@ export const [AppProvider, useApp] = createContextHook(() => {
 
 			if (newGroup) {
 				console.log('[AppContext] Study group created successfully:', newGroup.id);
-				// Don't add to state here - the WebSocket event will handle it
-				// This prevents duplicate groups
-				// Refresh streaks to show new points
 				refreshStreak();
 
 				return {
@@ -1129,9 +1137,9 @@ export const [AppProvider, useApp] = createContextHook(() => {
 			console.error("[AppContext] Error creating study group:", error);
 			return null;
 		}
-	};
+	}, [user?.uid, user?.email, user?.name, refreshStreak]);
 
-	const joinStudyGroup = async (code: string, email: string, name: string) => {
+	const joinStudyGroup = useCallback(async (code: string, email: string, name: string) => {
 		if (!user?.uid) return null;
 
 		try {
@@ -1171,9 +1179,9 @@ export const [AppProvider, useApp] = createContextHook(() => {
 			console.error("Error joining study group:", error);
 			return null;
 		}
-	};
+	}, [user?.uid, refreshStreak]);
 
-	const sendGroupMessage = async (
+	const sendGroupMessage = useCallback(async (
 		groupId: string,
 		senderEmail: string,
 		message: string,
@@ -1235,9 +1243,9 @@ export const [AppProvider, useApp] = createContextHook(() => {
 				)
 			);
 		}
-	};
+	}, [user?.uid, user?.name, user?.email]);
 
-	const deleteStudyGroup = async (id: string) => {
+	const deleteStudyGroup = useCallback(async (id: string) => {
 		if (!user?.uid) return;
 
 		try {
@@ -1248,7 +1256,7 @@ export const [AppProvider, useApp] = createContextHook(() => {
 		} catch (error) {
 			console.error("Error deleting study group:", error);
 		}
-	};
+	}, [user?.uid]);
 
 	const sortedTasks = useMemo(() => {
 		return [...tasks].sort((a, b) => {
@@ -1379,6 +1387,8 @@ export const [AppProvider, useApp] = createContextHook(() => {
 		pendingOperations,
 		totalUnreadCount,
 		markGroupAsRead,
+		groupLastRead,
+		unreadCountMapping,
 	};
 });
 
