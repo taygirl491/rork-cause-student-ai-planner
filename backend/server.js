@@ -7,6 +7,8 @@ const rateLimit = require("express-rate-limit");
 require("dotenv").config();
 
 const { connectMongoDB } = require("./mongodb");
+const { admin } = require("./firebase");
+const { safeError } = require("./utils/errorResponse");
 const emailService = require("./emailService");
 const notificationService = require("./notificationService");
 const { startReminderScheduler } = require("./reminderScheduler");
@@ -25,22 +27,63 @@ const app = express();
 const server = http.createServer(app);
 const PORT = process.env.PORT || 3000;
 
+// Allowed origins from env — comma-separated list for CORS allowlist
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+	? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
+	: ['http://localhost:3000', 'http://localhost:8081'];
+
 // Initialize Socket.IO
 const io = new Server(server, {
 	cors: {
-		origin: "*",
+		origin: allowedOrigins,
 		methods: ["GET", "POST"],
 		credentials: true
 	},
 	transports: ['websocket', 'polling']
 });
 
+// Socket.IO auth middleware — verify Firebase ID token on every connection
+io.use(async (socket, next) => {
+	const token = socket.handshake.auth?.token;
+	if (!token) {
+		// Allow unauthenticated for grace period — remove this fallback once all clients updated
+		console.warn('[Socket] Connection without token from', socket.handshake.address);
+		socket.data.uid = null;
+		return next();
+	}
+	try {
+		const decoded = await admin.auth().verifyIdToken(token);
+		socket.data.uid = decoded.uid;
+		next();
+	} catch (err) {
+		next(new Error('Invalid or expired Firebase token'));
+	}
+});
+
 // Socket.IO connection handler
 io.on('connection', (socket) => {
-	console.log('✓ User connected:', socket.id);
+	console.log('✓ User connected:', socket.id, socket.data.uid ? `(uid: ${socket.data.uid})` : '(unauthenticated)');
 
-	// Join a study group room
-	socket.on('join-group', (groupId) => {
+	// Join a study group room — verify membership via MongoDB
+	socket.on('join-group', async (groupId) => {
+		if (socket.data.uid) {
+			try {
+				const StudyGroup = require('./models/StudyGroup');
+				const group = await StudyGroup.findById(groupId);
+				const isMember = group && (
+					group.creatorId === socket.data.uid ||
+					group.admins.includes(socket.data.uid) ||
+					group.members.some(m => m.userId === socket.data.uid)
+				);
+				if (!isMember) {
+					console.warn(`[Socket] User ${socket.data.uid} denied access to group-${groupId}`);
+					return;
+				}
+			} catch (err) {
+				console.error('[Socket] Group membership check failed:', err.message);
+				return;
+			}
+		}
 		socket.join(`group-${groupId}`);
 		console.log(`User ${socket.id} joined group-${groupId}`);
 	});
@@ -51,8 +94,12 @@ io.on('connection', (socket) => {
 		console.log(`User ${socket.id} left group-${groupId}`);
 	});
 
-	// Join a user channel (for personal notifications)
+	// Join a user channel — only allow joining own channel
 	socket.on('join-user', (userId) => {
+		if (socket.data.uid && socket.data.uid !== userId) {
+			console.warn(`[Socket] User ${socket.data.uid} denied joining channel user-${userId}`);
+			return;
+		}
 		socket.join(`user-${userId}`);
 		console.log(`User ${socket.id} joined channel user-${userId}`);
 	});
@@ -70,34 +117,71 @@ app.set('io', io);
 app.set('trust proxy', 1);
 
 
+// HTTPS redirect — production only (Render / other proxies set x-forwarded-proto)
+if (process.env.NODE_ENV === 'production') {
+	app.use((req, res, next) => {
+		if (req.headers['x-forwarded-proto'] !== 'https') {
+			return res.redirect(301, `https://${req.headers.host}${req.url}`);
+		}
+		next();
+	});
+}
+
 // Middleware
 app.use(helmet());
-app.use(cors());
+app.use(cors({ origin: allowedOrigins, credentials: true }));
 app.use(express.json({ limit: "50mb" })); // Increase limit for base64 files
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
-// Request logging
+// Request logging — structured JSON audit log
 app.use((req, res, next) => {
 	const start = Date.now();
 	res.on('finish', () => {
-		const duration = Date.now() - start;
-		console.log(`[${new Date().toISOString()}] ${req.method} ${req.path} ${res.statusCode} - ${duration}ms`);
+		const log = {
+			ts: new Date().toISOString(),
+			method: req.method,
+			path: req.path,
+			status: res.statusCode,
+			ms: Date.now() - start,
+			uid: req.user?.uid ?? null,
+			ip: req.ip,
+		};
+		console.log(JSON.stringify(log));
 	});
 	next();
 });
 
-// Rate limiting
+// Rate limiting — global catch-all (generous for Socket.IO polling)
 const limiter = rateLimit({
-	windowMs: 15 * 60 * 1000, // 15 minutes
-	max: 2000, // limit each IP to 2000 requests per windowMs (increased for polling and development)
+	windowMs: 15 * 60 * 1000,
+	max: 2000,
 	handler: (req, res) => {
-		res.status(429).json({
-			success: false,
-			error: "Too many requests from this IP, please try again later."
-		});
+		res.status(429).json({ success: false, error: "Too many requests, please try again later." });
 	}
 });
 app.use("/api", limiter);
+
+// Tighter per-endpoint limiters
+const authLimiter = rateLimit({
+	windowMs: 15 * 60 * 1000, max: 10,
+	handler: (req, res) => res.status(429).json({ success: false, error: "Too many auth requests." })
+});
+const adminLimiter = rateLimit({
+	windowMs: 15 * 60 * 1000, max: 5,
+	handler: (req, res) => res.status(429).json({ success: false, error: "Too many admin requests." })
+});
+const uploadLimiter = rateLimit({
+	windowMs: 15 * 60 * 1000, max: 20,
+	handler: (req, res) => res.status(429).json({ success: false, error: "Too many upload requests." })
+});
+const stripeLimiter = rateLimit({
+	windowMs: 15 * 60 * 1000, max: 20,
+	handler: (req, res) => res.status(429).json({ success: false, error: "Too many payment requests." })
+});
+const aiLimiter = rateLimit({
+	windowMs: 15 * 60 * 1000, max: 30,
+	handler: (req, res) => res.status(429).json({ success: false, error: "Too many AI requests." })
+});
 
 // Simple API key authentication middleware
 const authenticate = (req, res, next) => {
@@ -122,7 +206,7 @@ app.get("/health", (req, res) => {
  * Upload files to Cloudinary
  * Accepts base64 encoded files from mobile app
  */
-app.post("/api/upload", authenticate, async (req, res) => {
+app.post("/api/upload", uploadLimiter, authenticate, async (req, res) => {
 	try {
 		const { files } = req.body;
 
@@ -132,8 +216,19 @@ app.post("/api/upload", authenticate, async (req, res) => {
 			});
 		}
 
+		const ALLOWED_MIME_TYPES = new Set([
+			'image/jpeg', 'image/png', 'image/gif', 'image/webp',
+			'application/pdf',
+		]);
+		const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
+
 		const uploadPromises = files.map(async (file) => {
 			try {
+				// Validate MIME type
+				if (!file.type || !ALLOWED_MIME_TYPES.has(file.type)) {
+					return { name: file.name, error: `File type '${file.type}' is not allowed` };
+				}
+
 				// file should have: { name, uri (base64 or data URI), type }
 				let buffer;
 
@@ -144,6 +239,11 @@ app.post("/api/upload", authenticate, async (req, res) => {
 				} else {
 					// Already base64
 					buffer = Buffer.from(file.uri, "base64");
+				}
+
+				// Validate decoded size
+				if (buffer.length > MAX_FILE_SIZE_BYTES) {
+					return { name: file.name, error: `File exceeds maximum size of 10MB` };
 				}
 
 				const result = await uploadFromBuffer(buffer, file.name, file.type);
@@ -176,10 +276,7 @@ app.post("/api/upload", authenticate, async (req, res) => {
 		});
 	} catch (error) {
 		console.error("Error in file upload:", error);
-		res.status(500).json({
-			error: "Failed to upload files",
-			details: error.message,
-		});
+		return safeError(res, 500, "Failed to upload files", error);
 	}
 });
 
@@ -244,10 +341,7 @@ app.post("/api/notify/group-join", authenticate, async (req, res) => {
 		});
 	} catch (error) {
 		console.error("Error in group-join notification:", error);
-		res.status(500).json({
-			error: "Failed to send notifications",
-			details: error.message,
-		});
+		return safeError(res, 500, "Failed to send notifications", error);
 	}
 });
 
@@ -256,7 +350,7 @@ app.post("/api/notify/group-join", authenticate, async (req, res) => {
  * POST /api/auth/welcome-email
  * Send welcome email to new users on signup
  */
-app.post("/api/auth/welcome-email", authenticate, async (req, res) => {
+app.post("/api/auth/welcome-email", authLimiter, authenticate, async (req, res) => {
 	try {
 		const { email, name } = req.body;
 
@@ -294,10 +388,7 @@ app.post("/api/auth/welcome-email", authenticate, async (req, res) => {
 		}
 	} catch (error) {
 		console.error("Error in welcome email endpoint:", error);
-		res.status(500).json({
-			error: "Failed to process welcome email request",
-			details: error.message,
-		});
+		return safeError(res, 500, "Failed to process welcome email request", error);
 	}
 });
 
@@ -430,10 +521,7 @@ app.delete("/api/users/:userId", authenticate, async (req, res) => {
 		});
 	} catch (error) {
 		console.error("Error deleting user data:", error);
-		res.status(500).json({
-			error: "Failed to delete user data",
-			details: error.message,
-		});
+		return safeError(res, 500, "Failed to delete user data", error);
 	}
 });
 
@@ -469,10 +557,7 @@ app.post("/api/notify/group-created", authenticate, async (req, res) => {
 		});
 	} catch (error) {
 		console.error("Error in group-created notification:", error);
-		res.status(500).json({
-			error: "Failed to send notification",
-			details: error.message,
-		});
+		return safeError(res, 500, "Failed to send notification", error);
 	}
 });
 
@@ -557,15 +642,12 @@ app.post("/api/test-email", authenticate, async (req, res) => {
 		});
 	} catch (error) {
 		console.error("Error sending test email:", error);
-		res.status(500).json({
-			error: "Failed to send test email",
-			details: error.message,
-		});
+		return safeError(res, 500, "Failed to send test email", error);
 	}
 });
 
 // AI Routes
-app.use("/api/ai", authenticate, aiRoutes);
+app.use("/api/ai", aiLimiter, authenticate, aiRoutes);
 
 // Streak Routes
 app.use("/api/streak", authenticate, streakRoutes);
@@ -574,13 +656,13 @@ app.use("/api/classes", authenticate, classesRoutes);
 app.use("/api/notes", authenticate, notesRoutes);
 app.use("/api/goals", authenticate, goalsRoutes);
 app.use("/api/study-groups", authenticate, studyGroupsRoutes);
-app.use("/api/admin", authenticate, adminRoutes);
+app.use("/api/admin", adminLimiter, authenticate, adminRoutes);
 app.use("/api/users", authenticate, userRoutes);
 app.use("/api/gamification", authenticate, require("./routes/gamificationRoutes"));
 
 // Stripe Routes
 const stripeRoutes = require("./stripeRoutes");
-app.use("/api/stripe", authenticate, stripeRoutes);
+app.use("/api/stripe", stripeLimiter, authenticate, stripeRoutes);
 
 // 404 handler
 app.use((req, res) => {

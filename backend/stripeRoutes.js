@@ -12,19 +12,36 @@ const {
 } = require('./stripeService');
 const User = require('./models/User');
 const Subscription = require('./models/Subscription');
+const verifyFirebaseToken = require('./middleware/verifyFirebaseToken');
+const { safeError } = require('./utils/errorResponse');
+
+// Allowed one-time payment amounts in cents (prevents arbitrary charges)
+const ALLOWED_AMOUNTS = [499, 999, 1999, 4999, 9999];
+const MAX_AMOUNT_CENTS = 99900; // $999 hard cap
 
 /**
  * POST /api/stripe/create-payment-intent
- * Create a payment intent for one-time payment
+ * Create a payment intent for one-time payment — requires Firebase auth
  */
-router.post('/create-payment-intent', async (req, res) => {
+router.post('/create-payment-intent', verifyFirebaseToken, async (req, res) => {
     try {
-        const { amount, currency = 'usd', userId, metadata = {} } = req.body;
+        const { amount, currency = 'usd', userId, idempotencyKey, metadata = {} } = req.body;
 
         if (!amount || !userId) {
             return res.status(400).json({
                 error: 'Missing required fields: amount, userId',
             });
+        }
+
+        // Verify caller owns this userId
+        if (req.user.uid !== userId) {
+            return res.status(403).json({ error: 'Forbidden: userId mismatch' });
+        }
+
+        // Validate amount
+        const amountNum = Number(amount);
+        if (!Number.isInteger(amountNum) || amountNum <= 0 || amountNum > MAX_AMOUNT_CENTS) {
+            return res.status(400).json({ error: `Invalid amount. Must be between 1 and ${MAX_AMOUNT_CENTS} cents.` });
         }
 
         // Get or create user in MongoDB
@@ -61,12 +78,14 @@ router.post('/create-payment-intent', async (req, res) => {
             await user.save();
         }
 
-        // Create payment intent
+        // Create payment intent with optional idempotency key
+        const stripeOptions = idempotencyKey ? { idempotencyKey } : {};
         const { clientSecret, paymentIntentId } = await createPaymentIntent(
-            amount,
+            amountNum,
             currency,
             customerId,
-            { ...metadata, userId }
+            { ...metadata, userId },
+            stripeOptions
         );
 
         res.json({
@@ -77,18 +96,15 @@ router.post('/create-payment-intent', async (req, res) => {
         });
     } catch (error) {
         console.error('Error creating payment intent:', error);
-        res.status(500).json({
-            error: 'Failed to create payment intent',
-            details: error.message,
-        });
+        return safeError(res, 500, 'Failed to create payment intent', error);
     }
 });
 
 /**
  * POST /api/stripe/create-subscription
- * Create a subscription for recurring payments
+ * Create a subscription for recurring payments — requires Firebase auth
  */
-router.post('/create-subscription', async (req, res) => {
+router.post('/create-subscription', verifyFirebaseToken, async (req, res) => {
     try {
         const { priceId, userId, metadata = {} } = req.body;
 
@@ -96,6 +112,11 @@ router.post('/create-subscription', async (req, res) => {
             return res.status(400).json({
                 error: 'Missing required fields: priceId, userId',
             });
+        }
+
+        // Verify caller owns this userId
+        if (req.user.uid !== userId) {
+            return res.status(403).json({ error: 'Forbidden: userId mismatch' });
         }
 
         // Get or create user in MongoDB
@@ -170,10 +191,7 @@ router.post('/create-subscription', async (req, res) => {
         });
     } catch (error) {
         console.error('Error creating subscription:', error);
-        res.status(500).json({
-            error: 'Failed to create subscription',
-            details: error.message,
-        });
+        return safeError(res, 500, 'Failed to create subscription', error);
     }
 });
 
@@ -213,10 +231,7 @@ router.post('/cancel-subscription', async (req, res) => {
         });
     } catch (error) {
         console.error('Error cancelling subscription:', error);
-        res.status(500).json({
-            error: 'Failed to cancel subscription',
-            details: error.message,
-        });
+        return safeError(res, 500, 'Failed to cancel subscription', error);
     }
 });
 
@@ -246,10 +261,7 @@ router.get('/payment-methods/:userId', async (req, res) => {
         });
     } catch (error) {
         console.error('Error getting payment methods:', error);
-        res.status(500).json({
-            error: 'Failed to get payment methods',
-            details: error.message,
-        });
+        return safeError(res, 500, 'Failed to get payment methods', error);
     }
 });
 
@@ -269,10 +281,7 @@ router.get('/subscription/:subscriptionId', async (req, res) => {
         });
     } catch (error) {
         console.error('Error getting subscription:', error);
-        res.status(500).json({
-            error: 'Failed to get subscription',
-            details: error.message,
-        });
+        return safeError(res, 500, 'Failed to get subscription', error);
     }
 });
 
@@ -292,10 +301,7 @@ router.get('/user-subscriptions/:userId', async (req, res) => {
         });
     } catch (error) {
         console.error('Error getting user subscriptions:', error);
-        res.status(500).json({
-            error: 'Failed to get user subscriptions',
-            details: error.message,
-        });
+        return safeError(res, 500, 'Failed to get user subscriptions', error);
     }
 });
 

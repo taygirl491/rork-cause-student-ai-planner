@@ -4,6 +4,7 @@
  */
 
 import io, { Socket } from 'socket.io-client';
+import { auth } from '@/firebaseConfig';
 
 class SocketService {
     private socket: Socket | null = null;
@@ -14,23 +15,33 @@ class SocketService {
     }
 
     /**
-     * Connect to Socket.IO server
+     * Connect to Socket.IO server — passes Firebase ID token for server-side auth
      */
-    connect(userId: string) {
+    async connect(userId: string) {
         if (this.socket?.connected) {
             console.log('Socket already connected, ensuring user channel joined');
             this.joinUser(userId);
             return;
         }
 
+        let token = '';
+        try {
+            if (auth.currentUser) {
+                token = await auth.currentUser.getIdToken();
+            }
+        } catch (e) {
+            console.warn('[Socket] Could not get Firebase token:', e);
+        }
+
         this.socket = io(this.API_URL, {
+            auth: { token },
             query: { userId },
             transports: ['websocket', 'polling'],
             reconnection: true,
             reconnectionDelay: 2000,
             reconnectionDelayMax: 10000,
             reconnectionAttempts: 10,
-            timeout: 60000, // Increased from default 20s to handle cold starts
+            timeout: 60000,
         });
 
         this.socket.on('connect', () => {

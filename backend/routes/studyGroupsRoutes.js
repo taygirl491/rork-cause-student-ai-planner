@@ -1,6 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const StudyGroup = require('../models/StudyGroup');
+
+// In-memory idempotency cache for group creation (TTL: 60s)
+// Key: creatorId+name+className — prevents duplicate groups from rapid re-submissions
+const creationCache = new Map();
+const CREATION_CACHE_TTL_MS = 60 * 1000;
 const StudyGroupMessage = require('../models/StudyGroupMessageMongo');
 const {
     sendMessageNotification,
@@ -9,15 +14,26 @@ const {
     sendJoinRequestNotification
 } = require('../notificationService');
 const User = require('../models/User');
+const verifyFirebaseToken = require('../middleware/verifyFirebaseToken');
+const { validateCreateGroup, validateJoinGroup, validateMessage } = require('../middleware/validateStudyGroup');
+const { safeError } = require('../utils/errorResponse');
 
 /**
  * GET /api/study-groups/:userId
  * Get all study groups for a user (where they are a member or creator)
  */
-router.get('/:userId', async (req, res) => {
+router.get('/:userId', verifyFirebaseToken, async (req, res) => {
     try {
         const { userId } = req.params;
         const { email } = req.query;
+
+        // Verify the authenticated user is requesting their own data
+        if (req.user.uid !== userId) {
+            return res.status(403).json({
+                success: false,
+                error: 'Forbidden: Cannot access another user\'s study groups',
+            });
+        }
 
         if (!email) {
             return res.status(400).json({
@@ -67,11 +83,7 @@ router.get('/:userId', async (req, res) => {
         });
     } catch (error) {
         console.error('Error getting study groups:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Failed to get study groups',
-            details: error.message,
-        });
+        return safeError(res, 500, 'Failed to get study groups', error);
     }
 });
 
@@ -79,15 +91,23 @@ router.get('/:userId', async (req, res) => {
  * POST /api/study-groups
  * Create a new study group
  */
-router.post('/', async (req, res) => {
+router.post('/', verifyFirebaseToken, validateCreateGroup, async (req, res) => {
     try {
-        const { name, className, school, description, creatorId, creatorEmail, creatorName, isPrivate } = req.body;
+        const { name, className, school, description, creatorEmail, creatorName, isPrivate } = req.body;
+        const creatorId = req.user.uid;
 
         if (!name || !className || !school || !creatorId || !creatorEmail) {
             return res.status(400).json({
                 success: false,
                 error: 'Missing required fields',
             });
+        }
+
+        // Idempotency: reject duplicate submissions within 60 seconds
+        const idempotencyKey = `${creatorId}:${name}:${className}`;
+        const cached = creationCache.get(idempotencyKey);
+        if (cached && Date.now() - cached.ts < CREATION_CACHE_TTL_MS) {
+            return res.status(201).json({ success: true, group: cached.group });
         }
 
         // Generate unique code and _id
@@ -116,6 +136,8 @@ router.post('/', async (req, res) => {
         });
 
         console.log('[StudyGroups] Group created successfully in DB:', groupId);
+        creationCache.set(idempotencyKey, { ts: Date.now(), group: group.toObject() });
+        setTimeout(() => creationCache.delete(idempotencyKey), CREATION_CACHE_TTL_MS);
 
         // Award points for creating a group
         try {
@@ -150,11 +172,7 @@ router.post('/', async (req, res) => {
         });
     } catch (error) {
         console.error('[StudyGroups] CRITICAL ERROR during creation:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Failed to create study group',
-            details: error.message,
-        });
+        return safeError(res, 500, 'Failed to create study group', error);
     }
 });
 
@@ -162,9 +180,10 @@ router.post('/', async (req, res) => {
  * POST /api/study-groups/join
  * Request to join a study group (creates pending request)
  */
-router.post('/join', async (req, res) => {
+router.post('/join', verifyFirebaseToken, validateJoinGroup, async (req, res) => {
     try {
-        const { code, email, name, userId } = req.body;
+        const { code, email, name } = req.body;
+        const userId = req.user.uid;
 
         if (!code || !email || !userId) {
             return res.status(400).json({
@@ -242,11 +261,7 @@ router.post('/join', async (req, res) => {
         });
     } catch (error) {
         console.error('Error requesting to join study group:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Failed to request join',
-            details: error.message,
-        });
+        return safeError(res, 500, 'Failed to request join', error);
     }
 });
 
@@ -254,18 +269,22 @@ router.post('/join', async (req, res) => {
  * DELETE /api/study-groups/:groupId
  * Delete a study group
  */
-router.delete('/:groupId', async (req, res) => {
+router.delete('/:groupId', verifyFirebaseToken, async (req, res) => {
     try {
         const { groupId } = req.params;
+        const requesterId = req.user.uid;
 
-        const group = await StudyGroup.findByIdAndDelete(groupId);
-
+        const group = await StudyGroup.findById(groupId);
         if (!group) {
-            return res.status(404).json({
-                success: false,
-                error: 'Group not found',
-            });
+            return res.status(404).json({ success: false, error: 'Group not found' });
         }
+
+        // Only creator or admin can delete
+        if (group.creatorId !== requesterId && !group.admins.includes(requesterId)) {
+            return res.status(403).json({ success: false, error: 'Only the creator or an admin can delete this group' });
+        }
+
+        await StudyGroup.findByIdAndDelete(groupId);
 
         // Also delete all messages for this group
         await StudyGroupMessage.deleteMany({ groupId });
@@ -282,11 +301,7 @@ router.delete('/:groupId', async (req, res) => {
         });
     } catch (error) {
         console.error('Error deleting study group:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Failed to delete study group',
-            details: error.message,
-        });
+        return safeError(res, 500, 'Failed to delete study group', error);
     }
 });
 
@@ -307,11 +322,7 @@ router.get('/:groupId/messages', async (req, res) => {
         });
     } catch (error) {
         console.error('Error getting messages:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Failed to get messages',
-            details: error.message,
-        });
+        return safeError(res, 500, 'Failed to get messages', error);
     }
 });
 
@@ -319,7 +330,7 @@ router.get('/:groupId/messages', async (req, res) => {
  * POST /api/study-groups/:groupId/messages
  * Send a message to a study group
  */
-router.post('/:groupId/messages', async (req, res) => {
+router.post('/:groupId/messages', validateMessage, async (req, res) => {
     try {
         const { groupId } = req.params;
         const { senderEmail, senderName, message, attachments } = req.body;
@@ -376,11 +387,7 @@ router.post('/:groupId/messages', async (req, res) => {
         });
     } catch (error) {
         console.error('Error sending message:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Failed to send message',
-            details: error.message,
-        });
+        return safeError(res, 500, 'Failed to send message', error);
     }
 });
 
@@ -388,15 +395,16 @@ router.post('/:groupId/messages', async (req, res) => {
  * POST /api/study-groups/:groupId/approve-member
  * Approve a pending member (admin only)
  */
-router.post('/:groupId/approve-member', async (req, res) => {
+router.post('/:groupId/approve-member', verifyFirebaseToken, async (req, res) => {
     try {
         const { groupId } = req.params;
-        const { email, adminUserId } = req.body;
+        const { email } = req.body;
+        const adminUserId = req.user.uid;
 
-        if (!email || !adminUserId) {
+        if (!email) {
             return res.status(400).json({
                 success: false,
-                error: 'Email and adminUserId are required',
+                error: 'Email is required',
             });
         }
 
@@ -475,11 +483,7 @@ router.post('/:groupId/approve-member', async (req, res) => {
         });
     } catch (error) {
         console.error('Error approving member:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Failed to approve member',
-            details: error.message,
-        });
+        return safeError(res, 500, 'Failed to approve member', error);
     }
 });
 
@@ -487,15 +491,16 @@ router.post('/:groupId/approve-member', async (req, res) => {
  * POST /api/study-groups/:groupId/reject-member
  * Reject a pending member (admin only)
  */
-router.post('/:groupId/reject-member', async (req, res) => {
+router.post('/:groupId/reject-member', verifyFirebaseToken, async (req, res) => {
     try {
         const { groupId } = req.params;
-        const { email, adminUserId } = req.body;
+        const { email } = req.body;
+        const adminUserId = req.user.uid;
 
-        if (!email || !adminUserId) {
+        if (!email) {
             return res.status(400).json({
                 success: false,
-                error: 'Email and adminUserId are required',
+                error: 'Email is required',
             });
         }
 
@@ -545,11 +550,7 @@ router.post('/:groupId/reject-member', async (req, res) => {
         });
     } catch (error) {
         console.error('Error rejecting member:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Failed to reject member',
-            details: error.message,
-        });
+        return safeError(res, 500, 'Failed to reject member', error);
     }
 });
 
@@ -557,15 +558,16 @@ router.post('/:groupId/reject-member', async (req, res) => {
  * POST /api/study-groups/:groupId/kick-member
  * Kick a member from the group (admin only, can't kick creator)
  */
-router.post('/:groupId/kick-member', async (req, res) => {
+router.post('/:groupId/kick-member', verifyFirebaseToken, async (req, res) => {
     try {
         const { groupId } = req.params;
-        const { email, adminUserId } = req.body;
+        const { email } = req.body;
+        const adminUserId = req.user.uid;
 
-        if (!email || !adminUserId) {
+        if (!email) {
             return res.status(400).json({
                 success: false,
-                error: 'Email and adminUserId are required',
+                error: 'Email is required',
             });
         }
 
@@ -630,11 +632,7 @@ router.post('/:groupId/kick-member', async (req, res) => {
         });
     } catch (error) {
         console.error('Error kicking member:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Failed to kick member',
-            details: error.message,
-        });
+        return safeError(res, 500, 'Failed to kick member', error);
     }
 });
 
@@ -642,15 +640,16 @@ router.post('/:groupId/kick-member', async (req, res) => {
  * POST /api/study-groups/:groupId/promote-admin
  * Promote a member to admin (creator only, max 4 admins)
  */
-router.post('/:groupId/promote-admin', async (req, res) => {
+router.post('/:groupId/promote-admin', verifyFirebaseToken, async (req, res) => {
     try {
         const { groupId } = req.params;
-        const { userId, creatorId } = req.body;
+        const { userId } = req.body;
+        const creatorId = req.user.uid;
 
-        if (!userId || !creatorId) {
+        if (!userId) {
             return res.status(400).json({
                 success: false,
-                error: 'userId and creatorId are required',
+                error: 'userId is required',
             });
         }
 
@@ -705,11 +704,7 @@ router.post('/:groupId/promote-admin', async (req, res) => {
         });
     } catch (error) {
         console.error('Error promoting admin:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Failed to promote admin',
-            details: error.message,
-        });
+        return safeError(res, 500, 'Failed to promote admin', error);
     }
 });
 
@@ -717,15 +712,16 @@ router.post('/:groupId/promote-admin', async (req, res) => {
  * POST /api/study-groups/:groupId/demote-admin
  * Demote an admin to regular member (creator only, can't demote creator)
  */
-router.post('/:groupId/demote-admin', async (req, res) => {
+router.post('/:groupId/demote-admin', verifyFirebaseToken, async (req, res) => {
     try {
         const { groupId } = req.params;
-        const { userId, creatorId } = req.body;
+        const { userId } = req.body;
+        const creatorId = req.user.uid;
 
-        if (!userId || !creatorId) {
+        if (!userId) {
             return res.status(400).json({
                 success: false,
-                error: 'userId and creatorId are required',
+                error: 'userId is required',
             });
         }
 
@@ -781,11 +777,7 @@ router.post('/:groupId/demote-admin', async (req, res) => {
         });
     } catch (error) {
         console.error('Error demoting admin:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Failed to demote admin',
-            details: error.message,
-        });
+        return safeError(res, 500, 'Failed to demote admin', error);
     }
 });
 
@@ -793,17 +785,10 @@ router.post('/:groupId/demote-admin', async (req, res) => {
  * GET /api/study-groups/:groupId/pending-members
  * Get pending member requests (admin only)
  */
-router.get('/:groupId/pending-members', async (req, res) => {
+router.get('/:groupId/pending-members', verifyFirebaseToken, async (req, res) => {
     try {
         const { groupId } = req.params;
-        const { adminUserId } = req.query;
-
-        if (!adminUserId) {
-            return res.status(400).json({
-                success: false,
-                error: 'adminUserId is required',
-            });
-        }
+        const adminUserId = req.user.uid;
 
         const group = await StudyGroup.findById(groupId);
 
@@ -828,11 +813,7 @@ router.get('/:groupId/pending-members', async (req, res) => {
         });
     } catch (error) {
         console.error('Error getting pending members:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Failed to get pending members',
-            details: error.message,
-        });
+        return safeError(res, 500, 'Failed to get pending members', error);
     }
 });
 

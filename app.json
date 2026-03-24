@@ -17,6 +17,9 @@
       "supportsTablet": false,
       "bundleIdentifier": "app.rork.cause-student-ai-planner",
       "buildNumber": "24",
+      "entitlements": {
+        "com.apple.developer.usernotifications.time-sensitive": true
+      },
       "infoPlist": {
         "NSPhotoLibraryUsageDescription": "Allow $(PRODUCT_NAME) to access your photos",
         "NSCameraUsageDescription": "Allow $(PRODUCT_NAME) to access your camera",

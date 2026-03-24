@@ -8,8 +8,6 @@ import { Mail, Lock, GraduationCap, Eye, EyeOff } from 'lucide-react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import colors from '@/constants/colors';
 import * as NotificationService from '@/utils/notificationService';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '@/firebaseConfig';
 import Button from '@/components/Button';
 
 export default function LoginScreen() {
@@ -62,12 +60,6 @@ export default function LoginScreen() {
         await NotificationService.savePushToken(user.uid, token, user.email || undefined);
       }
 
-      // Let _layout.tsx handle admin routing automatically
-      // Don't navigate here to avoid double navigation
-      if (user?.email === 'minatoventuresinc@gmail.com') {
-        return; // _layout.tsx will redirect to /admin
-      }
-
       if (returnTo) {
         router.replace(returnTo as any);
       } else {
@@ -75,33 +67,6 @@ export default function LoginScreen() {
       }
     } catch (error: any) {
       setIsNavigating(false);
-      // Special handling for admin account creation
-      if (email.trim().toLowerCase() === 'minatoventuresinc@gmail.com') {
-        try {
-          setIsNavigating(true);
-          await createUserWithEmailAndPassword(auth, email.trim(), password);
-          // If successful, _layout.tsx will handle navigation to /admin
-          return;
-        } catch (createError: any) {
-          setIsNavigating(false);
-          console.log("Admin creation failed or already exists:", createError);
-          // If the account already exists (but login failed), it means the password is wrong
-          if (createError.code === 'auth/email-already-in-use') {
-            Alert.alert(
-              'Admin Login Issue',
-              'The admin account already exists, but the password provided is incorrect. Please use the "Forgot Password" button to reset it.'
-            );
-            return;
-          } else {
-            // Alert for other creation errors (e.g. weak password, network, etc.)
-            Alert.alert(
-              'Admin Creation Error',
-              `Failed to create admin account: ${createError.message}`
-            );
-            return;
-          }
-        }
-      }
 
       // Provide user-friendly error messages
       let errorTitle = 'Login Failed';

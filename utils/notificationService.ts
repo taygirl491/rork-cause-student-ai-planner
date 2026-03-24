@@ -15,6 +15,40 @@ const { scheduleAlarm, removeAlarm } = Platform.OS === 'android'
   : { scheduleAlarm: null as any, removeAlarm: null as any };
 
 /**
+ * Register iOS notification action categories for alarm banners (snooze / dismiss).
+ * Fire-and-forget — called once from initNotifications on iOS.
+ */
+async function setupNotificationCategories() {
+  try {
+    await Notifications.setNotificationCategoryAsync('ALARM', [
+      {
+        identifier: 'SNOOZE_5',
+        buttonTitle: 'Snooze 5 min',
+        options: { opensAppToForeground: false },
+      },
+      {
+        identifier: 'DISMISS',
+        buttonTitle: 'Dismiss',
+        options: { isDestructive: true, opensAppToForeground: false },
+      },
+    ]);
+  } catch (e) {
+    console.error('[Notification] Failed to register ALARM category:', e);
+  }
+}
+
+/**
+ * Returns how many more local notifications can be scheduled on iOS
+ * before hitting the system 64-notification limit.
+ * Returns Infinity on Android (no such limit).
+ */
+async function getAvailableNotificationSlots(): Promise<number> {
+  if (Platform.OS !== 'ios') return Infinity;
+  const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+  return Math.max(0, 64 - scheduled.length);
+}
+
+/**
  * Configure notification handler
  * Note: This should be called only ONCE from the root layout
  */
@@ -28,6 +62,11 @@ export function initNotifications() {
       shouldShowList: true,
     }),
   });
+
+  // Register iOS notification action categories (snooze / dismiss on banner)
+  if (Platform.OS === 'ios') {
+    setupNotificationCategories();
+  }
 }
 
 /**
@@ -40,7 +79,15 @@ export async function requestNotificationPermissions(): Promise<boolean> {
     let finalStatus = existingStatus;
 
     if (existingStatus !== 'granted') {
-      const { status } = await Notifications.requestPermissionsAsync();
+      const { status } = await Notifications.requestPermissionsAsync({
+        ios: {
+          allowAlert: true,
+          allowBadge: true,
+          allowSound: true,
+          // @ts-ignore — allowTimeSensitive not yet typed in expo-notifications
+          allowTimeSensitive: true,
+        },
+      });
       finalStatus = status;
     }
 
@@ -81,7 +128,7 @@ export async function setupNotificationChannels() {
       lightColor: '#EF4444',
       sound: 'alarm_clock_90867.wav',
       enableVibrate: true,
-      lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+      lockscreenVisibility: Notifications.AndroidNotificationVisibility.PRIVATE,
       audioAttributes: {
         usage: Notifications.AndroidAudioUsage.ALARM,
         contentType: Notifications.AndroidAudioContentType.SONIFICATION,
@@ -161,6 +208,8 @@ export async function registerForPushNotificationsAsync(): Promise<string | unde
           console.error('[Notification] ERROR: Project ID mismatch or app.json configuration error.');
         }
       }
+
+      if (isTransient && retries < maxRetries) {
         const delay = baseDelay * Math.pow(2, retries - 1);
         console.warn(`Expo push token fetch failed (503). Retrying in ${delay}ms... (Attempt ${retries}/${maxRetries})`);
         await new Promise(resolve => setTimeout(resolve, delay));
@@ -310,21 +359,25 @@ export async function scheduleTaskReminder(task: Task): Promise<string | null> {
     const channelId = task.alarmEnabled ? 'task-alarms' : 'task-reminders-v3';
     const sound = task.alarmEnabled ? 'alarm_clock_90867.wav' : 'default';
 
+    const iosAlarmExtras = (task.alarmEnabled && Platform.OS === 'ios')
+      ? { interruptionLevel: 'timeSensitive', categoryIdentifier: 'ALARM' }
+      : {};
+
     const notificationId = await Notifications.scheduleNotificationAsync({
       content: {
         title: `Reminder: ${task.type.toUpperCase()}`,
         body: task.description,
-        data: { 
-          taskId: task.id, 
+        data: {
+          taskId: task.id,
           type: 'task_reminder',
           className: task.className,
         },
         sound: sound,
         badge: 1,
         color: '#6366F1',
-        // @ts-ignore
         channelId: channelId,
-      } as Notifications.NotificationContentInput,
+        ...iosAlarmExtras,
+      } as any,
       trigger: {
         type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
         seconds: secondsUntilTrigger > 0 ? secondsUntilTrigger : 1,
@@ -333,28 +386,32 @@ export async function scheduleTaskReminder(task: Task): Promise<string | null> {
     });
 
     // IMPLEMENTATION FOR iOS: "Chasing" notifications to simulate persistent alarm
-    // iOS standard notification sounds only ring once. We schedule a "burst" of 
-    // identical notifications to keep it ringing.
+    // iOS standard notification sounds only ring once. We schedule a burst of
+    // notifications (capped at 6) at 30s intervals — ~3 mins of ringing.
+    // Capped at 6 (not 10) to protect the iOS 64-notification system limit.
     if (task.alarmEnabled && Platform.OS === 'ios') {
       try {
-        console.log(`[Notification] Scheduling chasing burst for task ${task.id} (iOS)`);
-        // Schedule 10 more notifications at 30s intervals (total ~5 mins of ringing)
-        for (let i = 1; i <= 10; i++) {
+        const slots = await getAvailableNotificationSlots();
+        const MAX_CHASERS = 6;
+        const chasersToSchedule = Math.min(MAX_CHASERS, slots);
+        console.log(`[Notification] Scheduling ${chasersToSchedule} chasers for task ${task.id} (${slots} slots free)`);
+        for (let i = 1; i <= chasersToSchedule; i++) {
           await Notifications.scheduleNotificationAsync({
             content: {
               title: `Reminder: ${task.type.toUpperCase()} (${i + 1})`,
               body: task.description,
-              data: { 
-                taskId: task.id, 
+              data: {
+                taskId: task.id,
                 type: 'task_reminder_chaser',
                 className: task.className,
               },
               sound: sound,
               badge: 1,
               color: '#6366F1',
-              // @ts-ignore
               channelId: channelId,
-            } as Notifications.NotificationContentInput,
+              interruptionLevel: 'timeSensitive',
+              categoryIdentifier: 'ALARM',
+            } as any,
             trigger: {
               type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
               seconds: secondsUntilTrigger + (i * 30),
@@ -439,21 +496,25 @@ export async function scheduleDueDateNotification(task: Task): Promise<string | 
     const channelId = task.alarmEnabled ? 'task-alarms' : 'task-reminders-v3';
     const sound = task.alarmEnabled ? 'alarm_clock_90867.wav' : 'default';
 
+    const iosAlarmExtras = (task.alarmEnabled && Platform.OS === 'ios')
+      ? { interruptionLevel: 'timeSensitive', categoryIdentifier: 'ALARM' }
+      : {};
+
     const notificationId = await Notifications.scheduleNotificationAsync({
       content: {
         title: `Task Due: ${task.type.toUpperCase()}`,
         body: `${task.description}${task.className ? ` (${task.className})` : ''}`,
-        data: { 
-          taskId: task.id, 
+        data: {
+          taskId: task.id,
           type: 'task_due',
           className: task.className,
         },
         sound: sound,
         badge: 1,
         color: '#6366F1',
-        // @ts-ignore
         channelId: channelId,
-      } as Notifications.NotificationContentInput,
+        ...iosAlarmExtras,
+      } as any,
       trigger: {
         type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
         seconds: secondsUntilDue > 0 ? secondsUntilDue : 1,
@@ -461,29 +522,35 @@ export async function scheduleDueDateNotification(task: Task): Promise<string | 
       },
     });
 
-    // IMPLEMENTATION FOR iOS: "Chasing" notifications to simulate persistent alarm
+    // IMPLEMENTATION FOR iOS: "Chasing" notifications to simulate persistent alarm.
+    // Capped at 6 chasers to protect the iOS 64-notification system limit.
     if (task.alarmEnabled && Platform.OS === 'ios') {
       try {
-        console.log(`[Notification] Scheduling chasing burst for task (due) ${task.id} (iOS)`);
-        for (let i = 1; i <= 10; i++) {
+        const slots = await getAvailableNotificationSlots();
+        const MAX_CHASERS = 6;
+        const chasersToSchedule = Math.min(MAX_CHASERS, slots);
+        console.log(`[Notification] Scheduling ${chasersToSchedule} chasers for task (due) ${task.id} (${slots} slots free)`);
+        for (let i = 1; i <= chasersToSchedule; i++) {
           await Notifications.scheduleNotificationAsync({
             content: {
               title: `Task Due: ${task.type.toUpperCase()} (${i + 1})`,
               body: `${task.description}${task.className ? ` (${task.className})` : ''}`,
-              data: { 
-                taskId: task.id, 
+              data: {
+                taskId: task.id,
                 type: 'task_due_chaser',
                 className: task.className,
               },
               sound: sound,
               badge: 1,
               color: '#6366F1',
-              // @ts-ignore
               channelId: channelId,
-            } as Notifications.NotificationContentInput,
+              interruptionLevel: 'timeSensitive',
+              categoryIdentifier: 'ALARM',
+            } as any,
             trigger: {
               type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
               seconds: secondsUntilDue + (i * 30),
+              repeats: false,
             },
           });
         }
