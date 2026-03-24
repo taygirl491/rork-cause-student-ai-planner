@@ -20,6 +20,7 @@ import * as ImagePicker from 'expo-image-picker';
 // import TextRecognition from '@react-native-ml-kit/text-recognition';
 import * as DocumentPicker from 'expo-document-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import CryptoJS from 'crypto-js';
 import colors from '@/constants/colors';
 import * as Analytics from '@/utils/analytics';
 import { useAuth } from '@/contexts/AuthContext';
@@ -103,12 +104,30 @@ export default function AIBuddyScreen() {
     }
   }, [messages]);
 
+  // Encrypt/decrypt helpers — key is the Firebase UID so data is user-scoped
+  const encryptData = (data: any): string => {
+    const key = user?.uid || 'anon';
+    return CryptoJS.AES.encrypt(JSON.stringify(data), key).toString();
+  };
+
+  const decryptData = (ciphertext: string): any => {
+    try {
+      const key = user?.uid || 'anon';
+      const bytes = CryptoJS.AES.decrypt(ciphertext, key);
+      return JSON.parse(bytes.toString(CryptoJS.enc.Utf8));
+    } catch {
+      return null;
+    }
+  };
+
   const loadConversationHistory = async (currentMode: string) => {
     setIsLoadingHistory(true);
     try {
       const stored = await AsyncStorage.getItem(`${STORAGE_KEY_PREFIX}${currentMode}`);
       if (stored) {
-        const parsed = JSON.parse(stored);
+        const decrypted = decryptData(stored);
+        // Fall back to plain JSON parse for pre-encryption data that may still exist on device
+        const parsed = decrypted ?? JSON.parse(stored);
         setMessages(parsed);
         // Scroll to bottom after loading history
         setTimeout(() => {
@@ -126,9 +145,9 @@ export default function AIBuddyScreen() {
 
   const saveConversationHistory = async (newMessages: AIMessage[], currentMode: string) => {
     try {
-      // Save mode-specific conversation
+      // Save mode-specific conversation (encrypted)
       const messagesToStore = newMessages.slice(-MAX_STORED_MESSAGES);
-      await AsyncStorage.setItem(`${STORAGE_KEY_PREFIX}${currentMode}`, JSON.stringify(messagesToStore));
+      await AsyncStorage.setItem(`${STORAGE_KEY_PREFIX}${currentMode}`, encryptData(messagesToStore));
 
       // Also save to shared memory with mode tags
       await saveToSharedMemory(newMessages, currentMode);
@@ -139,9 +158,13 @@ export default function AIBuddyScreen() {
 
   const saveToSharedMemory = async (newMessages: AIMessage[], currentMode: string) => {
     try {
-      // Load existing shared memory
+      // Load existing shared memory (decrypt if needed)
       const stored = await AsyncStorage.getItem(SHARED_MEMORY_KEY);
-      let sharedMemory: Array<AIMessage & { mode: AIMode }> = stored ? JSON.parse(stored) : [];
+      let sharedMemory: Array<AIMessage & { mode: AIMode }> = [];
+      if (stored) {
+        const decrypted = decryptData(stored);
+        sharedMemory = decrypted ?? JSON.parse(stored);
+      }
 
       // Add mode tags to new messages
       const taggedMessages = newMessages.map(msg => ({ ...msg, mode: currentMode as AIMode }));
@@ -157,7 +180,7 @@ export default function AIBuddyScreen() {
         .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
         .slice(-MAX_SHARED_MESSAGES);
 
-      await AsyncStorage.setItem(SHARED_MEMORY_KEY, JSON.stringify(sharedMemory));
+      await AsyncStorage.setItem(SHARED_MEMORY_KEY, encryptData(sharedMemory));
     } catch (error) {
       console.error('Error saving to shared memory:', error);
     }
@@ -166,7 +189,9 @@ export default function AIBuddyScreen() {
   const loadSharedMemory = async (): Promise<Array<AIMessage & { mode: AIMode }>> => {
     try {
       const stored = await AsyncStorage.getItem(SHARED_MEMORY_KEY);
-      return stored ? JSON.parse(stored) : [];
+      if (!stored) return [];
+      const decrypted = decryptData(stored);
+      return decrypted ?? JSON.parse(stored);
     } catch (error) {
       console.error('Error loading shared memory:', error);
       return [];
@@ -174,7 +199,7 @@ export default function AIBuddyScreen() {
   };
 
   const animateTyping = async (messageId: string, fullText: string) => {
-    const typingSpeed = 1; // milliseconds per character
+    const typingSpeed = 0.0001; // milliseconds per character
     let currentIndex = 0;
 
     return new Promise<void>((resolve) => {

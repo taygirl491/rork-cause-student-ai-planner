@@ -1,10 +1,20 @@
 const express = require("express");
 const router = express.Router();
+const rateLimit = require("express-rate-limit");
 const { db } = require("./firebase");
 const { generateChatResponse, analyzeImage, analyzeDocument } = require("./openaiService");
 const pdfParse = require('pdf-parse');
 const multer = require('multer');
 const User = require("./models/User");
+
+// Per-user burst limiter — 5 requests per 60 seconds regardless of tier
+const perUserAiLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 5,
+    keyGenerator: (req) => req.body?.userId || req.ip,
+    handler: (req, res) => res.status(429).json({ success: false, error: "Too many AI requests. Please wait before sending another message." }),
+    skip: (req) => !req.body?.userId, // fall through to IP limit if no userId
+});
 
 // Configure multer for memory storage
 const upload = multer({
@@ -76,7 +86,7 @@ async function trackUsage(userId) {
  * POST /api/ai/analyze-image
  * Analyze an image or document using GPT-4 Vision
  */
-router.post("/analyze-image", upload.single('file'), async (req, res) => {
+router.post("/analyze-image", perUserAiLimiter, upload.single('file'), async (req, res) => {
     try {
         const { prompt, userId } = req.body;
 
@@ -150,7 +160,7 @@ router.post("/analyze-image", upload.single('file'), async (req, res) => {
  * POST /api/ai/syllabus/parse
  * Parse a syllabus file (Image) to extract structured data
  */
-router.post("/syllabus/parse", upload.single('file'), async (req, res) => {
+router.post("/syllabus/parse", perUserAiLimiter, upload.single('file'), async (req, res) => {
     try {
         const { userId } = req.body;
 
@@ -236,7 +246,7 @@ router.get("/usage/:userId", async (req, res) => {
  * Accepts user message and conversation history
  * Returns AI response with user context
  */
-router.post("/chat", async (req, res) => {
+router.post("/chat", perUserAiLimiter, async (req, res) => {
     try {
         const { message, conversationHistory = [], userId, mode = "homework" } = req.body;
 

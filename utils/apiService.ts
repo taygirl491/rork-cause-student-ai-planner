@@ -1,6 +1,7 @@
 import { readAsStringAsync } from "expo-file-system/legacy";
 
 import { Platform } from 'react-native';
+import { auth } from '@/firebaseConfig';
 
 // Use environment variable or fallback to production URL
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || "https://rork-cause-student-ai-planner.onrender.com";
@@ -439,6 +440,137 @@ class ApiService {
 				console.error('[API] NETWORK ERROR: Cannot reach backend. Check internet connection and backend URL.');
 				console.error('[API] Backend URL:', API_BASE_URL);
 			}
+			throw error;
+		}
+	}
+
+	/**
+	 * Authenticated GET — includes the current user's Firebase ID token.
+	 * Use for endpoints that verify the caller's identity (e.g. /api/study-groups/:userId).
+	 */
+	async getAuthenticated(endpoint: string) {
+		try {
+			let token = '';
+			if (auth.currentUser) {
+				token = await auth.currentUser.getIdToken();
+			}
+			console.log(`[API] GET (auth) ${API_BASE_URL}${endpoint}`);
+			const response = await fetchWithRetry(
+				`${API_BASE_URL}${endpoint}`,
+				{
+					method: "GET",
+					headers: {
+						"Content-Type": "application/json",
+						"x-api-key": API_KEY,
+						...(token ? { "Authorization": `Bearer ${token}` } : {}),
+					},
+				},
+				60000
+			);
+
+			if (!response.ok) {
+				const clonedResponse = response.clone();
+				let error;
+				try {
+					error = await response.json();
+				} catch (e) {
+					const text = await clonedResponse.text();
+					return { success: false, error: "Request failed", details: text };
+				}
+				return { success: false, error: error.error || "Request failed" };
+			}
+
+			const result = await response.json();
+			return result;
+		} catch (error: any) {
+			console.error("[API] GET (auth) error:", error.message || error);
+			throw error;
+		}
+	}
+
+	/**
+	 * Authenticated POST — includes the current user's Firebase ID token.
+	 */
+	async postAuthenticated(endpoint: string, data: any) {
+		try {
+			let token = '';
+			if (auth.currentUser) {
+				token = await auth.currentUser.getIdToken();
+			}
+			console.log(`[API] POST (auth) ${API_BASE_URL}${endpoint}`);
+			const response = await fetchWithRetry(
+				`${API_BASE_URL}${endpoint}`,
+				{
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+						"x-api-key": API_KEY,
+						...(token ? { "Authorization": `Bearer ${token}` } : {}),
+					},
+					body: JSON.stringify(data),
+				},
+				60000
+			);
+
+			if (!response.ok) {
+				const clonedResponse = response.clone();
+				let error;
+				try {
+					error = await response.json();
+				} catch (e) {
+					const text = await clonedResponse.text();
+					return { success: false, error: "Request failed", details: text };
+				}
+				return { success: false, error: error.error || "Request failed" };
+			}
+
+			const result = await response.json();
+			return result;
+		} catch (error: any) {
+			console.error("[API] POST (auth) error:", error.message || error);
+			throw error;
+		}
+	}
+
+	/**
+	 * Authenticated DELETE — includes the current user's Firebase ID token.
+	 */
+	async deleteAuthenticated(endpoint: string) {
+		try {
+			let token = '';
+			if (auth.currentUser) {
+				token = await auth.currentUser.getIdToken();
+			}
+			console.log(`[API] DELETE (auth) ${API_BASE_URL}${endpoint}`);
+			const response = await fetchWithTimeout(
+				`${API_BASE_URL}${endpoint}`,
+				{
+					method: "DELETE",
+					headers: {
+						"Content-Type": "application/json",
+						"x-api-key": API_KEY,
+						...(token ? { "Authorization": `Bearer ${token}` } : {}),
+					},
+				},
+				30000
+			);
+
+			if (!response.ok) {
+				const clonedResponse = response.clone();
+				let error;
+				try {
+					error = await response.json();
+				} catch (e) {
+					const text = await clonedResponse.text();
+					return { success: false, error: "Request failed", details: text };
+				}
+				return { success: false, error: error.error || "Request failed" };
+			}
+
+			const result = await response.json();
+			return result;
+		} catch (error: any) {
+			console.error("[API] DELETE (auth) error:", error.message || error);
 			throw error;
 		}
 	}

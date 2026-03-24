@@ -1,13 +1,23 @@
 const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
-const emailService = require('../emailService'); // Use Nodemailer with Gmail
+const emailService = require('../emailService');
+const verifyFirebaseToken = require('../middleware/verifyFirebaseToken');
+const { safeError } = require('../utils/errorResponse');
+
+// Middleware: requires Firebase ID token AND admin custom claim
+const requireAdmin = (req, res, next) => {
+    if (!req.user || req.user.admin !== true) {
+        return res.status(403).json({ error: 'Forbidden: admin access required' });
+    }
+    next();
+};
 
 /**
  * POST /api/admin/broadcast-email
- * Send an email announcement to all users
+ * Send an email announcement to all users — admin only
  */
-router.post('/broadcast-email', async (req, res) => {
+router.post('/broadcast-email', verifyFirebaseToken, requireAdmin, async (req, res) => {
     try {
         const { subject, body } = req.body;
 
@@ -55,10 +65,7 @@ router.post('/broadcast-email', async (req, res) => {
 
     } catch (error) {
         console.error('Error in broadcast-email:', error);
-        res.status(500).json({
-            error: 'Internal server error',
-            details: error.message
-        });
+        return safeError(res, 500, 'Internal server error', error);
     }
 });
 

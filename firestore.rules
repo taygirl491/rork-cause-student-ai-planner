@@ -42,28 +42,35 @@ service cloud.firestore {
       function isCreator(creatorId) {
         return request.auth.uid == creatorId;
       }
-      
+
+      // Helper function to check if user is an admin of this group
+      function isGroupAdmin() {
+        return resource.data.admins.hasAny([request.auth.uid]);
+      }
+
       // Allow reading groups (both list and get operations)
-      // The query will return all documents, but client-side filtering is applied
       allow read: if isAuthenticated();
-      
+
       // Allow authenticated users to create groups
-      // Relaxed validation for creation - only check auth and creatorId
-      allow create: if isAuthenticated() && 
+      allow create: if isAuthenticated() &&
         request.resource.data.creatorId == request.auth.uid;
-      
-      // Allow authenticated users to update groups
-      // Client-side code ensures proper membership validation
-      allow update: if isAuthenticated();
-      
+
+      // Only the creator or a group admin can update group details
+      allow update: if isAuthenticated() && (
+        isCreator(resource.data.creatorId) || isGroupAdmin()
+      );
+
       // Only creator can delete the group
       allow delete: if isAuthenticated() && isCreator(resource.data.creatorId);
-      
-      // Messages subcollection - members of the parent group can read/write
+
+      // Messages subcollection - only group admins and creator can read/write.
+      // For full member access, add a flat 'memberIds' array to the group document
+      // and check: get(...).data.memberIds.hasAny([request.auth.uid])
       match /messages/{messageId} {
-        // Allow authenticated users to read/write messages
-        // Client-side filtering ensures only group members access messages
-        allow read, write: if isAuthenticated();
+        allow read, write: if isAuthenticated() && (
+          request.auth.uid == get(/databases/$(database)/documents/studyGroups/$(groupId)).data.creatorId ||
+          get(/databases/$(database)/documents/studyGroups/$(groupId)).data.admins.hasAny([request.auth.uid])
+        );
       }
     }
 
@@ -81,10 +88,10 @@ service cloud.firestore {
         request.resource.data.userId == request.auth.uid;
     }
 
-    // Content collection - Admin only write, authenticad read
+    // Content collection - Admin only write (requires admin custom claim), public read
     match /content/{docId} {
       allow read: if true;
-      allow write: if request.auth != null && request.auth.token.email == 'minatoventuresinc@gmail.com';
+      allow write: if request.auth != null && request.auth.token.admin == true;
     }
   }
 }

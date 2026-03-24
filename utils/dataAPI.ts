@@ -308,7 +308,7 @@ export const studyGroupsAPI = {
      */
     async getStudyGroups(userId: string, userEmail: string): Promise<any[]> {
         try {
-            const response = await apiService.get(`/api/study-groups/${userId}?email=${encodeURIComponent(userEmail)}`);
+            const response = await apiService.getAuthenticated(`/api/study-groups/${userId}?email=${encodeURIComponent(userEmail)}`);
             if (response.success) {
                 return response.groups.map((group: any) => ({
                     id: group._id,

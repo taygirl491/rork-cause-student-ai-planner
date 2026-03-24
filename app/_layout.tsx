@@ -273,20 +273,30 @@ function RootLayoutNav() {
 
   useEffect(() => {
     if (!isLoading && onboardingComplete !== null) {
-      const inAuthGroup = segments === '/login' || segments === '/register' || segments === '/onboarding' || segments === '/intro-survey';
-      const isInvite = segments?.startsWith('/invite');
+      const doRoute = async () => {
+        const inAuthGroup = segments === '/login' || segments === '/register' || segments === '/onboarding' || segments === '/intro-survey';
+        const isInvite = segments?.startsWith('/invite');
 
-      if (isAuthenticated && auth.currentUser?.email === 'minatoventuresinc@gmail.com' && !segments?.startsWith('/admin')) {
-        router.replace('/admin' as any);
-        return;
-      }
+        if (isAuthenticated && auth.currentUser && !segments?.startsWith('/admin')) {
+          try {
+            const tokenResult = await auth.currentUser.getIdTokenResult();
+            if (tokenResult.claims.admin) {
+              router.replace('/admin' as any);
+              return;
+            }
+          } catch (e) {
+            console.error('[Layout] Failed to get token claims:', e);
+          }
+        }
 
-      if (onboardingComplete === false && !inAuthGroup && !isAuthenticated) {
-        router.replace('/onboarding');
-      } else if (!isAuthenticated && !inAuthGroup && !isInvite) {
-        // Redirect to login only if not in auth group AND not trying to view an invite
-        router.replace('/login');
-      }
+        if (onboardingComplete === false && !inAuthGroup && !isAuthenticated) {
+          router.replace('/onboarding');
+        } else if (!isAuthenticated && !inAuthGroup && !isInvite) {
+          // Redirect to login only if not in auth group AND not trying to view an invite
+          router.replace('/login');
+        }
+      };
+      doRoute();
     }
   }, [isAuthenticated, isLoading, onboardingComplete, router, segments]);
 
@@ -298,13 +308,29 @@ function RootLayoutNav() {
     // Request permissions on app start
     NotificationService.requestNotificationPermissions();
 
-    // Handle notification tap
+    // Handle notification tap and action buttons (iOS snooze/dismiss)
     const subscription = Notifications.addNotificationResponseReceivedListener(
       (response) => {
         const data = response.notification.request.content.data;
+        const actionId = response.actionIdentifier;
+
+        // iOS alarm banner: user tapped "Snooze 5 min"
+        if (actionId === 'SNOOZE_5') {
+          Notifications.scheduleNotificationAsync({
+            content: response.notification.request.content as any,
+            trigger: {
+              type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+              seconds: 300,
+              repeats: false,
+            },
+          }).catch((e) => console.error('[Notification] Snooze reschedule failed:', e));
+          return;
+        }
+
+        // iOS alarm banner: user tapped "Dismiss" — nothing to do, notification clears
+        if (actionId === 'DISMISS') return;
 
         if (data.type === 'task_reminder' && data.taskId) {
-          // Navigate to tasks tab
           router.push('/(tabs)/tasks');
         }
       }
