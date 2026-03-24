@@ -6,7 +6,9 @@ let isConnected = false;
  * Connect to MongoDB Atlas
  */
 async function connectMongoDB() {
-    if (isConnected) {
+    // Use readyState (1 = connected) rather than a local flag —
+    // the flag can go stale when Atlas silently drops idle connections
+    if (mongoose.connection.readyState === 1) {
         console.log('✅ Using existing MongoDB connection');
         return;
     }
@@ -20,9 +22,16 @@ async function connectMongoDB() {
 
         await mongoose.connect(uri, {
             dbName: process.env.MONGODB_DB_NAME || 'cause-student-planner',
-            // Connection options
             serverSelectionTimeoutMS: 5000,
             socketTimeoutMS: 45000,
+            // Send a heartbeat every 10s to keep the TCP connection alive
+            // through Atlas's idle connection timeout (~30 min)
+            heartbeatFrequencyMS: 10000,
+            // Recycle idle sockets after 60s — before Atlas silently closes them
+            maxIdleTimeMS: 60000,
+            // Always keep at least 1 connection warm so the first request
+            // after a long idle period doesn't wait for a new connection
+            minPoolSize: 1,
         });
 
         isConnected = true;
@@ -37,22 +46,8 @@ async function connectMongoDB() {
         mongoose.connection.on('disconnected', () => {
             console.log('⚠️  MongoDB disconnected - attempting to reconnect...');
             isConnected = false;
-
-            // Attempt to reconnect after 5 seconds
-            setTimeout(async () => {
-                try {
-                    console.log('🔄 Reconnecting to MongoDB...');
-                    await mongoose.connect(uri, {
-                        dbName: process.env.MONGODB_DB_NAME || 'cause-student-planner',
-                        serverSelectionTimeoutMS: 5000,
-                        socketTimeoutMS: 45000,
-                    });
-                    isConnected = true;
-                    console.log('✅ Reconnected to MongoDB');
-                } catch (reconnectError) {
-                    console.error('❌ Reconnection failed:', reconnectError);
-                }
-            }, 5000);
+            // Mongoose handles reconnection automatically via its built-in
+            // retry logic when minPoolSize > 0. No manual setTimeout needed.
         });
 
     } catch (error) {
