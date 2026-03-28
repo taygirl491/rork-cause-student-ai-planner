@@ -1,0 +1,776 @@
+import * as Notifications from 'expo-notifications';
+import { Platform } from 'react-native';
+import { doc, setDoc } from 'firebase/firestore';
+import { db } from '@/firebaseConfig';
+import Constants from 'expo-constants';
+import * as Device from 'expo-device';
+import { Task, ReminderTime, Goal } from '@/types';
+
+// expo-alarm-module is Android-only. Importing it on iOS causes the native
+// module constructor (ExpoAlarmModule.swift) to run, which calls
+// UNUserNotificationCenter.current().delegate = self — stealing the delegate
+// from expo-notifications and causing a SIGABRT crash.
+const { scheduleAlarm, removeAlarm } = Platform.OS === 'android'
+  ? require('expo-alarm-module')
+  : { scheduleAlarm: null as any, removeAlarm: null as any };
+
+/**
+ * Configure notification handler
+ * Note: This should be called only ONCE from the root layout
+ */
+export function initNotifications() {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+      shouldShowBanner: true,
+      shouldShowList: true,
+    }),
+  });
+}
+
+/**
+ * Request notification permissions from the user
+ * @returns Promise<boolean> - true if permissions granted
+ */
+export async function requestNotificationPermissions(): Promise<boolean> {
+  try {
+    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    let finalStatus = existingStatus;
+
+    if (existingStatus !== 'granted') {
+      const { status } = await Notifications.requestPermissionsAsync();
+      finalStatus = status;
+    }
+
+    if (finalStatus !== 'granted') {
+      console.log('Notification permissions not granted');
+      return false;
+    }
+
+    // Setup Android notification channel
+    if (Platform.OS === 'android') {
+      await setupNotificationChannels();
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error requesting notification permissions:', error);
+    return false;
+  }
+}
+
+/**
+ * Setup Android notification channels
+ */
+export async function setupNotificationChannels() {
+  if (Platform.OS === 'android') {
+    await Notifications.setNotificationChannelAsync('task-reminders-v3', {
+      name: 'Task Reminders',
+      importance: Notifications.AndroidImportance.HIGH,
+      vibrationPattern: [0, 250, 250, 250],
+      lightColor: '#6366F1',
+    });
+
+    // High priority alarm channel
+    await Notifications.setNotificationChannelAsync('task-alarms', {
+      name: 'Task Alarms',
+      importance: Notifications.AndroidImportance.MAX,
+      vibrationPattern: [0, 500, 500, 500],
+      lightColor: '#EF4444',
+      sound: 'alarm_clock_90867.wav',
+      enableVibrate: true,
+      lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+      audioAttributes: {
+        usage: Notifications.AndroidAudioUsage.ALARM,
+        contentType: Notifications.AndroidAudioContentType.SONIFICATION,
+      }
+    });
+  }
+}
+
+/**
+ * Register for push notifications and get the token
+ * @returns Promise<string | undefined> - The Expo push token
+ */
+export async function registerForPushNotificationsAsync(): Promise<string | undefined> {
+  if (Platform.OS === 'web') {
+    return undefined;
+  }
+
+  // DEVICE CHECK
+  if (!Device.isDevice) {
+    console.log("Push notifications only work on physical devices");
+    return undefined;
+  }
+
+  if (Platform.OS === 'android') {
+    await Notifications.setNotificationChannelAsync('task-reminders-v3', {
+      name: 'Task Reminders',
+      importance: Notifications.AndroidImportance.HIGH,
+      vibrationPattern: [0, 250, 250, 250],
+      lightColor: '#6366F1',
+    });
+  }
+
+  const { status: existingStatus } = await Notifications.getPermissionsAsync();
+  let finalStatus = existingStatus;
+
+  if (existingStatus !== 'granted') {
+    const { status } = await Notifications.requestPermissionsAsync();
+    finalStatus = status;
+  }
+
+  if (finalStatus !== 'granted') {
+    console.log('Failed to get push token for push notification!');
+    return undefined;
+  }
+
+  let retries = 0;
+  const maxRetries = 3;
+  const baseDelay = 1000; // 1 second
+
+  while (retries < maxRetries) {
+    try {
+      const projectId =
+        Constants?.expoConfig?.extra?.eas?.projectId ??
+        Constants?.easConfig?.projectId;
+
+      if (!projectId) throw new Error("EAS Project ID not found");
+
+      const token = (await Notifications.getExpoPushTokenAsync({
+        projectId,
+      })).data;
+      
+      console.log(`[Notification] ${Platform.OS.toUpperCase()} Expo Push Token:`, token);
+      
+      // Extra validation for iOS: Ensure the token is in the correct format
+      if (Platform.OS === 'ios' && !token.startsWith('ExponentPushToken')) {
+        console.warn('[Notification] WARNING: iOS token does not look like an Expo push token. This might indicate a configuration issue.');
+      }
+
+      return token;
+    } catch (error: any) {
+      retries++;
+      const isTransient = error.message?.includes('503') || error.message?.includes('SERVICE_UNAVAILABLE');
+      
+      if (Platform.OS === 'ios') {
+        console.error(`[Notification] iOS Token Fetch Error (Attempt ${retries}):`, error);
+        if (error.message?.includes('not find the project')) {
+          console.error('[Notification] ERROR: Project ID mismatch or app.json configuration error.');
+        }
+      }
+        const delay = baseDelay * Math.pow(2, retries - 1);
+        console.warn(`Expo push token fetch failed (503). Retrying in ${delay}ms... (Attempt ${retries}/${maxRetries})`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+
+      console.error("Error fetching push token:", error);
+      return undefined;
+    }
+  }
+}
+
+/**
+ * Save push token to Firestore
+ */
+export async function savePushToken(userId: string, token: string, email?: string, name?: string) {
+  try {
+    // 1. Save to Firestore (Current behavior)
+    const userRef = doc(db, "users", userId);
+    const data: any = { pushToken: token };
+    if (email) data.email = email;
+    if (name) data.name = name;
+    
+    await setDoc(userRef, data, { merge: true });
+    console.log("Push token and user data saved to Firestore");
+
+    // 2. Sync to Backend MongoDB (Fix for server-side notifications)
+    try {
+      const apiService = (await import('@/utils/apiService')).default;
+      console.log(`[PushToken] Syncing token to backend for user: ${userId}`);
+      const response = await apiService.post('/api/users/push-token', {
+        userId,
+        token
+      });
+      
+      if (response && response.success) {
+        console.log("[PushToken] Successfully synced push token to backend MongoDB");
+      } else {
+        console.warn("[PushToken] Backend push token sync returned failure:", response?.error);
+      }
+    } catch (apiError) {
+      console.error("[PushToken] Error syncing push token to backend API:", apiError);
+      // Non-blocking, we still saved to Firestore
+    }
+  } catch (e) {
+    console.error("Error saving push token:", e);
+  }
+}
+
+/**
+ * Calculate the trigger time for a task reminder
+ * @param task - The task to calculate reminder time for
+ * @returns Date | null - The trigger date or null if invalid
+ */
+function calculateTriggerTime(task: Task): Date | null {
+  if (!task.dueDate || !task.reminder) return null;
+
+  const [year, month, day] = task.dueDate.split('-').map(Number);
+  let dueDate = new Date(year, month - 1, day);
+  
+  // If task has a specific time, use it
+  if (task.dueTime) {
+    const [hours, minutes] = task.dueTime.split(':').map(Number);
+    dueDate = new Date(year, month - 1, day, hours, minutes, 0, 0);
+  } else {
+    // Default to 9 AM if no time specified
+    dueDate = new Date(year, month - 1, day, 9, 0, 0, 0);
+  }
+
+  let triggerDate = new Date(dueDate);
+
+  switch (task.reminder) {
+    case '1h':
+      triggerDate.setHours(triggerDate.getHours() - 1);
+      break;
+    case '2h':
+      triggerDate.setHours(triggerDate.getHours() - 2);
+      break;
+    case '1d':
+      triggerDate.setDate(triggerDate.getDate() - 1);
+      break;
+    case '2d':
+      triggerDate.setDate(triggerDate.getDate() - 2);
+      break;
+    case 'custom':
+      if (task.customReminderDate) {
+        triggerDate = new Date(task.customReminderDate);
+      } else {
+        return null;
+      }
+      break;
+    default:
+      return null;
+  }
+
+  // Don't schedule if in the past
+  if (triggerDate <= new Date()) {
+    console.log('Reminder time is in the past, not scheduling');
+    return null;
+  }
+
+  return triggerDate;
+}
+
+/**
+ * Get a human-readable reminder label
+ */
+function getReminderLabel(reminder: ReminderTime): string {
+  switch (reminder) {
+    case '1h':
+      return '1 hour before';
+    case '2h':
+      return '2 hours before';
+    case '1d':
+      return '1 day before';
+    case '2d':
+      return '2 days before';
+    case 'custom':
+      return 'at custom time';
+    default:
+      return '';
+  }
+}
+
+/**
+ * Schedule a local notification for a task reminder
+ * @param task - The task to schedule a reminder for
+ * @returns Promise<string | null> - The notification ID or null if not scheduled
+ */
+export async function scheduleTaskReminder(task: Task): Promise<string | null> {
+  try {
+    // Don't schedule for completed tasks
+    if (task.completed) {
+      console.log('Task is completed, not scheduling reminder');
+      return null;
+    }
+
+    const triggerDate = calculateTriggerTime(task);
+    if (!triggerDate) {
+      console.log('No valid trigger date for task reminder');
+      return null;
+    }
+
+    // Calculate seconds until trigger time
+    const secondsUntilTrigger = Math.floor((triggerDate.getTime() - Date.now()) / 1000);
+    
+    const channelId = task.alarmEnabled ? 'task-alarms' : 'task-reminders-v3';
+    const sound = task.alarmEnabled ? 'alarm_clock_90867.wav' : 'default';
+
+    const notificationId = await Notifications.scheduleNotificationAsync({
+      content: {
+        title: `Reminder: ${task.type.toUpperCase()}`,
+        body: task.description,
+        data: { 
+          taskId: task.id, 
+          type: 'task_reminder',
+          className: task.className,
+        },
+        sound: sound,
+        badge: 1,
+        color: '#6366F1',
+        // @ts-ignore
+        channelId: channelId,
+      } as Notifications.NotificationContentInput,
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+        seconds: secondsUntilTrigger > 0 ? secondsUntilTrigger : 1,
+        repeats: false,
+      },
+    });
+
+    // IMPLEMENTATION FOR iOS: "Chasing" notifications to simulate persistent alarm
+    // iOS standard notification sounds only ring once. We schedule a "burst" of 
+    // identical notifications to keep it ringing.
+    if (task.alarmEnabled && Platform.OS === 'ios') {
+      try {
+        console.log(`[Notification] Scheduling chasing burst for task ${task.id} (iOS)`);
+        // Schedule 10 more notifications at 30s intervals (total ~5 mins of ringing)
+        for (let i = 1; i <= 10; i++) {
+          await Notifications.scheduleNotificationAsync({
+            content: {
+              title: `Reminder: ${task.type.toUpperCase()} (${i + 1})`,
+              body: task.description,
+              data: { 
+                taskId: task.id, 
+                type: 'task_reminder_chaser',
+                className: task.className,
+              },
+              sound: sound,
+              badge: 1,
+              color: '#6366F1',
+              // @ts-ignore
+              channelId: channelId,
+            } as Notifications.NotificationContentInput,
+            trigger: {
+              type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+              seconds: secondsUntilTrigger + (i * 30),
+              repeats: false,
+            },
+          });
+        }
+      } catch (chaseError) {
+        console.error('Error scheduling chasing notifications:', chaseError);
+      }
+    }
+
+    console.log(`Scheduled notification ${notificationId} for task ${task.id} at ${triggerDate.toLocaleString()}`);
+
+    // Schedule persistent alarm for reminder if enabled (Android only)
+    if (task.alarmEnabled && Platform.OS === 'android') {
+      try {
+        await scheduleAlarm({
+          uid: `alarm_rem_${task.id}`,
+          day: triggerDate,
+          title: `Reminder: ${task.type.toUpperCase()}`,
+          description: task.description,
+          showDismiss: true,
+          showSnooze: true,
+          snoozeInterval: 5,
+          repeating: false,
+          active: true,
+          sound: 'default'
+        });
+        console.log(`Scheduled persistent reminder alarm for task ${task.id}`);
+      } catch (alarmError) {
+        console.error('Error scheduling persistent reminder alarm:', alarmError);
+      }
+    }
+
+    return notificationId;
+  } catch (error) {
+    console.error('Error scheduling task reminder:', error);
+    return null;
+  }
+}
+
+/**
+ * Schedule a notification for when a task is actually due
+ * @param task - The task to schedule a due date notification for
+ * @returns Promise<string | null> - The notification ID or null if not scheduled
+ */
+export async function scheduleDueDateNotification(task: Task): Promise<string | null> {
+  try {
+    // Don't schedule for completed tasks
+    if (task.completed) {
+      console.log('Task is completed, not scheduling due date notification');
+      return null;
+    }
+
+    if (!task.dueDate) {
+      console.log('No due date for task, not scheduling due date notification');
+      return null;
+    }
+
+    const [year, month, day] = task.dueDate.split('-').map(Number);
+    let dueDate = new Date(year, month - 1, day);
+    
+    // If task has a specific time, use it
+    if (task.dueTime) {
+      const [hours, minutes] = task.dueTime.split(':').map(Number);
+      dueDate = new Date(year, month - 1, day, hours, minutes, 0, 0);
+    } else {
+      // Default to 9 AM if no time specified
+      dueDate = new Date(year, month - 1, day, 9, 0, 0, 0);
+    }
+
+    // Don't schedule if in the past
+    if (dueDate <= new Date()) {
+      console.log('Due date is in the past, not scheduling due date notification');
+      return null;
+    }
+
+    // Calculate seconds until due date
+    const secondsUntilDue = Math.floor((dueDate.getTime() - Date.now()) / 1000);
+    
+    const channelId = task.alarmEnabled ? 'task-alarms' : 'task-reminders-v3';
+    const sound = task.alarmEnabled ? 'alarm_clock_90867.wav' : 'default';
+
+    const notificationId = await Notifications.scheduleNotificationAsync({
+      content: {
+        title: `Task Due: ${task.type.toUpperCase()}`,
+        body: `${task.description}${task.className ? ` (${task.className})` : ''}`,
+        data: { 
+          taskId: task.id, 
+          type: 'task_due',
+          className: task.className,
+        },
+        sound: sound,
+        badge: 1,
+        color: '#6366F1',
+        // @ts-ignore
+        channelId: channelId,
+      } as Notifications.NotificationContentInput,
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+        seconds: secondsUntilDue > 0 ? secondsUntilDue : 1,
+        repeats: false,
+      },
+    });
+
+    // IMPLEMENTATION FOR iOS: "Chasing" notifications to simulate persistent alarm
+    if (task.alarmEnabled && Platform.OS === 'ios') {
+      try {
+        console.log(`[Notification] Scheduling chasing burst for task (due) ${task.id} (iOS)`);
+        for (let i = 1; i <= 10; i++) {
+          await Notifications.scheduleNotificationAsync({
+            content: {
+              title: `Task Due: ${task.type.toUpperCase()} (${i + 1})`,
+              body: `${task.description}${task.className ? ` (${task.className})` : ''}`,
+              data: { 
+                taskId: task.id, 
+                type: 'task_due_chaser',
+                className: task.className,
+              },
+              sound: sound,
+              badge: 1,
+              color: '#6366F1',
+              // @ts-ignore
+              channelId: channelId,
+            } as Notifications.NotificationContentInput,
+            trigger: {
+              type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+              seconds: secondsUntilDue + (i * 30),
+            },
+          });
+        }
+      } catch (chaseError) {
+        console.error('Error scheduling chasing notifications:', chaseError);
+      }
+    }
+
+    console.log(`Scheduled due date notification ${notificationId} for task ${task.id} at ${dueDate.toLocaleString()}`);
+    
+    // Schedule persistent alarm if enabled (Android only)
+    if (task.alarmEnabled && Platform.OS === 'android') {
+      try {
+        await scheduleAlarm({
+          uid: `alarm_${task.id}`,
+          day: dueDate,
+          title: `Task Due: ${task.type.toUpperCase()}`,
+          description: task.description,
+          showDismiss: true,
+          showSnooze: true,
+          snoozeInterval: 5,
+          repeating: false,
+          active: true,
+          sound: 'default' // Now patched to use Alarm sound in native
+        });
+        console.log(`Scheduled persistent alarm for task ${task.id}`);
+      } catch (alarmError) {
+        console.error('Error scheduling persistent alarm:', alarmError);
+      }
+    }
+
+    // Schedule missed task notification (5 minutes after due date)
+    await scheduleMissedTaskNotification(task);
+
+    return notificationId;
+  } catch (error) {
+    console.error('Error scheduling due date notification:', error);
+    return null;
+  }
+}
+
+/**
+ * Schedule a notification for when a task is missed (5 minutes after due time)
+ * @param task - The task to schedule a missed notification for
+ * @returns Promise<string | null> - The notification ID or null if not scheduled
+ */
+export async function scheduleMissedTaskNotification(task: Task): Promise<string | null> {
+  try {
+    if (task.completed || !task.dueDate) return null;
+
+    const [year, month, day] = task.dueDate.split('-').map(Number);
+    let missedDate = new Date(year, month - 1, day);
+    
+    // If task has a specific time, use it
+    if (task.dueTime) {
+      const [hours, minutes] = task.dueTime.split(':').map(Number);
+      missedDate = new Date(year, month - 1, day, hours, minutes, 0, 0);
+    } else {
+      // Default to 9 AM if no time specified
+      missedDate = new Date(year, month - 1, day, 9, 0, 0, 0);
+    }
+
+    // Add 5 minutes
+    missedDate.setMinutes(missedDate.getMinutes() + 5);
+
+    // Don't schedule if in the past
+    if (missedDate <= new Date()) {
+      return null;
+    }
+
+    const secondsUntilMissed = Math.floor((missedDate.getTime() - Date.now()) / 1000);
+    
+    const notificationId = await Notifications.scheduleNotificationAsync({
+      content: {
+        title: `Missed Task: ${task.type.toUpperCase()}`,
+        body: `You set this due 5 minutes ago: ${task.description}. Mark it done?`,
+        data: { 
+          taskId: task.id, 
+          type: 'missed_task',
+          className: task.className,
+        },
+        sound: 'default',
+        badge: 1,
+        color: '#EF4444', // Red color for missed
+        // @ts-ignore
+        channelId: 'task-reminders-v3', // Reuse same channel
+      } as Notifications.NotificationContentInput,
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+        seconds: secondsUntilMissed > 0 ? secondsUntilMissed : 1,
+        repeats: false,
+      },
+    });
+
+    console.log(`Scheduled missed task notification ${notificationId} for task ${task.id} at ${missedDate.toLocaleString()}`);
+    return notificationId;
+  } catch (error) {
+    console.error('Error scheduling missed task notification:', error);
+    return null;
+  }
+}
+
+/**
+ * Cancel a specific notification by ID
+ * @param notificationId - The notification ID to cancel
+ */
+export async function cancelNotification(notificationId: string): Promise<void> {
+  try {
+    await Notifications.cancelScheduledNotificationAsync(notificationId);
+    console.log(`Cancelled notification ${notificationId}`);
+  } catch (error) {
+    console.error('Error cancelling notification:', error);
+  }
+}
+
+/**
+ * Cancel all notifications for a specific task
+ * @param taskId - The task ID to cancel notifications for
+ */
+export async function cancelAllTaskNotifications(taskId: string): Promise<void> {
+  try {
+    const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+    
+    for (const notification of scheduled) {
+      if (notification.content.data?.taskId === taskId) {
+        await Notifications.cancelScheduledNotificationAsync(notification.identifier);
+        console.log(`Cancelled notification ${notification.identifier} for task ${taskId}`);
+      }
+    }
+
+    // Also cancel any persistent alarms (Android only)
+    if (Platform.OS === 'android') {
+      try {
+        await removeAlarm(`alarm_${taskId}`);
+        await removeAlarm(`alarm_rem_${taskId}`);
+        console.log(`Cancelled persistent alarms (due and reminder) for task ${taskId}`);
+      } catch (alarmError) {
+        console.error('Error cancelling persistent alarms:', alarmError);
+      }
+    }
+  } catch (error) {
+    console.error('Error cancelling task notifications:', error);
+  }
+}
+
+/**
+ * Get all scheduled notifications for debugging
+ */
+export async function getScheduledNotifications() {
+  try {
+    const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+    console.log('Scheduled notifications:', scheduled);
+    return scheduled;
+  } catch (error) {
+    console.error('Error getting scheduled notifications:', error);
+    return [];
+  }
+}
+
+/**
+ * Cancel all scheduled notifications
+ */
+export async function cancelAllNotifications(): Promise<void> {
+  try {
+    await Notifications.cancelAllScheduledNotificationsAsync();
+    console.log('Cancelled all scheduled notifications');
+  } catch (error) {
+    console.error('Error cancelling all notifications:', error);
+  }
+}
+
+/**
+ * Schedule a notification for a goal's due date and time
+ * @param goal - The goal to schedule a notification for
+ * @returns Promise<string | null> - The notification ID or null if not scheduled
+ */
+export async function scheduleGoalNotification(goal: Goal): Promise<string | null> {
+  try {
+    // Don't schedule for completed goals
+    if (goal.completed) {
+      console.log('Goal is completed, not scheduling notification');
+      return null;
+    }
+
+    if (!goal.dueDate) {
+      console.log('No due date for goal, not scheduling notification');
+      return null;
+    }
+
+    const dueDate = new Date(goal.dueDate);
+    
+    // If goal has a specific time, use it
+    if (goal.dueTime) {
+      const [hours, minutes] = goal.dueTime.split(':');
+      dueDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+    } else {
+      // Default to 9 AM if no time specified
+      dueDate.setHours(9, 0, 0, 0);
+    }
+
+    // Don't schedule if in the past
+    if (dueDate <= new Date()) {
+      console.log('Goal due date is in the past, not scheduling notification');
+      return null;
+    }
+
+    // Calculate seconds until due date
+    const secondsUntilDue = Math.floor((dueDate.getTime() - Date.now()) / 1000);
+    
+    const notificationId = await Notifications.scheduleNotificationAsync({
+      content: {
+        title: `Goal Due: ${goal.title}`,
+        body: goal.description || 'Your goal is due!',
+        data: { 
+          goalId: goal.id, 
+          type: 'goal_due',
+        },
+        sound: 'default',
+        badge: 1,
+        color: '#6366F1',
+        // @ts-ignore
+        channelId: 'task-reminders-v2',
+      } as Notifications.NotificationContentInput,
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+        seconds: secondsUntilDue > 0 ? secondsUntilDue : 1,
+        repeats: false,
+      },
+    });
+
+    console.log(`Scheduled goal notification ${notificationId} for goal ${goal.id} at ${dueDate.toLocaleString()}`);
+    return notificationId;
+  } catch (error) {
+    console.error('Error scheduling goal notification:', error);
+    return null;
+  }
+}
+
+/**
+ * Schedule a daily recurring notification for a habit
+ * @param goalTitle - The title of the parent goal
+ * @param habitTitle - The title of the habit
+ * @param timeStr - The time string in "HH:MM" format (24hr)
+ * @returns Promise<string | null> - The notification ID or null
+ */
+export async function scheduleHabitReminder(goalTitle: string, habitTitle: string, timeStr: string): Promise<string | null> {
+  try {
+    const [hours, minutes] = timeStr.split(':').map(Number);
+    
+    // Create a unique identifier for this habit notification logic might needed if we want to cancel specifically
+    // but for now relying on the returned ID is standard.
+
+    const notificationId = await Notifications.scheduleNotificationAsync({
+      content: {
+        title: `Habit Reminder: ${habitTitle}`,
+        body: `Time to work on your habit for goal: ${goalTitle}`,
+        sound: 'default',
+        badge: 1,
+        color: '#6366F1',
+        data: { type: 'habit_reminder' },
+      },
+      trigger: {
+        type: 'daily' as any,
+        hour: hours,
+        minute: minutes,
+        repeats: true,
+      },
+    });
+
+    console.log(`Scheduled daily habit reminder ${notificationId} for "${habitTitle}" at ${timeStr}`);
+    return notificationId;
+  } catch (error) {
+    console.error('Error scheduling habit reminder:', error);
+    return null;
+  }
+}
+
+/**
+ * Schedule a simple push notification
+ */
+export async function schedulePushNotification(content: { title: string, body: string, data?: any }) {
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title: content.title,
+      body: content.body,
+      data: content.data || {},
+    },
+    trigger: null, // deliver immediately
+  });
+}
