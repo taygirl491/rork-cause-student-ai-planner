@@ -37,7 +37,7 @@ function MenuButton() {
     { label: 'Tasks', icon: CheckSquare, route: '/tasks' },
     { label: 'Calendar', icon: Calendar, route: '/calendar' },
     { label: 'Classes', icon: BookOpen, route: '/classes' },
-    { label: 'Study Groups', icon: Users, route: '/study-groups' },
+    // { label: 'Study Groups', icon: Users, route: '/study-groups' }, // temporarily disabled
     { label: 'Goals', icon: Target, route: '/goals' },
     { label: 'Notes', icon: FileText, route: '/notes' },
     { label: 'AI Buddy', icon: Sparkles, route: '/ai-buddy' },

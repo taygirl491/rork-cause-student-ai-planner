@@ -6,8 +6,8 @@ import {
   Home,
   Calendar,
   Plus,
-  Users,
-  Bot
+  Bot,
+  BookOpen,
 } from "lucide-react-native";
 import colors from "@/constants/colors";
 
@@ -74,18 +74,19 @@ export default function TabLayout() {
         }}
       />
 
+      {/* Study Groups — hidden from tab bar (feature temporarily disabled) */}
       <Tabs.Screen
         name="study-groups"
+        options={{ href: null }}
+      />
+
+      <Tabs.Screen
+        name="classes"
         options={{
-          title: "Groups",
+          title: "Classes",
           tabBarIcon: ({ color, size }) => (
-            <Users size={size} color={color} />
+            <BookOpen size={size} color={color} />
           ),
-          tabBarBadge: totalUnreadCount > 0 ? totalUnreadCount : undefined,
-          tabBarBadgeStyle: {
-            backgroundColor: colors.primary,
-            fontSize: 10,
-          },
         }}
       />
 
@@ -98,9 +99,6 @@ export default function TabLayout() {
           ),
         }}
       />
-
-      {/* Hide other screens from the tab bar but keep them in the layout */}
-      <Tabs.Screen name="classes" options={{ href: null }} />
       <Tabs.Screen name="goals" options={{ href: null }} />
       <Tabs.Screen name="notes" options={{ href: null }} />
       <Tabs.Screen name="causes" options={{ href: null }} />
