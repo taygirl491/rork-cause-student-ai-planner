@@ -1,29 +1,31 @@
 const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
+const verifyFirebaseToken = require('../middleware/verifyFirebaseToken');
 
 /**
  * POST /api/users/push-token
- * Update user's Expo push token
+ * Update user's Expo push token — userId forced from token
  */
-router.post('/push-token', async (req, res) => {
+router.post('/push-token', verifyFirebaseToken, async (req, res) => {
     try {
-        const { userId, token } = req.body;
+        const userId = req.user.uid;
+        const { token } = req.body;
 
-        if (!userId || !token) {
+        if (!token) {
             return res.status(400).json({
                 success: false,
-                error: 'Missing required fields: userId, token'
+                error: 'Missing required field: token'
             });
         }
 
         const user = await User.findByIdAndUpdate(
             userId,
             { expoPushToken: token },
-            { new: true, upsert: true } // Create if doesn't exist (though usually it should)
+            { new: true, upsert: true }
         );
 
-        console.log(`[PushToken] Updated token for user ${user.email} (${userId}): ${token.substring(0, 10)}...`);
+        console.log(`[PushToken] Updated token for user (${userId}): ${token.substring(0, 10)}...`);
 
         res.json({
             success: true,
@@ -35,30 +37,29 @@ router.post('/push-token', async (req, res) => {
         res.status(500).json({
             success: false,
             error: 'Failed to update push token',
-            details: error.message
         });
     }
 });
 
 /**
  * POST /api/users/register
- * Register or update user details (name, email)
+ * Register or update user details (name, email) — userId forced from token
  */
-router.post('/register', async (req, res) => {
+router.post('/register', verifyFirebaseToken, async (req, res) => {
     try {
-        const { userId, email, name } = req.body;
+        const userId = req.user.uid;
+        const { email, name } = req.body;
 
-        if (!userId || !email) {
+        if (!email) {
             return res.status(400).json({
                 success: false,
-                error: 'Missing required fields: userId, email'
+                error: 'Missing required field: email'
             });
         }
 
         const updateData = { email };
         if (name) updateData.name = name;
 
-        // Create or update user
         const user = await User.findByIdAndUpdate(
             userId,
             updateData,
@@ -77,24 +78,20 @@ router.post('/register', async (req, res) => {
         res.status(500).json({
             success: false,
             error: 'Failed to register user',
-            details: error.message
         });
     }
 });
 
 /**
  * GET /api/users/:userId
- * Get a single user by ID
+ * Get a single user by ID — only the authenticated user can get their own data
  */
-router.get('/:userId', async (req, res) => {
+router.get('/:userId', verifyFirebaseToken, async (req, res) => {
     try {
         const { userId } = req.params;
 
-        if (!userId) {
-            return res.status(400).json({
-                success: false,
-                error: 'Missing required field: userId'
-            });
+        if (req.user.uid !== userId) {
+            return res.status(403).json({ success: false, error: 'Forbidden' });
         }
 
         const user = await User.findById(userId);
@@ -115,19 +112,21 @@ router.get('/:userId', async (req, res) => {
         res.status(500).json({
             success: false,
             error: 'Failed to fetch user',
-            details: error.message
         });
     }
 });
 
-
 /**
  * GET /api/users/:userId/purpose
- * Get user's purpose statement
+ * Get user's purpose statement — only the authenticated user can get their own
  */
-router.get('/:userId/purpose', async (req, res) => {
+router.get('/:userId/purpose', verifyFirebaseToken, async (req, res) => {
     try {
         const { userId } = req.params;
+
+        if (req.user.uid !== userId) {
+            return res.status(403).json({ success: false, error: 'Forbidden' });
+        }
 
         const user = await User.findById(userId);
 
@@ -147,23 +146,23 @@ router.get('/:userId/purpose', async (req, res) => {
         res.status(500).json({
             success: false,
             error: 'Failed to fetch purpose statement',
-            details: error.message
         });
     }
 });
 
 /**
  * PATCH /api/users/purpose
- * Update user's purpose statement (survey answers)
+ * Update user's purpose statement — userId forced from token
  */
-router.patch('/purpose', async (req, res) => {
+router.patch('/purpose', verifyFirebaseToken, async (req, res) => {
     try {
-        const { userId, purpose } = req.body;
+        const userId = req.user.uid;
+        const { purpose } = req.body;
 
-        if (!userId || !purpose) {
+        if (!purpose) {
             return res.status(400).json({
                 success: false,
-                error: 'Missing required fields: userId, purpose'
+                error: 'Missing required field: purpose'
             });
         }
 
@@ -192,7 +191,6 @@ router.patch('/purpose', async (req, res) => {
         res.status(500).json({
             success: false,
             error: 'Failed to update purpose statement',
-            details: error.message
         });
     }
 });

@@ -7,6 +7,24 @@ import { auth } from '@/firebaseConfig';
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || "https://rork-cause-student-ai-planner.onrender.com";
 const API_KEY = process.env.EXPO_PUBLIC_API_KEY || "";
 
+// Helper to build headers with API key + Firebase token
+async function buildAuthHeaders(extra: Record<string, string> = {}): Promise<Record<string, string>> {
+	let token = '';
+	if (auth.currentUser) {
+		try {
+			token = await auth.currentUser.getIdToken();
+		} catch (e) {
+			console.warn('[API] Could not get Firebase token:', e);
+		}
+	}
+	return {
+		'Content-Type': 'application/json',
+		'x-api-key': API_KEY,
+		...(token ? { Authorization: `Bearer ${token}` } : {}),
+		...extra,
+	};
+}
+
 // Log API configuration on module load
 console.log('[API] ========== API Service Configuration ==========');
 console.log('[API] API URL:', API_BASE_URL);
@@ -165,15 +183,8 @@ class ApiService {
 				`${API_BASE_URL}/api/users/register`,
 				{
 					method: "POST",
-					headers: {
-						"Content-Type": "application/json",
-						"x-api-key": API_KEY,
-					},
-					body: JSON.stringify({
-						userId,
-						email,
-						name,
-					}),
+					headers: await buildAuthHeaders(),
+					body: JSON.stringify({ email, name }),
 				},
 				10000
 			);
@@ -293,10 +304,7 @@ class ApiService {
 				`${API_BASE_URL}${endpoint}`,
 				{
 					method: "POST",
-					headers: {
-						"Content-Type": "application/json",
-						"x-api-key": API_KEY,
-					},
+					headers: await buildAuthHeaders(),
 					body: JSON.stringify(data),
 				},
 				60000
@@ -341,6 +349,10 @@ class ApiService {
 				}
 			}
 
+			let token = '';
+			if (auth.currentUser) {
+				try { token = await auth.currentUser.getIdToken(); } catch (e) {}
+			}
 			const response = await fetchWithTimeout(
 				`${API_BASE_URL}${endpoint}`,
 				{
@@ -349,6 +361,7 @@ class ApiService {
 						"x-api-key": API_KEY,
 						// IMPORTANT: Do NOT set Content-Type for FormData!
 						// React Native's fetch will set it correctly with the boundary
+						...(token ? { Authorization: `Bearer ${token}` } : {}),
 					},
 					body: formData,
 				},
@@ -397,10 +410,7 @@ class ApiService {
 				`${API_BASE_URL}${endpoint}`,
 				{
 					method: "GET",
-					headers: {
-						"Content-Type": "application/json",
-						"x-api-key": API_KEY,
-					},
+					headers: await buildAuthHeaders(),
 				},
 				60000
 			);
@@ -585,10 +595,7 @@ class ApiService {
 				`${API_BASE_URL}${endpoint}`,
 				{
 					method: "PUT",
-					headers: {
-						"Content-Type": "application/json",
-						"x-api-key": API_KEY,
-					},
+					headers: await buildAuthHeaders(),
 					body: JSON.stringify(data),
 				},
 				30000
@@ -619,10 +626,7 @@ class ApiService {
 				`${API_BASE_URL}${endpoint}`,
 				{
 					method: "DELETE",
-					headers: {
-						"Content-Type": "application/json",
-						"x-api-key": API_KEY,
-					},
+					headers: await buildAuthHeaders(),
 				},
 				30000
 			);
@@ -652,10 +656,7 @@ class ApiService {
 				`${API_BASE_URL}${endpoint}`,
 				{
 					method: "PATCH",
-					headers: {
-						"Content-Type": "application/json",
-						"x-api-key": API_KEY,
-					},
+					headers: await buildAuthHeaders(),
 					body: JSON.stringify(data),
 				},
 				30000
@@ -686,10 +687,7 @@ class ApiService {
 				`${API_BASE_URL}/api/stripe/create-subscription`,
 				{
 					method: "POST",
-					headers: {
-						"Content-Type": "application/json",
-						"x-api-key": API_KEY,
-					},
+					headers: await buildAuthHeaders(),
 					body: JSON.stringify({ userId, priceId }),
 				},
 				30000
@@ -776,10 +774,7 @@ class ApiService {
 				`${API_BASE_URL}/api/stripe/create-payment-intent`,
 				{
 					method: "POST",
-					headers: {
-						"Content-Type": "application/json",
-						"x-api-key": API_KEY,
-					},
+					headers: await buildAuthHeaders(),
 					body: JSON.stringify({ userId, amount }),
 				},
 				30000
@@ -823,11 +818,8 @@ class ApiService {
 				`${API_BASE_URL}/api/stripe/cancel-subscription`,
 				{
 					method: "POST",
-					headers: {
-						"Content-Type": "application/json",
-						"x-api-key": API_KEY,
-					},
-					body: JSON.stringify({ subscriptionId, userId }),
+					headers: await buildAuthHeaders(),
+					body: JSON.stringify({ subscriptionId }),
 				},
 				30000
 			);
@@ -871,10 +863,7 @@ class ApiService {
 				`${API_BASE_URL}/api/stripe/user-subscriptions/${userId}`,
 				{
 					method: "GET",
-					headers: {
-						"Content-Type": "application/json",
-						"x-api-key": API_KEY,
-					},
+					headers: await buildAuthHeaders(),
 				},
 				30000
 			);

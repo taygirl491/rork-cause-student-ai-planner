@@ -1,15 +1,20 @@
 const express = require('express');
 const router = express.Router();
 const Task = require('../models/Task');
+const verifyFirebaseToken = require('../middleware/verifyFirebaseToken');
 const { updateStreak } = require('../streakService');
 
 /**
  * GET /api/tasks/:userId
- * Get all tasks for a user
+ * Get all tasks for a user — only the authenticated user's own tasks
  */
-router.get('/:userId', async (req, res) => {
+router.get('/:userId', verifyFirebaseToken, async (req, res) => {
     try {
         const { userId } = req.params;
+
+        if (req.user.uid !== userId) {
+            return res.status(403).json({ success: false, error: 'Forbidden' });
+        }
 
         const tasks = await Task.find({ userId }).sort({ createdAt: -1 });
 
@@ -22,60 +27,40 @@ router.get('/:userId', async (req, res) => {
         res.status(500).json({
             success: false,
             error: 'Failed to get tasks',
-            details: error.message,
         });
     }
 });
 
 /**
  * POST /api/tasks
- * Create a new task
+ * Create a new task — userId is taken from the verified token, never the body
  */
-router.post('/', async (req, res) => {
+router.post('/', verifyFirebaseToken, async (req, res) => {
     try {
-        const taskData = req.body;
-
-        // Validate required fields
-        if (!taskData.userId) {
-            return res.status(400).json({
-                success: false,
-                error: 'userId is required',
-            });
-        }
+        const taskData = { ...req.body, userId: req.user.uid };
 
         const task = await Task.create(taskData);
 
-        // Emit WebSocket event
         const io = req.app.get('io');
         if (io) {
-            io.emit('task-created', {
+            io.to(`user-${task.userId}`).emit('task-created', {
                 userId: task.userId,
-                task: {
-                    ...task.toObject(),
-                    id: task._id
-                }
+                task: { ...task.toObject(), id: task._id }
             });
         }
 
-        res.json({
-            success: true,
-            task,
-        });
+        res.json({ success: true, task });
     } catch (error) {
         console.error('Error creating task:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Failed to create task',
-            details: error.message,
-        });
+        res.status(500).json({ success: false, error: 'Failed to create task' });
     }
 });
 
 /**
  * PUT /api/tasks/:taskId
- * Update a task
+ * Update a task — only the owner can update
  */
-router.put('/:taskId', async (req, res) => {
+router.put('/:taskId', verifyFirebaseToken, async (req, res) => {
     try {
         const { taskId } = req.params;
         const updates = req.body;
@@ -83,13 +68,17 @@ router.put('/:taskId', async (req, res) => {
         const existingTask = await Task.findById(taskId);
 
         if (!existingTask) {
-            return res.status(404).json({
-                success: false,
-                error: 'Task not found',
-            });
+            return res.status(404).json({ success: false, error: 'Task not found' });
+        }
+
+        if (existingTask.userId !== req.user.uid) {
+            return res.status(403).json({ success: false, error: 'Forbidden' });
         }
 
         const wasCompleted = existingTask.completed;
+
+        // Prevent userId from being changed via update
+        delete updates.userId;
 
         const task = await Task.findByIdAndUpdate(
             taskId,
@@ -97,73 +86,56 @@ router.put('/:taskId', async (req, res) => {
             { new: true, runValidators: true }
         );
 
-        // Award points if the task was just completed
         if (updates.completed === true && !wasCompleted) {
             try {
                 const gamificationService = require('../gamificationService');
                 const pointsMap = { 'low': 5, 'medium': 10, 'high': 20 };
                 const points = pointsMap[task.priority] || 10;
                 await gamificationService.awardPoints(task.userId, points, 'task');
-                console.log(`[Tasks] Awarded ${points} points to user ${task.userId} for completing task ${taskId}`);
             } catch (error) {
                 console.error('Error awarding points for task completion:', error);
             }
         }
 
-        // Emit WebSocket event
-        // Streak update removed from here - now handled on daily app launch
-
-        res.json({
-            success: true,
-            task,
-        });
+        res.json({ success: true, task });
     } catch (error) {
         console.error('Error updating task:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Failed to update task',
-            details: error.message,
-        });
+        res.status(500).json({ success: false, error: 'Failed to update task' });
     }
 });
 
 /**
  * DELETE /api/tasks/:taskId
- * Delete a task
+ * Delete a task — only the owner can delete
  */
-router.delete('/:taskId', async (req, res) => {
+router.delete('/:taskId', verifyFirebaseToken, async (req, res) => {
     try {
         const { taskId } = req.params;
 
-        const task = await Task.findByIdAndDelete(taskId);
+        const task = await Task.findById(taskId);
 
         if (!task) {
-            return res.status(404).json({
-                success: false,
-                error: 'Task not found',
-            });
+            return res.status(404).json({ success: false, error: 'Task not found' });
         }
 
-        // Emit WebSocket event
+        if (task.userId !== req.user.uid) {
+            return res.status(403).json({ success: false, error: 'Forbidden' });
+        }
+
+        await Task.findByIdAndDelete(taskId);
+
         const io = req.app.get('io');
         if (io) {
-            io.emit('task-deleted', {
+            io.to(`user-${task.userId}`).emit('task-deleted', {
                 userId: task.userId,
                 taskId: task._id.toString()
             });
         }
 
-        res.json({
-            success: true,
-            message: 'Task deleted successfully',
-        });
+        res.json({ success: true, message: 'Task deleted successfully' });
     } catch (error) {
         console.error('Error deleting task:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Failed to delete task',
-            details: error.message,
-        });
+        res.status(500).json({ success: false, error: 'Failed to delete task' });
     }
 });
 
