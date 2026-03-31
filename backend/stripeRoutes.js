@@ -197,15 +197,16 @@ router.post('/create-subscription', verifyFirebaseToken, async (req, res) => {
 
 /**
  * POST /api/stripe/cancel-subscription
- * Cancel a subscription
+ * Cancel a subscription — requires Firebase auth
  */
-router.post('/cancel-subscription', async (req, res) => {
+router.post('/cancel-subscription', verifyFirebaseToken, async (req, res) => {
     try {
-        const { subscriptionId, userId } = req.body;
+        const { subscriptionId } = req.body;
+        const userId = req.user.uid;
 
-        if (!subscriptionId || !userId) {
+        if (!subscriptionId) {
             return res.status(400).json({
-                error: 'Missing required fields: subscriptionId, userId',
+                error: 'Missing required field: subscriptionId',
             });
         }
 
@@ -237,11 +238,15 @@ router.post('/cancel-subscription', async (req, res) => {
 
 /**
  * GET /api/stripe/payment-methods/:userId
- * Get user's payment methods
+ * Get user's payment methods — requires Firebase auth
  */
-router.get('/payment-methods/:userId', async (req, res) => {
+router.get('/payment-methods/:userId', verifyFirebaseToken, async (req, res) => {
     try {
         const { userId } = req.params;
+
+        if (req.user.uid !== userId) {
+            return res.status(403).json({ error: 'Forbidden' });
+        }
 
         const user = await User.findById(userId);
         const customerId = user?.stripeCustomerId;
@@ -287,11 +292,15 @@ router.get('/subscription/:subscriptionId', async (req, res) => {
 
 /**
  * GET /api/stripe/user-subscriptions/:userId
- * Get all subscriptions for a user
+ * Get all subscriptions for a user — requires Firebase auth
  */
-router.get('/user-subscriptions/:userId', async (req, res) => {
+router.get('/user-subscriptions/:userId', verifyFirebaseToken, async (req, res) => {
     try {
         const { userId } = req.params;
+
+        if (req.user.uid !== userId) {
+            return res.status(403).json({ error: 'Forbidden' });
+        }
 
         const subscriptions = await Subscription.find({ userId });
 

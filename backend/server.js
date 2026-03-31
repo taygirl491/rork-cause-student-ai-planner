@@ -46,10 +46,7 @@ const io = new Server(server, {
 io.use(async (socket, next) => {
 	const token = socket.handshake.auth?.token;
 	if (!token) {
-		// Allow unauthenticated for grace period — remove this fallback once all clients updated
-		console.warn('[Socket] Connection without token from', socket.handshake.address);
-		socket.data.uid = null;
-		return next();
+		return next(new Error('Authentication required'));
 	}
 	try {
 		const decoded = await admin.auth().verifyIdToken(token);
@@ -96,7 +93,7 @@ io.on('connection', (socket) => {
 
 	// Join a user channel — only allow joining own channel
 	socket.on('join-user', (userId) => {
-		if (socket.data.uid && socket.data.uid !== userId) {
+		if (socket.data.uid !== userId) {
 			console.warn(`[Socket] User ${socket.data.uid} denied joining channel user-${userId}`);
 			return;
 		}
