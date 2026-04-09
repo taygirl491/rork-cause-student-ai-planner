@@ -129,45 +129,33 @@ export default function NotesScreen() {
 		]);
 	};
 
-	const handleCreateNote = async () => {
+	const handleCreateNote = () => {
 		if (!title) return;
 		// Check access before creating/updating
 		if (!checkAccess()) return;
 
-		setIsSaving(true);
-		try {
-			if (isEditing && selectedNote) {
-				await updateNote(selectedNote.id, {
-					title,
-					className: selectedClass,
-				});
-				setIsEditing(false);
-				setSelectedNote(null);
-			} else {
-				await addNote({
-					title,
-					className: selectedClass,
-					content: "",
-					createdAt: new Date().toISOString(),
-					updatedAt: new Date().toISOString(),
-				});
-				// Award points for creating a note
-				awardPoints(5, 'feature').catch(err => console.error('Error awarding points:', err));
-				Analytics.logCustomEvent('note_created', {
-					has_class: !!selectedClass
-				});
-			}
-
-			await refreshNotes();
-			setShowModal(false);
-			setTitle("");
-			setSelectedClass("");
-		} catch (error) {
-			console.error("Error saving note:", error);
-			Alert.alert("Error", "Failed to save note. Please try again.");
-		} finally {
-			setIsSaving(false);
+		if (isEditing && selectedNote) {
+			// Optimistic — state updates instantly
+			updateNote(selectedNote.id, { title, className: selectedClass });
+			setIsEditing(false);
+			setSelectedNote(null);
+		} else {
+			// Fire-and-forget — optimistic update shows note instantly
+			addNote({
+				title,
+				className: selectedClass,
+				content: "",
+				createdAt: new Date().toISOString(),
+				updatedAt: new Date().toISOString(),
+			});
+			awardPoints(5, 'feature').catch(err => console.error('Error awarding points:', err));
+			Analytics.logCustomEvent('note_created', { has_class: !!selectedClass });
 		}
+
+		// Close modal immediately
+		setShowModal(false);
+		setTitle("");
+		setSelectedClass("");
 	};
 
 	const handleOpenNote = (note: Note) => {
@@ -550,7 +538,6 @@ export default function NotesScreen() {
 									<Button
 										title={isEditing ? "Update Note" : "Create Note"}
 										onPress={handleCreateNote}
-										isLoading={isSaving}
 										disabled={!title}
 										style={styles.createButton}
 									/>
@@ -712,7 +699,7 @@ const styles = StyleSheet.create({
 		justifyContent: "space-between",
 		alignItems: "center",
 		paddingHorizontal: 20,
-		// paddingTop: 20,
+		paddingTop: 10,
 		paddingBottom: 16,
 	},
 	headerTitleRow: {

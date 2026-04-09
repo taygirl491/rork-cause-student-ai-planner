@@ -168,7 +168,7 @@ export default function GroupDetailScreen() {
 
         try {
             await Share.share({
-                message: `Join my study group on CauseAI! Click here: ${url}`,
+                message: `Join my study group on Cause Planner! Click here: ${url}`,
                 url: url,
                 title: "Join Study Group",
             });

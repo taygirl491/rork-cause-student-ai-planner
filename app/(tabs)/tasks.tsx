@@ -58,7 +58,6 @@ export default function TasksScreen() {
   const [customReminderDate, setCustomReminderDate] = useState(new Date());
   const [showCustomReminderPicker, setShowCustomReminderPicker] = useState(false);
   const [alarmEnabled, setAlarmEnabled] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
 
   // Search and filter states
   const [searchQuery, setSearchQuery] = useState('');
@@ -159,65 +158,57 @@ export default function TasksScreen() {
     return filtered;
   }, [sortedTasks, searchQuery, activeFilter]);
 
-  const handleAddTask = async () => {
+  const handleAddTask = () => {
     if (!description) return;
 
     const formattedDate = dueDate.toISOString().split('T')[0];
     const formattedTime = dueTime.toTimeString().split(' ')[0].substring(0, 5);
 
-    setIsSaving(true);
-    try {
-      if (isEditing && selectedTask) {
-        // Update existing task
-        await updateTask(selectedTask.id, {
-          description,
-          type: taskType,
-          className: selectedClass,
-          dueDate: formattedDate,
-          dueTime: formattedTime,
-          repeat,
-          priority,
-          reminder,
-          customReminderDate: reminder === 'custom' ? customReminderDate.toISOString() : undefined,
-          alarmEnabled,
-        });
-      } else {
-        // Create new task
-        const newTask: Task = {
-          id: Date.now().toString(),
-          description,
-          type: taskType,
-          className: selectedClass,
-          dueDate: formattedDate,
-          dueTime: formattedTime,
-          repeat,
-          priority,
-          reminder,
-          customReminderDate: reminder === 'custom' ? customReminderDate.toISOString() : undefined,
-          alarmEnabled,
-          completed: false,
-          createdAt: new Date().toISOString(),
-        };
-        await addTask(newTask);
-        Analytics.logCustomEvent('task_created', {
-          type: taskType,
-          priority: priority,
-          has_class: !!selectedClass,
-          reminder_set: alarmEnabled
-        });
-      }
-
-      await refreshTasks();
-      resetForm();
-      setShowModal(false);
-      setIsEditing(false);
-      setSelectedTask(null);
-    } catch (error) {
-      console.error("Error saving task:", error);
-      Alert.alert('Error', 'Failed to save task. Please try again.');
-    } finally {
-      setIsSaving(false);
+    if (isEditing && selectedTask) {
+      // Optimistic — state updates instantly, no need to await
+      updateTask(selectedTask.id, {
+        description,
+        type: taskType,
+        className: selectedClass,
+        dueDate: formattedDate,
+        dueTime: formattedTime,
+        repeat,
+        priority,
+        reminder,
+        customReminderDate: reminder === 'custom' ? customReminderDate.toISOString() : undefined,
+        alarmEnabled,
+      });
+    } else {
+      const newTask: Task = {
+        id: Date.now().toString(),
+        description,
+        type: taskType,
+        className: selectedClass,
+        dueDate: formattedDate,
+        dueTime: formattedTime,
+        repeat,
+        priority,
+        reminder,
+        customReminderDate: reminder === 'custom' ? customReminderDate.toISOString() : undefined,
+        alarmEnabled,
+        completed: false,
+        createdAt: new Date().toISOString(),
+      };
+      // Fire-and-forget — optimistic update shows task instantly, backend syncs in background
+      addTask(newTask);
+      Analytics.logCustomEvent('task_created', {
+        type: taskType,
+        priority: priority,
+        has_class: !!selectedClass,
+        reminder_set: alarmEnabled
+      });
     }
+
+    // Close modal immediately — no need to wait for backend
+    resetForm();
+    setShowModal(false);
+    setIsEditing(false);
+    setSelectedTask(null);
   };
 
   const resetForm = () => {
@@ -438,7 +429,7 @@ export default function TasksScreen() {
           <>
             <View style={styles.header}>
               <View>
-                <Text style={styles.title}>🚀 Don't let deadlines sneak up on you!</Text>
+                <Text style={styles.title}>My Tasks 📋</Text>
                 <Text style={styles.subtitle}>You have {filteredTasks.filter(t => !t.completed).length} tasks pending</Text>
               </View>
               <TouchableOpacity style={styles.addButton} onPress={() => setShowModal(true)}>
@@ -802,7 +793,6 @@ export default function TasksScreen() {
                     <Button
                       title={isEditing ? 'Update Task' : 'Create Task'}
                       onPress={handleAddTask}
-                      isLoading={isSaving}
                       disabled={!description}
                       style={styles.createButton}
                     />
@@ -994,16 +984,17 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   header: {
+    flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingTop: 20,
+    alignItems: 'center',
+    paddingTop: 10,
     paddingBottom: 16,
   },
   title: {
     fontSize: 32,
     fontWeight: '800' as const,
     color: colors.text,
-    marginBottom: 16,
-    alignSelf: "center"
+    marginBottom: 4,
   },
   subtitle: {
     fontSize: 14,
@@ -1028,7 +1019,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   taskListContent: {
-    padding: 20,
+    paddingHorizontal: 20,
     paddingBottom: 100,
   },
   footerLoader: {

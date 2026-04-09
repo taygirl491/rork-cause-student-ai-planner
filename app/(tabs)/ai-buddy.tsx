@@ -6,14 +6,13 @@ import {
   ScrollView,
   TextInput,
   TouchableOpacity,
-  KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
   Alert,
   TouchableWithoutFeedback,
   Keyboard,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Send, Bot, User as UserIcon, Sparkles, BookOpen, FileText, BrainCircuit, ArrowLeft, Paperclip, X, Clock } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
@@ -409,6 +408,24 @@ export default function AIBuddyScreen() {
   };
 
   const { isTablet, normalize } = useResponsive();
+  const insets = useSafeAreaInsets();
+
+  // Track keyboard height for chat layout
+  const [keyboardHeight, setKeyboardHeight] = React.useState(0);
+  useEffect(() => {
+    const show = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      (e) => {
+        setKeyboardHeight(e.endCoordinates.height);
+        scrollViewRef.current?.scrollToEnd({ animated: true });
+      }
+    );
+    const hide = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setKeyboardHeight(0)
+    );
+    return () => { show.remove(); hide.remove(); };
+  }, []);
 
   const getModeTitle = (m: AIMode) => {
     switch (m) {
@@ -622,11 +639,8 @@ export default function AIBuddyScreen() {
   );
 
   const renderChat = () => (
-    <KeyboardAvoidingView
-      style={styles.chatContainer}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 100}
-    >
+    <View style={styles.chatContainer}>
+      {/* Header stays fixed — never moves when keyboard opens */}
       <View style={styles.chatHeader}>
         <TouchableOpacity onPress={() => setMode(null)} style={styles.backButton}>
           <ArrowLeft size={24} color={colors.text} />
@@ -645,6 +659,8 @@ export default function AIBuddyScreen() {
         </TouchableOpacity>
       </View>
 
+      {/* Keyboard-aware wrapper: shrinks when keyboard opens */}
+      <View style={{ flex: 1, paddingBottom: Math.max(0, keyboardHeight - insets.bottom) }}>
       {isLoadingHistory ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
@@ -665,8 +681,10 @@ export default function AIBuddyScreen() {
                   <Sparkles size={48} color={colors.primary} />
                   <Text style={styles.emptyStateText}>Start a conversation!</Text>
                   <Text style={styles.emptyStateSubtext}>
-                    {(mode === 'summarize' || mode === 'quiz') 
-                      ? `Please upload a document to get started. I'll ${mode === 'summarize' ? 'summarize' : 'quiz you on'} it.`
+                    {mode === 'summarize'
+                      ? "Paste text or upload a document and I'll condense it for you."
+                      : mode === 'quiz'
+                      ? "Paste your notes or upload a document and I'll quiz you on it."
                       : `Ask me anything about ${getModeTitle(mode)?.toLowerCase()}`}
                   </Text>
                 </View>
@@ -717,37 +735,34 @@ export default function AIBuddyScreen() {
                 )}
               </View>
             )}
-            {(mode !== 'summarize' && mode !== 'quiz') ? (
-              <TextInput
-                style={styles.input}
-                placeholder="Type your message..."
-                placeholderTextColor={colors.textLight}
-                value={inputText}
-                onChangeText={setInputText}
-                multiline
-                maxLength={1000}
-                editable={!isLoading}
-              />
-            ) : (
-              <View style={styles.fileOnlyPlaceholder}>
-                <Text style={styles.fileOnlyText}>
-                  {selectedFile 
-                    ? `Ready to ${mode === 'summarize' ? 'summarize' : 'quiz'}: ${selectedFile.name}`
-                    : 'Upload a document to begin'}
-                </Text>
-              </View>
-            )}
+            <TextInput
+              style={styles.input}
+              placeholder={
+                mode === 'summarize'
+                  ? 'Paste text to summarize, or upload a file...'
+                  : mode === 'quiz'
+                  ? 'Paste notes to be quizzed on, or upload a file...'
+                  : 'Type your message...'
+              }
+              placeholderTextColor={colors.textLight}
+              value={inputText}
+              onChangeText={setInputText}
+              multiline
+              maxLength={1000}
+              editable={!isLoading}
+            />
             <TouchableOpacity
-              style={[styles.sendButton, ((mode === 'homework' && !inputText.trim() && !selectedFile) || ((mode === 'summarize' || mode === 'quiz') && !selectedFile) || isLoading) && styles.sendButtonDisabled]}
+              style={[styles.sendButton, ((!inputText.trim() && !selectedFile) || isLoading) && styles.sendButtonDisabled]}
               onPress={handleSend}
-              disabled={((mode === 'homework' && !inputText.trim() && !selectedFile) || ((mode === 'summarize' || mode === 'quiz') && !selectedFile) || isLoading)}
+              disabled={(!inputText.trim() && !selectedFile) || isLoading}
             >
               <Send size={20} color={colors.surface} />
             </TouchableOpacity>
           </View>
         </>
       )}
-    </KeyboardAvoidingView>
+      </View>
+    </View>
   );
 
   return (

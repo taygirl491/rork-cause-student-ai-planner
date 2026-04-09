@@ -36,12 +36,6 @@ const FAQ_DATA = [
             "The AI Buddy uses advanced AI to help you answer questions, summarize notes, and organize your schedule. You can chat with it in the 'AI Buddy' tab.",
     },
     {
-        id: '3',
-        question: 'How do I join a study group?',
-        answer:
-            "Navigate to the 'Study Groups' tab and tap 'Join Group'. Enter the unique group code provided by the group creator to join.",
-    },
-    {
         id: '4',
         question: 'Can I sync my calendar?',
         answer:

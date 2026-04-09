@@ -94,14 +94,14 @@ async function sendWelcomeEmail(to, name) {
     const transporter = createTransporter();
 
     const mailOptions = {
-      from: `"CauseAI Student Planner" <${process.env.GMAIL_USER}>`,
+      from: `"Cause Planner" <${process.env.GMAIL_USER}>`,
       to: to,
-      subject: 'Welcome to CauseAI Student Planner! 🎓',
+      subject: 'Welcome to Cause Planner! 🎓',
       html: `
                 <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                    <h1 style="color: #6366F1;">Welcome to CauseAI, ${name}! 🎉</h1>
+                    <h1 style="color: #6366F1;">Welcome to Cause Planner, ${name}! 🎉</h1>
                     <p>We're excited to have you on board!</p>
-                    <p>CauseAI Student Planner helps you:</p>
+                    <p>Cause Planner helps you:</p>
                     <ul>
                         <li>📝 Manage your tasks and assignments</li>
                         <li>📚 Organize your classes</li>
@@ -145,7 +145,7 @@ async function sendPasswordResetEmail(to, resetLink) {
     const transporter = createTransporter();
 
     const mailOptions = {
-      from: `"CauseAI Student Planner" <${process.env.GMAIL_USER}>`,
+      from: `"Cause Planner" <${process.env.GMAIL_USER}>`,
       to: to,
       subject: 'Reset Your Password - CauseAI',
       html: `
@@ -206,7 +206,7 @@ async function sendBroadcastEmail(recipients, subject, message, io = null) {
 
       try {
         const mailOptions = {
-          from: `"CauseAI Student Planner" <${process.env.GMAIL_USER}>`,
+          from: `"Cause Planner" <${process.env.GMAIL_USER}>`,
           to: recipient,
           subject: subject,
           html: `
@@ -214,7 +214,7 @@ async function sendBroadcastEmail(recipients, subject, message, io = null) {
               ${message}
               <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;">
               <p style="color: #666; font-size: 12px; text-align: center;">
-                This email was sent from CauseAI Student Planner
+                This email was sent from Cause Planner
               </p>
             </div>
           `
@@ -294,13 +294,13 @@ async function sendTestEmail(to) {
     const transporter = createTransporter();
 
     const mailOptions = {
-      from: `"CauseAI Student Planner" <${process.env.GMAIL_USER}>`,
+      from: `"Cause Planner" <${process.env.GMAIL_USER}>`,
       to: to,
       subject: 'Test Email from CauseAI',
       html: `
                 <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
                     <h1 style="color: #6366F1;">Email Service Test ✅</h1>
-                    <p>This is a test email from CauseAI Student Planner.</p>
+                    <p>This is a test email from Cause Planner.</p>
                     <p>If you're seeing this, your email service is working correctly!</p>
                     <p style="margin-top: 30px;">
                         <strong>Sent at:</strong> ${new Date().toLocaleString()}
@@ -348,7 +348,7 @@ async function sendGroupCreatedNotification(to, groupData) {
   try {
     const transporter = createTransporter();
     const mailOptions = {
-      from: `"CauseAI Student Planner" <${process.env.GMAIL_USER}>`,
+      from: `"Cause Planner" <${process.env.GMAIL_USER}>`,
       to: to,
       subject: `Study Group Created: ${groupData.name} 📚`,
       html: `

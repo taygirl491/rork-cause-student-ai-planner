@@ -48,7 +48,6 @@ export default function ClassesScreen() {
   const [showClassModal, setShowClassModal] = useState(false);
   const [showActionSheet, setShowActionSheet] = useState(false);
   const [selectedClass, setSelectedClass] = useState<Class | null>(null);
-  const [isSaving, setIsSaving] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -140,53 +139,45 @@ export default function ClassesScreen() {
 
     const timeString = `${formatTime12H(startTime)} - ${formatTime12H(endTime)}`;
 
-    setIsSaving(true);
-    try {
-      if (isEditing && selectedClass) {
-        // Update existing class
-        await updateClass(selectedClass.id, {
-          name,
-          section,
-          daysOfWeek: selectedDays,
-          time: timeString,
-          professor,
-          startDate: formattedStartDate,
-          endDate: formattedEndDate,
-          color: selectedColor,
-        });
-      } else {
-        // Create new class
-        const newClass: Class = {
-          id: Date.now().toString(),
-          name,
-          section,
-          daysOfWeek: selectedDays,
-          time: timeString,
-          professor,
-          startDate: formattedStartDate,
-          endDate: formattedEndDate,
-          color: selectedColor,
-          createdAt: new Date().toISOString(),
-        };
-        await addClass(newClass);
-        Analytics.logCustomEvent('class_added', {
-          days_count: selectedDays.length,
-          has_professor: !!professor,
-          color_code: selectedColor
-        });
-      }
-
-      await refreshClasses();
-      resetClassForm();
-      setShowClassModal(false);
-      setIsEditing(false);
-      setSelectedClass(null);
-    } catch (error) {
-      console.error("Error saving class:", error);
-      Alert.alert('Error', 'Failed to save class. Please try again.');
-    } finally {
-      setIsSaving(false);
+    if (isEditing && selectedClass) {
+      // Optimistic — state updates instantly
+      updateClass(selectedClass.id, {
+        name,
+        section,
+        daysOfWeek: selectedDays,
+        time: timeString,
+        professor,
+        startDate: formattedStartDate,
+        endDate: formattedEndDate,
+        color: selectedColor,
+      });
+    } else {
+      const newClass: Class = {
+        id: Date.now().toString(),
+        name,
+        section,
+        daysOfWeek: selectedDays,
+        time: timeString,
+        professor,
+        startDate: formattedStartDate,
+        endDate: formattedEndDate,
+        color: selectedColor,
+        createdAt: new Date().toISOString(),
+      };
+      // Fire-and-forget — optimistic update shows class instantly
+      addClass(newClass);
+      Analytics.logCustomEvent('class_added', {
+        days_count: selectedDays.length,
+        has_professor: !!professor,
+        color_code: selectedColor
+      });
     }
+
+    // Close modal immediately
+    resetClassForm();
+    setShowClassModal(false);
+    setIsEditing(false);
+    setSelectedClass(null);
   };
 
   const handleLongPress = (cls: Class) => {
@@ -340,7 +331,7 @@ export default function ClassesScreen() {
               </TouchableOpacity>
             </View>
 
-            <View style={styles.searchContainer}>
+            <View style={[styles.searchContainer, { paddingHorizontal: 0 }]}>
               <SearchBar
                 value={searchQuery}
                 onChangeText={setSearchQuery}
@@ -541,7 +532,6 @@ export default function ClassesScreen() {
                     <Button
                       title={isEditing ? 'Update Class' : 'Add Class'}
                       onPress={handleAddClass}
-                      isLoading={isSaving}
                       style={styles.createButton}
                     />
                   </ScrollView>
@@ -592,8 +582,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 20,
+    paddingTop: 10,
     paddingBottom: 16,
   },
   title: { fontSize: 32, fontWeight: '800', color: colors.text },

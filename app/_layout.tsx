@@ -5,7 +5,7 @@ import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { View, TouchableOpacity, StyleSheet, Modal, Text, ScrollView, Pressable, StatusBar, Image, Platform, InteractionManager } from "react-native";
+import { View, TouchableOpacity, StyleSheet, Modal, Text, ScrollView, Pressable, StatusBar, Image, Platform, InteractionManager, Animated } from "react-native";
 import { Menu, CheckSquare, Calendar, Target, FileText, BookOpen, Heart, Sparkles, User, Home, X, Users, WifiOff, RefreshCw } from "lucide-react-native";
 import { AppProvider, useApp } from "@/contexts/AppContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
@@ -104,8 +104,26 @@ function ProfileButton() {
     </Pressable>
   );
 }
+function SyncErrorToast({ message }: { message: string }) {
+  const opacity = React.useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.sequence([
+      Animated.timing(opacity, { toValue: 1, duration: 250, useNativeDriver: true }),
+      Animated.delay(3000),
+      Animated.timing(opacity, { toValue: 0, duration: 300, useNativeDriver: true }),
+    ]).start();
+  }, [message]);
+
+  return (
+    <Animated.View style={[menuStyles.syncErrorToast, { opacity }]}>
+      <Text style={menuStyles.syncErrorText}>{message}</Text>
+    </Animated.View>
+  );
+}
+
 function CustomHeader() {
-  const { isOnline, refreshAllData } = useApp();
+  const { isOnline, refreshAllData, syncError } = useApp();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const insets = useSafeAreaInsets();
   const { isTablet } = useResponsive();
@@ -117,8 +135,10 @@ function CustomHeader() {
   };
 
   return (
+    <>
+      <StatusBar barStyle="dark-content" backgroundColor={colors.surface} translucent={false} />
     <View style={[
-      menuStyles.header, 
+      menuStyles.header,
       { paddingTop: Platform.OS === 'ios' ? Math.max(0, insets.top - 16) : Math.max(0, insets.top - 4) },
       isTablet && { paddingHorizontal: 40 }
     ]}>
@@ -150,7 +170,9 @@ function CustomHeader() {
         )}
         <ProfileButton />
       </View>
+      {syncError && <SyncErrorToast message={syncError} key={syncError + Date.now()} />}
     </View>
+    </>
   );
 }
 
@@ -161,7 +183,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 function RootLayoutNav() {
   const { isAuthenticated, isLoading, user, isRegistering, registeredAt } = useAuth();
   const router = useRouter();
-  const [onboardingComplete, setOnboardingComplete] = useState<boolean | null>(null);
+  // Initialize to false (not null) so the cover screen only waits for Firebase auth,
+  // not for the AsyncStorage read. The AsyncStorage check updates this shortly after.
+  const [onboardingComplete, setOnboardingComplete] = useState<boolean>(false);
 
   const segments = usePathname();
 
@@ -253,10 +277,10 @@ function RootLayoutNav() {
 
 
   useEffect(() => {
-    if (!isLoading && onboardingComplete !== null) {
+    if (!isLoading) {
       SplashScreen.hideAsync();
     }
-  }, [isLoading, onboardingComplete]);
+  }, [isLoading]);
 
   useEffect(() => {
     // Initialize Analytics
@@ -272,7 +296,7 @@ function RootLayoutNav() {
   }, []);
 
   useEffect(() => {
-    if (!isLoading && onboardingComplete !== null) {
+    if (!isLoading) {
       const doRoute = async () => {
         const inAuthGroup = segments === '/login' || segments === '/register' || segments === '/onboarding' || segments === '/intro-survey';
         const isInvite = segments?.startsWith('/invite');
@@ -292,7 +316,6 @@ function RootLayoutNav() {
         if (onboardingComplete === false && !inAuthGroup && !isAuthenticated) {
           router.replace('/onboarding');
         } else if (!isAuthenticated && !inAuthGroup && !isInvite) {
-          // Redirect to login only if not in auth group AND not trying to view an invite
           router.replace('/login');
         }
       };
@@ -342,13 +365,10 @@ function RootLayoutNav() {
   const inAuthGroup = segments === '/login' || segments === '/register' || segments === '/onboarding' || segments === '/intro-survey';
   const isInvite = segments?.startsWith('/invite');
 
-  // Show a blank cover screen while:
-  // 1. Auth is still loading, OR
-  // 2. Onboarding status not yet read, OR
-  // 3. User is not authenticated AND not yet on an auth screen (redirect in-flight)
-  const shouldShowCover =
-    isLoading ||
-    onboardingComplete === null;
+  // Show a blank cover screen only while Firebase auth state is resolving.
+  // Onboarding AsyncStorage check runs in parallel and updates onboardingComplete
+  // quickly enough that routing logic picks it up correctly.
+  const shouldShowCover = isLoading;
 
   if (shouldShowCover) {
     return (
@@ -586,5 +606,22 @@ const menuStyles = StyleSheet.create({
   menuItemTextActive: {
     color: colors.primary,
     fontWeight: '700' as const,
+  },
+  syncErrorToast: {
+    position: 'absolute' as const,
+    bottom: -40,
+    left: 16,
+    right: 16,
+    backgroundColor: '#ef4444',
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    zIndex: 999,
+  },
+  syncErrorText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '600' as const,
+    textAlign: 'center' as const,
   },
 });

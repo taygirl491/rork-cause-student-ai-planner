@@ -336,7 +336,7 @@ export default function CalendarScreen() {
         Analytics.logCustomEvent('calendar_sync_toggled', { enabled: true });
         Alert.alert(
           'Calendar Sync Enabled',
-          'Your tasks will now be synced to your device calendar in the "Student Planner" calendar.',
+          'Your tasks will now be synced to your device calendar in the "Cause Planner" calendar.',
           [{ text: 'OK' }]
         );
       } else {
@@ -355,7 +355,12 @@ export default function CalendarScreen() {
     <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
       <ResponsiveContainer>
       <View style={[styles.header, isTablet && { paddingHorizontal: 40 }]}>
-        <Text style={[styles.title, { fontSize: normalize(32) }]}>Your Week at a Glance 🗓️</Text>
+        <View>
+          <Text style={[styles.title, { fontSize: normalize(32) }]}>My Calendar 🗓️</Text>
+          <Text style={[styles.subtitle, { fontSize: normalize(14) }]}>Your week at a glance</Text>
+        </View>
+      </View>
+      <View style={[styles.syncRow, isTablet && { paddingHorizontal: 40 }]}>
         <View style={styles.syncContainer}>
           <Text style={[styles.calendarSyncText, { fontSize: normalize(14) }]}>Sync Calendar</Text>
           <Switch
@@ -481,22 +486,35 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   header: {
+    flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
+    paddingTop: 10,
     paddingBottom: 16,
   },
   title: {
     fontSize: 32,
     fontWeight: '800' as const,
     color: colors.text,
-    marginBottom: 16,
+    marginBottom: 4,
+  },
+  subtitle: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginTop: 4,
+    marginBottom: 12,
+  },
+  syncRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingHorizontal: 20,
+    marginBottom: 8,
   },
   syncContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    alignSelf: "flex-end"
   },
   calendarSyncText: {
     fontSize: 14,

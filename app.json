@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Cause Student AI Planner",
+    "name": "Cause Planner",
     "slug": "cause-student-ai-planner",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -124,9 +124,9 @@
         "origin": "https://rork.com/"
       },
       "eas": {
-        "projectId": "3b1f486b-50ab-4d58-90f3-ab34ba4fdcd0"
+        "projectId": "4f03b063-7906-41bc-bbe8-fb11613e296e"
       }
     },
-    "owner": "eluwaiz"
+    "owner": "uwaiz"
   }
 }

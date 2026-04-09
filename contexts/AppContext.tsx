@@ -36,7 +36,7 @@ import { offlineQueue } from "@/utils/offlineQueue";
 const STORAGE_KEYS = {
 	TASKS: "cause-student-tasks",
 	CLASSES: "cause-student-classes",
-
+	GOALS: "cause-student-goals",
 	NOTES: "cause-student-notes",
 	STUDY_GROUPS: "cause-student-study-groups",
 	GROUP_LAST_READ: "cause-student-group-last-read",
@@ -53,15 +53,22 @@ export const [AppProvider, useApp] = createContextHook(() => {
 	const [goals, setGoals] = useState<Goal[]>([]);
 	const [notes, setNotes] = useState<Note[]>([]);
 	const [studyGroups, setStudyGroups] = useState<StudyGroup[]>([]);
-	const [tasksLoading, setTasksLoading] = useState(!!user?.uid);
-	const [classesLoading, setClassesLoading] = useState(!!user?.uid);
-	const [goalsLoading, setGoalsLoading] = useState(!!user?.uid);
-	const [notesLoading, setNotesLoading] = useState(!!user?.uid);
+	const [tasksLoading, setTasksLoading] = useState(false);
+	const [classesLoading, setClassesLoading] = useState(false);
+	const [goalsLoading, setGoalsLoading] = useState(false);
+	const [notesLoading, setNotesLoading] = useState(false);
 	const [calendarSyncEnabled, setCalendarSyncEnabled] = useState(false);
 	const [appCalendarId, setAppCalendarId] = useState<string | null>(null);
 	const [isOnline, setIsOnline] = useState(true);
 	const [pendingOperations, setPendingOperations] = useState(0);
 	const [groupLastRead, setGroupLastRead] = useState<Record<string, string>>({});
+	// Surfaces rollback errors to the UI so users know a save failed
+	const [syncError, setSyncError] = useState<string | null>(null);
+
+	const notifySyncError = (message: string) => {
+		setSyncError(message);
+		setTimeout(() => setSyncError(null), 4000);
+	};
 
 	// Video Configuration State
 	const [videoConfig, setVideoConfig] = useState({
@@ -76,30 +83,101 @@ export const [AppProvider, useApp] = createContextHook(() => {
 		essay2: { title: '', author: '', content: '' }
 	});
 
+	/**
+	 * Retries all queued create operations that failed while the backend was cold.
+	 * Keeps temp items visible in state until confirmed by the server, then swaps
+	 * the temp ID for the real backend ID.
+	 */
+	const processOfflineQueue = useCallback(async () => {
+		if (!user?.uid) return;
+		const pending = offlineQueue.getPendingOperations();
+		if (pending.length === 0) return;
+
+		console.log(`[AppContext] Processing ${pending.length} queued operations`);
+
+		for (const operation of pending) {
+			try {
+				if (operation.entity === 'task' && operation.type === 'create') {
+					const { tempId, ...taskPayload } = operation.data;
+					const newTask = await tasksAPI.createTask(taskPayload);
+					if (newTask) {
+						setTasks((prev) => {
+							const withoutTemp = prev.filter((t) => t.id !== tempId);
+							const alreadyExists = withoutTemp.some((t) => t.id === newTask.id);
+							return alreadyExists ? withoutTemp : [newTask, ...withoutTemp];
+						});
+						await offlineQueue.removeFromQueue(operation.id);
+						if (taskPayload.reminder && !taskPayload.completed) {
+							NotificationService.scheduleTaskReminder(newTask).catch(() => {});
+						}
+						NotificationService.scheduleDueDateNotification(newTask).catch(() => {});
+					}
+				} else if (operation.entity === 'class' && operation.type === 'create') {
+					const { tempId, ...classPayload } = operation.data;
+					const newClass = await classesAPI.createClass(classPayload);
+					if (newClass) {
+						setClasses((prev) => {
+							const withoutTemp = prev.filter((c) => c.id !== tempId);
+							const alreadyExists = withoutTemp.some((c) => c.id === newClass.id);
+							return alreadyExists ? withoutTemp : [newClass, ...withoutTemp];
+						});
+						await offlineQueue.removeFromQueue(operation.id);
+					}
+				} else if (operation.entity === 'goal' && operation.type === 'create') {
+					const { tempId, ...goalPayload } = operation.data;
+					const newGoal = await goalsAPI.createGoal(goalPayload);
+					if (newGoal) {
+						setGoals((prev) => {
+							const withoutTemp = prev.filter((g) => g.id !== tempId);
+							const alreadyExists = withoutTemp.some((g) => g.id === newGoal.id);
+							return alreadyExists ? withoutTemp : [newGoal, ...withoutTemp];
+						});
+						await offlineQueue.removeFromQueue(operation.id);
+					}
+				} else if (operation.entity === 'note' && operation.type === 'create') {
+					const { tempId, ...notePayload } = operation.data;
+					const newNote = await notesAPI.createNote(notePayload);
+					if (newNote) {
+						setNotes((prev) => {
+							const withoutTemp = prev.filter((n) => n.id !== tempId);
+							const alreadyExists = withoutTemp.some((n) => n.id === newNote.id);
+							return alreadyExists ? withoutTemp : [newNote, ...withoutTemp];
+						});
+						await offlineQueue.removeFromQueue(operation.id);
+					}
+				}
+			} catch (error) {
+				console.warn(`[AppContext] Retry failed for queued operation, will retry later:`, operation.id);
+				// Leave in queue — will be retried on next processOfflineQueue call
+			}
+		}
+
+		setPendingOperations(offlineQueue.getPendingCount());
+	}, [user?.uid]);
+
 	// Manual refresh function for tasks
 	const refreshTasks = useCallback(async (options?: { silent?: boolean }) => {
 		if (!user?.uid) return;
 		try {
 			if (!options?.silent) setTasksLoading(true);
 			const tasksData = await tasksAPI.getTasks(user.uid);
-			setTasks(tasksData);
+			// Preserve any pending optimistic items (temp IDs) so they aren't wiped
+			// by the server fetch before the offline queue has been processed.
+			setTasks((prev) => {
+				const pendingTemps = prev.filter((t) => t.id.startsWith('temp_'));
+				const confirmedIds = new Set(tasksData.map((t) => t.id));
+				const stillPending = pendingTemps.filter((t) => !confirmedIds.has(t.id));
+				return [...stillPending, ...tasksData];
+			});
+			AsyncStorage.setItem(STORAGE_KEYS.TASKS, JSON.stringify(tasksData)).catch(() => {});
+			// Backend is confirmed alive — flush any queued creates
+			processOfflineQueue();
 		} catch (error) {
 			console.error("Error loading tasks:", error);
 		} finally {
 			if (!options?.silent) setTasksLoading(false);
 		}
-	}, [user?.uid]);
-
-	// Auto-load tasks and register push token
-	useEffect(() => {
-		if (user?.uid) {
-			refreshTasks();
-			// Register for push notifications
-			registerPushToken();
-			// Attempt to sync any locally saved survey answers
-			syncStoredSurveyAnswers();
-		}
-	}, [user?.uid]);
+	}, [user?.uid, processOfflineQueue]);
 
 	const syncStoredSurveyAnswers = async () => {
 		if (!user?.uid) return;
@@ -147,13 +225,18 @@ export const [AppProvider, useApp] = createContextHook(() => {
 		try {
 			if (!options?.silent) setClassesLoading(true);
 			const classesData = await classesAPI.getClasses(user.uid);
-			// Sort by createdAt descending (newest first)
 			const sortedClasses = classesData.sort((a, b) => {
 				const dateA = new Date(a.createdAt || 0).getTime();
 				const dateB = new Date(b.createdAt || 0).getTime();
 				return dateB - dateA;
 			});
-			setClasses(sortedClasses);
+			setClasses((prev) => {
+				const pendingTemps = prev.filter((c) => c.id.startsWith('temp_'));
+				const confirmedIds = new Set(sortedClasses.map((c) => c.id));
+				const stillPending = pendingTemps.filter((c) => !confirmedIds.has(c.id));
+				return [...stillPending, ...sortedClasses];
+			});
+			AsyncStorage.setItem(STORAGE_KEYS.CLASSES, JSON.stringify(sortedClasses)).catch(() => {});
 		} catch (error) {
 			console.error("Error loading classes:", error);
 		} finally {
@@ -161,28 +244,24 @@ export const [AppProvider, useApp] = createContextHook(() => {
 		}
 	}, [user?.uid]);
 
-	// Auto-load classes when user logs in
-	useEffect(() => {
-		if (user?.uid) {
-			refreshClasses();
-		}
-	}, [user?.uid]);
-
-
-
 	// Manual refresh function for goals
 	const refreshGoals = useCallback(async (options?: { silent?: boolean }) => {
 		if (!user?.uid) return;
 		try {
 			if (!options?.silent) setGoalsLoading(true);
 			const goalsData = await goalsAPI.getGoals(user.uid);
-			// Sort by createdAt descending (newest first)
 			const sortedGoals = goalsData.sort((a, b) => {
 				const dateA = new Date(a.createdAt || 0).getTime();
 				const dateB = new Date(b.createdAt || 0).getTime();
 				return dateB - dateA;
 			});
-			setGoals(sortedGoals);
+			setGoals((prev) => {
+				const pendingTemps = prev.filter((g) => g.id.startsWith('temp_'));
+				const confirmedIds = new Set(sortedGoals.map((g) => g.id));
+				const stillPending = pendingTemps.filter((g) => !confirmedIds.has(g.id));
+				return [...stillPending, ...sortedGoals];
+			});
+			AsyncStorage.setItem(STORAGE_KEYS.GOALS, JSON.stringify(sortedGoals)).catch(() => {});
 		} catch (error) {
 			console.error("Error loading goals:", error);
 		} finally {
@@ -190,21 +269,19 @@ export const [AppProvider, useApp] = createContextHook(() => {
 		}
 	}, [user?.uid]);
 
-	// Auto-load goals when user logs in
-	useEffect(() => {
-		if (user?.uid) {
-			refreshGoals();
-		}
-	}, [user?.uid]);
-
-
 	// Manual refresh function for notes
 	const refreshNotes = useCallback(async (options?: { silent?: boolean }) => {
 		if (!user?.uid) return;
 		try {
 			if (!options?.silent) setNotesLoading(true);
 			const notesData = await notesAPI.getNotes(user.uid);
-			setNotes(notesData);
+			setNotes((prev) => {
+				const pendingTemps = prev.filter((n) => n.id.startsWith('temp_'));
+				const confirmedIds = new Set(notesData.map((n) => n.id));
+				const stillPending = pendingTemps.filter((n) => !confirmedIds.has(n.id));
+				return [...stillPending, ...notesData];
+			});
+			AsyncStorage.setItem(STORAGE_KEYS.NOTES, JSON.stringify(notesData)).catch(() => {});
 		} catch (error) {
 			console.error("Error loading notes:", error);
 		} finally {
@@ -212,11 +289,46 @@ export const [AppProvider, useApp] = createContextHook(() => {
 		}
 	}, [user?.uid]);
 
-	// Auto-load notes when user logs in
+	// On login: load all data.
+	// Step 1 — instantly hydrate from AsyncStorage cache (makes isLoading go false right away).
+	// Step 2 — fetch fresh data from the API in the background (all 4 in parallel).
 	useEffect(() => {
-		if (user?.uid) {
-			refreshNotes();
-		}
+		if (!user?.uid) return;
+
+		// Load cached data synchronously so the UI can render immediately
+		const loadFromCache = async () => {
+			try {
+				const [cachedTasks, cachedClasses, cachedGoals, cachedNotes] = await Promise.all([
+					AsyncStorage.getItem(STORAGE_KEYS.TASKS),
+					AsyncStorage.getItem(STORAGE_KEYS.CLASSES),
+					AsyncStorage.getItem(STORAGE_KEYS.GOALS),
+					AsyncStorage.getItem(STORAGE_KEYS.NOTES),
+				]);
+				if (cachedTasks) setTasks(JSON.parse(cachedTasks));
+				if (cachedClasses) setClasses(JSON.parse(cachedClasses));
+				if (cachedGoals) setGoals(JSON.parse(cachedGoals));
+				if (cachedNotes) setNotes(JSON.parse(cachedNotes));
+			} catch (e) {
+				console.warn('[AppContext] Cache read failed:', e);
+			}
+		};
+
+		// Fetch fresh data from API — all 4 in parallel, silently (no loading spinners)
+		const fetchFresh = () => {
+			Promise.all([
+				refreshTasks({ silent: true }),
+				refreshClasses({ silent: true }),
+				refreshGoals({ silent: true }),
+				refreshNotes({ silent: true }),
+			]).catch((e) => console.error('[AppContext] Initial data fetch failed:', e));
+		};
+
+		// Fire-and-forget side effects
+		registerPushToken();
+		syncStoredSurveyAnswers();
+
+		// Load cache first (fast), then refresh from API
+		loadFromCache().then(fetchFresh);
 	}, [user?.uid]);
 
 
@@ -253,7 +365,7 @@ export const [AppProvider, useApp] = createContextHook(() => {
 
 			if (online) {
 				console.log('[Network] Back online, processing queued operations');
-				offlineQueue.processQueue();
+				processOfflineQueue();
 			} else {
 				console.log('[Network] Offline mode activated');
 			}
@@ -264,7 +376,7 @@ export const [AppProvider, useApp] = createContextHook(() => {
 		return () => {
 			offlineQueue.removeNetworkListener(handleNetworkChange);
 		};
-	}, []);
+	}, [processOfflineQueue]);
 
 	const tasksQuery = useQuery({
 		queryKey: ["tasks"],
@@ -366,21 +478,19 @@ export const [AppProvider, useApp] = createContextHook(() => {
 	const addTask = async (task: Task) => {
 		if (!user?.uid) return;
 
+		// 1. Add optimistically with a temp ID so the UI shows it instantly
+		const tempId = `temp_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+		const optimisticTask: Task = { ...task, id: tempId };
+		setTasks((prev) => [optimisticTask, ...prev]);
+
 		try {
 			let calendarEventId: string | undefined;
-
-			// Sync to calendar if enabled
 			if (calendarSyncEnabled && appCalendarId && !task.completed) {
-				const eventId = await calendarSync.syncTaskToCalendar(
-					task,
-					appCalendarId
-				);
-				if (eventId) {
-					calendarEventId = eventId;
-				}
+				const eventId = await calendarSync.syncTaskToCalendar(task, appCalendarId);
+				if (eventId) calendarEventId = eventId;
 			}
 
-			// Create task via API
+			// 2. Sync to backend in background
 			const newTask = await tasksAPI.createTask({
 				userId: user.uid,
 				description: task.description,
@@ -399,21 +509,32 @@ export const [AppProvider, useApp] = createContextHook(() => {
 			} as any);
 
 			if (newTask) {
-				// Schedule notification if reminder is set and task is not completed
+				// 3. Swap temp item for real item (guard against WS race)
+				setTasks((prev) => {
+					const withoutTemp = prev.filter((t) => t.id !== tempId);
+					const alreadyExists = withoutTemp.some((t) => t.id === newTask.id);
+					return alreadyExists ? withoutTemp : [newTask, ...withoutTemp];
+				});
+
+				// 4. Schedule notifications with the real backend ID
 				if (task.reminder && !task.completed) {
 					await NotificationService.scheduleTaskReminder(newTask);
 				}
-
-				// Schedule due date notification if task is not completed
 				if (!task.completed) {
 					await NotificationService.scheduleDueDateNotification(newTask);
 				}
-
-				// Don't add to state here - the WebSocket event will handle it
-				// This prevents duplicate tasks
+			} else {
+				// Backend not ready — keep the task visible and queue for retry
+				await offlineQueue.addToQueue({ type: 'create', entity: 'task', data: { userId: user.uid, description: task.description, type: task.type, className: task.className, dueDate: task.dueDate, dueTime: task.dueTime, priority: task.priority, reminder: task.reminder, customReminderDate: task.customReminderDate || undefined, alarmEnabled: task.alarmEnabled, completed: task.completed, createdAt: task.createdAt, calendarEventId: undefined, repeat: task.repeat || 'none', tempId } });
+				setPendingOperations(offlineQueue.getPendingCount());
+				notifySyncError("Saving in background — will sync when server is ready.");
 			}
 		} catch (error) {
 			console.error("Error adding task:", error);
+			// Keep the optimistic item visible and queue it for retry when backend recovers
+			await offlineQueue.addToQueue({ type: 'create', entity: 'task', data: { userId: user.uid, description: task.description, type: task.type, className: task.className, dueDate: task.dueDate, dueTime: task.dueTime, priority: task.priority, reminder: task.reminder, customReminderDate: task.customReminderDate || undefined, alarmEnabled: task.alarmEnabled, completed: task.completed, createdAt: task.createdAt, calendarEventId: undefined, repeat: task.repeat || 'none', tempId } });
+			setPendingOperations(offlineQueue.getPendingCount());
+			notifySyncError("Saving in background — will sync when server is ready.");
 		}
 	};
 
@@ -491,10 +612,12 @@ export const [AppProvider, useApp] = createContextHook(() => {
 	const deleteTask = async (id: string) => {
 		if (!user?.uid) return;
 
-		try {
-			// Find the task to get its calendar event ID
-			const task = tasks.find((t) => t.id === id);
+		const task = tasks.find((t) => t.id === id);
 
+		// Remove immediately (optimistic)
+		setTasks((prev) => prev.filter((t) => t.id !== id));
+
+		try {
 			// Cancel all notifications for this task
 			await NotificationService.cancelAllTaskNotifications(id);
 
@@ -506,30 +629,32 @@ export const [AppProvider, useApp] = createContextHook(() => {
 			// Delete via API
 			const success = await tasksAPI.deleteTask(id);
 
-			if (success) {
-				// Update local state immediately
-				setTasks((prev) => prev.filter((t) => t.id !== id));
+			if (!success && task) {
+				// Rollback on failure
+				setTasks((prev) => [task, ...prev]);
 			}
 		} catch (error) {
 			console.error("Error deleting task:", error);
+			if (task) setTasks((prev) => [task, ...prev]);
+			notifySyncError("Couldn't delete task. Please try again.");
 		}
 	};
 
 	const addClass = async (cls: Class) => {
 		if (!user?.uid) return;
 
+		// Add optimistically with a temp ID so the UI shows it instantly
+		const tempId = `temp_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+		const optimisticClass: Class = { ...cls, id: tempId };
+		setClasses((prev) => [optimisticClass, ...prev]);
+
 		try {
 			let calendarEventId: string | undefined;
 
 			// Sync to calendar if enabled
 			if (calendarSyncEnabled && appCalendarId) {
-				const eventId = await calendarSync.syncClassToCalendar(
-					cls,
-					appCalendarId
-				);
-				if (eventId) {
-					calendarEventId = eventId;
-				}
+				const eventId = await calendarSync.syncClassToCalendar(cls, appCalendarId);
+				if (eventId) calendarEventId = eventId;
 			}
 
 			// Create class via API
@@ -547,49 +672,66 @@ export const [AppProvider, useApp] = createContextHook(() => {
 				calendarEventId: calendarEventId || undefined,
 			} as any);
 
-			// Don't add to state here - the WebSocket event will handle it
-			// This prevents duplicate classes
+			if (newClass) {
+				// Swap temp item for real item (guard against WS race)
+				setClasses((prev) => {
+					const withoutTemp = prev.filter((c) => c.id !== tempId);
+					const alreadyExists = withoutTemp.some((c) => c.id === newClass.id);
+					return alreadyExists ? withoutTemp : [newClass, ...withoutTemp];
+				});
+			} else {
+				// Backend not ready — keep the class visible and queue for retry
+				await offlineQueue.addToQueue({ type: 'create', entity: 'class', data: { userId: user.uid, name: cls.name, section: cls.section, daysOfWeek: cls.daysOfWeek, time: cls.time, professor: cls.professor, startDate: cls.startDate, endDate: cls.endDate, color: cls.color, createdAt: cls.createdAt, calendarEventId: undefined, tempId } });
+				setPendingOperations(offlineQueue.getPendingCount());
+				notifySyncError("Saving in background — will sync when server is ready.");
+			}
 		} catch (error) {
 			console.error("Error adding class:", error);
+			// Keep the optimistic item visible and queue it for retry when backend recovers
+			await offlineQueue.addToQueue({ type: 'create', entity: 'class', data: { userId: user.uid, name: cls.name, section: cls.section, daysOfWeek: cls.daysOfWeek, time: cls.time, professor: cls.professor, startDate: cls.startDate, endDate: cls.endDate, color: cls.color, createdAt: cls.createdAt, calendarEventId: undefined, tempId } });
+			setPendingOperations(offlineQueue.getPendingCount());
+			notifySyncError("Saving in background — will sync when server is ready.");
 		}
 	};
 
 	const updateClass = async (id: string, updates: Partial<Class>) => {
 		if (!user?.uid) return;
 
-		try {
-			// Find the class to get its calendar event ID
-			const cls = classes.find((c) => c.id === id);
+		const original = classes.find((c) => c.id === id);
 
+		// Update state immediately (optimistic)
+		setClasses((prev) => prev.map((c) => (c.id === id ? { ...c, ...updates } : c)));
+
+		try {
 			// Update calendar event if synced
-			if (calendarSyncEnabled && cls?.calendarEventId) {
-				const updatedClass = { ...cls, ...updates };
-				await calendarSync.updateClassEvent(
-					cls.calendarEventId,
-					updatedClass as Class
-				);
+			if (calendarSyncEnabled && original?.calendarEventId) {
+				const updatedClass = { ...original, ...updates };
+				await calendarSync.updateClassEvent(original.calendarEventId, updatedClass as Class);
 			}
 
 			// Update via API
 			const success = await classesAPI.updateClass(id, updates);
 
-			if (success) {
-				setClasses((prev) =>
-					prev.map((c) => (c.id === id ? { ...c, ...updates } : c))
-				);
+			if (!success && original) {
+				// Rollback on failure
+				setClasses((prev) => prev.map((c) => (c.id === id ? original : c)));
 			}
 		} catch (error) {
 			console.error("Error updating class:", error);
+			if (original) setClasses((prev) => prev.map((c) => (c.id === id ? original : c)));
+			notifySyncError("Couldn't update class. Please try again.");
 		}
 	};
 
 	const deleteClass = async (id: string) => {
 		if (!user?.uid) return;
 
-		try {
-			// Find the class to get its calendar event ID
-			const cls = classes.find((c) => c.id === id);
+		const cls = classes.find((c) => c.id === id);
 
+		// Remove immediately (optimistic)
+		setClasses((prev) => prev.filter((c) => c.id !== id));
+
+		try {
 			// Delete calendar event if synced
 			if (cls?.calendarEventId) {
 				await calendarSync.deleteCalendarEvent(cls.calendarEventId);
@@ -598,16 +740,23 @@ export const [AppProvider, useApp] = createContextHook(() => {
 			// Delete via API
 			const success = await classesAPI.deleteClass(id);
 
-			if (success) {
-				setClasses((prev) => prev.filter((c) => c.id !== id));
+			if (!success && cls) {
+				setClasses((prev) => [cls, ...prev]);
 			}
 		} catch (error) {
 			console.error("Error deleting class:", error);
+			if (cls) setClasses((prev) => [cls, ...prev]);
+			notifySyncError("Couldn't delete class. Please try again.");
 		}
 	};
 
 	const addGoal = async (goal: Goal) => {
 		if (!user?.uid) return;
+
+		// Add optimistically with a temp ID so the UI shows it instantly
+		const tempId = `temp_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+		const optimisticGoal: Goal = { ...goal, id: tempId };
+		setGoals((prev) => [optimisticGoal, ...prev]);
 
 		try {
 			const newGoal = await goalsAPI.createGoal({
@@ -622,49 +771,83 @@ export const [AppProvider, useApp] = createContextHook(() => {
 				habits: goal.habits || [],
 			} as any);
 
-			// Don't add to state here - the WebSocket event will handle it
-			// This prevents duplicate goals
+			if (newGoal) {
+				// Swap temp item for real item (guard against WS race)
+				setGoals((prev) => {
+					const withoutTemp = prev.filter((g) => g.id !== tempId);
+					const alreadyExists = withoutTemp.some((g) => g.id === newGoal.id);
+					return alreadyExists ? withoutTemp : [newGoal, ...withoutTemp];
+				});
+			} else {
+				// Backend not ready — keep the goal visible and queue for retry
+				await offlineQueue.addToQueue({ type: 'create', entity: 'goal', data: { userId: user.uid, title: goal.title, description: goal.description || '', dueDate: goal.dueDate || '', dueTime: goal.dueTime, completed: goal.completed, notificationId: goal.notificationId, createdAt: goal.createdAt, habits: goal.habits || [], tempId } });
+				setPendingOperations(offlineQueue.getPendingCount());
+				notifySyncError("Saving in background — will sync when server is ready.");
+			}
 		} catch (error) {
 			console.error("Error adding goal:", error);
+			// Keep the optimistic item visible and queue it for retry when backend recovers
+			await offlineQueue.addToQueue({ type: 'create', entity: 'goal', data: { userId: user.uid, title: goal.title, description: goal.description || '', dueDate: goal.dueDate || '', dueTime: goal.dueTime, completed: goal.completed, notificationId: goal.notificationId, createdAt: goal.createdAt, habits: goal.habits || [], tempId } });
+			setPendingOperations(offlineQueue.getPendingCount());
+			notifySyncError("Saving in background — will sync when server is ready.");
 		}
 	};
 
 	const updateGoal = async (id: string, updates: Partial<Goal>) => {
 		if (!user?.uid) return;
 
+		const original = goals.find((g) => g.id === id);
+
+		// Update state immediately (optimistic)
+		setGoals((prev) => prev.map((g) => (g.id === id ? { ...g, ...updates } : g)));
+
 		try {
 			const success = await goalsAPI.updateGoal(id, updates);
 
 			if (success) {
-				setGoals((prev) =>
-					prev.map((g) => (g.id === id ? { ...g, ...updates } : g))
-				);
-				// Refresh streaks to show new points (if goal was completed)
 				if (updates.completed === true) {
 					refreshStreak();
 				}
+			} else if (original) {
+				// Rollback on failure
+				setGoals((prev) => prev.map((g) => (g.id === id ? original : g)));
 			}
 		} catch (error) {
 			console.error("Error updating goal:", error);
+			if (original) setGoals((prev) => prev.map((g) => (g.id === id ? original : g)));
+			notifySyncError("Couldn't update goal. Please try again.");
 		}
 	};
 
 	const deleteGoal = async (id: string) => {
 		if (!user?.uid) return;
 
+		const goal = goals.find((g) => g.id === id);
+
+		// Remove immediately (optimistic)
+		setGoals((prev) => prev.filter((g) => g.id !== id));
+
 		try {
 			const success = await goalsAPI.deleteGoal(id);
 
-			if (success) {
-				setGoals((prev) => prev.filter((g) => g.id !== id));
+			if (!success && goal) {
+				setGoals((prev) => [goal, ...prev]);
 			}
 		} catch (error) {
 			console.error("Error deleting goal:", error);
+			if (goal) setGoals((prev) => [goal, ...prev]);
+			notifySyncError("Couldn't delete goal. Please try again.");
 		}
 	};
 
 	const addNote = async (note: Omit<Note, "id">) => {
 		if (!user?.uid) return;
+
+		// Add optimistically with a temp ID so the UI shows it instantly
+		const tempId = `temp_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+		const now = new Date().toISOString();
+		const optimisticNote: Note = { ...note, id: tempId, createdAt: now, updatedAt: now } as Note;
+		setNotes((prev) => [optimisticNote, ...prev]);
 
 		try {
 			const newNote = await notesAPI.createNote({
@@ -672,47 +855,72 @@ export const [AppProvider, useApp] = createContextHook(() => {
 				title: note.title,
 				className: note.className || "",
 				content: note.content,
-				createdAt: new Date().toISOString(),
-				updatedAt: new Date().toISOString(),
+				createdAt: now,
+				updatedAt: now,
 			} as any);
 
-			// Don't add to state here - the WebSocket event will handle it
-			// This prevents duplicate notes
+			if (newNote) {
+				// Swap temp item for real item (guard against WS race)
+				setNotes((prev) => {
+					const withoutTemp = prev.filter((n) => n.id !== tempId);
+					const alreadyExists = withoutTemp.some((n) => n.id === newNote.id);
+					return alreadyExists ? withoutTemp : [newNote, ...withoutTemp];
+				});
+			} else {
+				// Backend not ready — keep the note visible and queue for retry
+				await offlineQueue.addToQueue({ type: 'create', entity: 'note', data: { userId: user.uid, title: note.title, className: note.className || '', content: note.content, createdAt: now, updatedAt: now, tempId } });
+				setPendingOperations(offlineQueue.getPendingCount());
+				notifySyncError("Saving in background — will sync when server is ready.");
+			}
 		} catch (error) {
 			console.error("Error adding note:", error);
+			// Keep the optimistic item visible and queue it for retry when backend recovers
+			await offlineQueue.addToQueue({ type: 'create', entity: 'note', data: { userId: user.uid, title: note.title, className: note.className || '', content: note.content, createdAt: now, updatedAt: now, tempId } });
+			setPendingOperations(offlineQueue.getPendingCount());
+			notifySyncError("Saving in background — will sync when server is ready.");
 		}
 	};
 
 	const updateNote = async (id: string, updates: Partial<Note>) => {
 		if (!user?.uid) return;
 
-		try {
-			const success = await notesAPI.updateNote(id, {
-				...updates,
-				updatedAt: new Date().toISOString(),
-			});
+		const original = notes.find((n) => n.id === id);
+		const now = new Date().toISOString();
 
-			if (success) {
-				setNotes((prev) =>
-					prev.map((n) => (n.id === id ? { ...n, ...updates, updatedAt: new Date().toISOString() } : n))
-				);
+		// Update state immediately (optimistic)
+		setNotes((prev) => prev.map((n) => (n.id === id ? { ...n, ...updates, updatedAt: now } : n)));
+
+		try {
+			const success = await notesAPI.updateNote(id, { ...updates, updatedAt: now });
+
+			if (!success && original) {
+				setNotes((prev) => prev.map((n) => (n.id === id ? original : n)));
 			}
 		} catch (error) {
 			console.error("Error updating note:", error);
+			if (original) setNotes((prev) => prev.map((n) => (n.id === id ? original : n)));
+			notifySyncError("Couldn't update note. Please try again.");
 		}
 	};
 
 	const deleteNote = async (id: string) => {
 		if (!user?.uid) return;
 
+		const note = notes.find((n) => n.id === id);
+
+		// Remove immediately (optimistic)
+		setNotes((prev) => prev.filter((n) => n.id !== id));
+
 		try {
 			const success = await notesAPI.deleteNote(id);
 
-			if (success) {
-				setNotes((prev) => prev.filter((n) => n.id !== id));
+			if (!success && note) {
+				setNotes((prev) => [note, ...prev]);
 			}
 		} catch (error) {
 			console.error("Error deleting note:", error);
+			if (note) setNotes((prev) => [note, ...prev]);
+			notifySyncError("Couldn't delete note. Please try again.");
 		}
 	};
 
@@ -1385,6 +1593,7 @@ export const [AppProvider, useApp] = createContextHook(() => {
 		videoConfig,
 		isOnline,
 		pendingOperations,
+		syncError,
 		totalUnreadCount,
 		markGroupAsRead,
 		groupLastRead,

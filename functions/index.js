@@ -69,7 +69,7 @@ exports.notifyGroupMembersOnJoin = functions.firestore
 							after.school || "N/A"
 						}</p>
           </div>
-          <p>Open your CauseAI app to welcome them!</p>
+          <p>Open your Cause Planner app to welcome them!</p>
           <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;">
           <p style="font-size: 12px; color: #6b7280;">
             You're receiving this because you're a member of this study group.

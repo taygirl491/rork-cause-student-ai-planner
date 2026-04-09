@@ -682,7 +682,7 @@ async function startServer() {
 		server.listen(PORT, "0.0.0.0", () => {
 			console.log(`
 ╔═══════════════════════════════════════════╗
-║   CauseAI Student Planner API             ║
+║   Cause Planner API             ║
 ║   Server running on port ${PORT}            ║
 ║   Database: MongoDB Atlas                 ║
 ║   WebSocket: Socket.IO Enabled            ║

@@ -2,7 +2,7 @@ import * as Calendar from 'expo-calendar';
 import { Platform } from 'react-native';
 import { Task, Class } from '@/types';
 
-const APP_CALENDAR_NAME = 'Student Planner';
+const APP_CALENDAR_NAME = 'Cause Planner';
 const APP_CALENDAR_COLOR = '#6366F1'; // Primary color
 
 /**
