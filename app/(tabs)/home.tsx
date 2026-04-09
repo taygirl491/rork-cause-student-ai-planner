@@ -156,7 +156,7 @@ export default function HomeScreen() {
 
   const { isTablet, normalize, width } = useResponsive();
 
-  if (isLoading || isStreakLoading || !ctx) {
+  if (!ctx) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={colors.primary} />
@@ -185,7 +185,7 @@ export default function HomeScreen() {
           }
         >
           <View style={styles.heroSection}>
-            <Text style={[styles.appTitle, { fontSize: normalize(28) }]}>Cause Student AI Planner</Text>
+            <Text style={[styles.appTitle, { fontSize: normalize(28) }]}>Cause Planner</Text>
             <Text style={[styles.heroSubtitle, { fontSize: normalize(14) }]}>Making a difference, one task at a time</Text>
 
             <View style={[styles.statsGrid, isTablet && { gap: 16 }]}>
@@ -269,7 +269,10 @@ export default function HomeScreen() {
         {upcomingTasks.length > 0 && (
           <View style={styles.tasksSection}>
             <View style={styles.tasksSectionHeader}>
-              <Text style={[styles.sectionTitle, { fontSize: normalize(20) }]}> Don't let deadlines sneak up on you!</Text>
+              <Text style={[styles.sectionTitle, { fontSize: normalize(20) }]}>
+                <Text style={{ fontWeight: '800' }}>Tasks</Text>
+                <Text style={{ fontWeight: '400' }}> - Don't let deadlines sneak up on you!</Text>
+              </Text>
               <TouchableOpacity onPress={() => router.push('/(tabs)/tasks')}>
                 <Text style={[styles.viewAllText, { fontSize: normalize(14) }]}>View All</Text>
               </TouchableOpacity>

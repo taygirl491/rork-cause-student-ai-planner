@@ -16,7 +16,7 @@ interface StreakData {
 interface StreakContextType {
     streakData: StreakData | null;
     isLoading: boolean;
-    updateStreak: () => Promise<{ increased: boolean; milestone: number | false }>;
+    updateStreak: () => Promise<{ increased: boolean; milestone: number | false; backendReachable: boolean; newStreakCount: number }>;
     refreshStreak: () => Promise<void>;
     awardPoints: (points: number, activityType: 'task' | 'streak' | 'goal' | 'habit' | 'feature') => Promise<{ points: number; level: number; leveledUp: boolean } | null>;
     triggerAnimation: (streakNumber?: number) => void;
@@ -30,6 +30,8 @@ interface StreakContextType {
 const StreakContext = createContext<StreakContextType | undefined>(undefined);
 
 const STREAK_CACHE_KEY = 'user-streak-data';
+const pendingCheckInKey = (uid: string) => `@pendingStreakCheckIn_${uid}`;
+const modalShownKey = (uid: string) => `@streak_modal_shown_${uid}`;
 
 export function StreakProvider({ children }: { children: ReactNode }) {
     const { user } = useAuth();
@@ -44,14 +46,12 @@ export function StreakProvider({ children }: { children: ReactNode }) {
     const [showDailyModal, setShowDailyModal] = useState(false);
     const [sessionChecked, setSessionChecked] = useState(false);
 
-    // Load streak data on mount and when user changes
     useEffect(() => {
         if (user?.uid) {
-            loadStreakData().then(() => {
-                if (!sessionChecked) {
-                    performDailyCheckIn();
-                }
-            });
+            loadStreakData();
+            if (!sessionChecked) {
+                performDailyCheckIn();
+            }
         } else {
             setStreakData(null);
             setIsLoading(false);
@@ -59,30 +59,78 @@ export function StreakProvider({ children }: { children: ReactNode }) {
         }
     }, [user?.uid]);
 
+    /**
+     * Shows the daily streak modal immediately from cache (optimistic),
+     * then syncs the check-in to the backend in the background.
+     *
+     * The modal reads streakData.current live, so when the backend responds
+     * and updates the state, the displayed count corrects itself automatically.
+     *
+     * If the backend is unreachable, a pending flag is stored in AsyncStorage
+     * so loadStreakData can retry the check-in on the next successful connection.
+     */
     const performDailyCheckIn = async () => {
         if (!user?.uid || sessionChecked) return;
 
         try {
-            // Use AsyncStorage to double-check if we already showed the modal today
-            // This persists even if the app process is restarted
             const today = new Date().toDateString();
-            const lastShown = await AsyncStorage.getItem(`@streak_modal_shown_${user.uid}`);
-            
+
+            // Read both values in parallel — both are local AsyncStorage reads (fast)
+            const [lastShown, cached] = await Promise.all([
+                AsyncStorage.getItem(modalShownKey(user.uid)),
+                AsyncStorage.getItem(STREAK_CACHE_KEY),
+            ]);
+
             if (lastShown === today) {
-                console.log('[Streak] Already shown today, skipping check-in animation');
                 setSessionChecked(true);
                 return;
             }
 
+            // ── Optimistic show ──────────────────────────────────────────────
+            // If we have cached streak data, show the modal immediately.
+            // The modal reads from streakData.current (live state) which is
+            // already populated from the cache in loadStreakData. It will update
+            // automatically once the backend responds.
+            if (cached) {
+                // Parse cached data directly — avoids race condition where
+                // state (prev) is still null if loadStreakData hasn't finished.
+                // Ensure minimum of 1 so a reset streak never shows Day 0.
+                const cachedData = JSON.parse(cached) as StreakData;
+                const optimistic = { ...cachedData, current: Math.max(1, cachedData.current + 1) };
+                setStreakData(optimistic);
+                AsyncStorage.setItem(STREAK_CACHE_KEY, JSON.stringify(optimistic)).catch(() => {});
+                setShowDailyModal(true);
+                // Mark today immediately so the modal doesn't appear again on re-open
+                await AsyncStorage.setItem(modalShownKey(user.uid), today);
+            }
+
+            // ── Background backend sync ──────────────────────────────────────
             const result = await updateStreak();
             setSessionChecked(true);
 
-            if (result.increased) {
-                setShowDailyModal(true);
-                await AsyncStorage.setItem(`@streak_modal_shown_${user.uid}`, today);
+            if (result.backendReachable) {
+                // Backend was reachable — clear any pending retry flag
+                await AsyncStorage.removeItem(pendingCheckInKey(user.uid));
+
+                // First-time user or cache was cleared: show modal based on backend result.
+                // Set streak data explicitly so modal never reads stale null state.
+                if (!cached && result.increased) {
+                    setStreakData(prev => ({
+                        ...(prev ?? { longest: 0, totalTasksCompleted: 0, streakFreezes: 0, points: 0, level: 1, lastCompletionDate: null }),
+                        current: Math.max(1, result.newStreakCount),
+                    }));
+                    setShowDailyModal(true);
+                    await AsyncStorage.setItem(modalShownKey(user.uid), today);
+                }
+            } else {
+                // Backend unreachable (cold start still warming up or offline).
+                // Store a pending flag so loadStreakData retries on next connection.
+                await AsyncStorage.setItem(pendingCheckInKey(user.uid), today);
+                console.log('[Streak] Backend unreachable — check-in queued for retry');
             }
         } catch (error) {
-            console.error('Error in daily check-in:', error);
+            console.error('[Streak] Error in daily check-in:', error);
+            setSessionChecked(true);
         }
     };
 
@@ -90,13 +138,13 @@ export function StreakProvider({ children }: { children: ReactNode }) {
         try {
             if (!options?.silent) setIsLoading(true);
 
-            // Try to load from cache first
+            // ── Cache-first: hydrate UI instantly ────────────────────────────
             const cached = await AsyncStorage.getItem(STREAK_CACHE_KEY);
             if (cached) {
                 setStreakData(JSON.parse(cached));
             }
 
-            // Fetch fresh data from backend
+            // ── Background backend fetch ──────────────────────────────────────
             if (user?.uid) {
                 const [streakRes, statsRes] = await Promise.all([
                     apiService.get(`/api/streak/${user.uid}`),
@@ -108,13 +156,11 @@ export function StreakProvider({ children }: { children: ReactNode }) {
                         const combinedData = { ...prevData } as StreakData;
                         let hasUpdates = false;
 
-                        // If we successfully fetched a streak, merge it in
                         if (streakRes && streakRes.success && streakRes.streak) {
                             Object.assign(combinedData, streakRes.streak);
                             hasUpdates = true;
                         }
 
-                        // If we successfully fetched gamification stats, merge them in (even if streak failed/empty)
                         if (statsRes && statsRes.points !== undefined) {
                             combinedData.points = statsRes.points;
                             combinedData.level = statsRes.level || 1;
@@ -122,18 +168,39 @@ export function StreakProvider({ children }: { children: ReactNode }) {
                         }
 
                         if (hasUpdates) {
-                            // Update cache asynchronously
-                            AsyncStorage.setItem(STREAK_CACHE_KEY, JSON.stringify(combinedData)).catch(err => 
-                                console.error('Error caching streak data:', err)
+                            AsyncStorage.setItem(STREAK_CACHE_KEY, JSON.stringify(combinedData)).catch(err =>
+                                console.error('[Streak] Error caching streak data:', err)
                             );
                             return combinedData;
                         }
                         return prevData;
                     });
+
+                    // ── Retry pending check-in ────────────────────────────────
+                    // If a previous session failed to record the check-in (backend
+                    // was cold), retry it now that the backend is confirmed reachable.
+                    if (user?.uid) {
+                        const pending = await AsyncStorage.getItem(pendingCheckInKey(user.uid));
+                        if (pending) {
+                            const today = new Date().toDateString();
+                            // Only retry if the pending check-in is from today (same day retry)
+                            if (pending === today) {
+                                console.log('[Streak] Retrying pending check-in...');
+                                const retryResult = await updateStreak();
+                                if (retryResult.backendReachable) {
+                                    await AsyncStorage.removeItem(pendingCheckInKey(user.uid));
+                                    console.log('[Streak] Pending check-in successfully synced');
+                                }
+                            } else {
+                                // Pending is from a previous day — discard (can't backfill)
+                                await AsyncStorage.removeItem(pendingCheckInKey(user.uid));
+                            }
+                        }
+                    }
                 }
             }
         } catch (error) {
-            console.error('Error loading streak data:', error);
+            console.error('[Streak] Error loading streak data:', error);
         } finally {
             if (!options?.silent) setIsLoading(false);
         }
@@ -144,7 +211,7 @@ export function StreakProvider({ children }: { children: ReactNode }) {
         setShowAnimation(true);
     };
 
-    const updateStreak = React.useCallback(async (): Promise<{ increased: boolean; milestone: number | false }> => {
+    const updateStreak = React.useCallback(async (): Promise<{ increased: boolean; milestone: number | false; backendReachable: boolean }> => {
         try {
             if (!user?.uid) {
                 throw new Error('User not authenticated');
@@ -163,15 +230,14 @@ export function StreakProvider({ children }: { children: ReactNode }) {
                         ...prevData,
                         ...response.streak,
                     } as StreakData;
-                    
-                    // Update cache
-                    AsyncStorage.setItem(STREAK_CACHE_KEY, JSON.stringify(newStreakData)).catch(err => 
-                        console.error('Error caching streak data:', err)
+
+                    AsyncStorage.setItem(STREAK_CACHE_KEY, JSON.stringify(newStreakData)).catch(err =>
+                        console.error('[Streak] Error caching streak data:', err)
                     );
 
                     milestone = response.milestone;
                     increased = response.increased;
-                    
+
                     return newStreakData;
                 });
 
@@ -182,13 +248,16 @@ export function StreakProvider({ children }: { children: ReactNode }) {
                 return {
                     increased: response.increased,
                     milestone: response.milestone,
+                    backendReachable: true,
+                    newStreakCount: response.streak?.current ?? 1,
                 };
             }
 
-            return { increased: false, milestone: false };
+            return { increased: false, milestone: false, backendReachable: true, newStreakCount: 0 };
         } catch (error) {
-            console.error('Error updating streak:', error);
-            return { increased: false, milestone: false };
+            console.error('[Streak] Error updating streak:', error);
+            // Distinguish network failure from a logic response
+            return { increased: false, milestone: false, backendReachable: false, newStreakCount: 0 };
         }
     }, [user?.uid, streakData?.current]);
 
@@ -216,7 +285,7 @@ export function StreakProvider({ children }: { children: ReactNode }) {
             }
             return null;
         } catch (error) {
-            console.error('Error awarding points:', error);
+            console.error('[Streak] Error awarding points:', error);
             return null;
         }
     }, [user?.uid]);

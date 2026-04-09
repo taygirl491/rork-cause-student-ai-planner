@@ -130,7 +130,7 @@ export default function RegisterScreen() {
                 <Image source={require('../assets/images/logo.png')} style={styles.logo} />
               </View>
               <Text style={styles.title}>Create Account</Text>
-              <Text style={styles.subtitle}>Join Cause AI Today</Text>
+              <Text style={styles.subtitle}>Join Cause Planner Today</Text>
             </View>
 
             <View style={styles.formContainer}>

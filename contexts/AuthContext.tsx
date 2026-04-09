@@ -43,6 +43,22 @@ type AuthData = {
   isAuthenticated: boolean;
 };
 
+// ─── TEMPORARY: test accounts with full unlimited access ────────────────────
+// Remove this block before production launch.
+const TEST_ACCOUNT_EMAILS = new Set([
+  'morris1@gmail.com',
+  'tuasebolu@gmail.com',
+  'ogabud@gmail.com',
+  'onyenaka08@gmail.com',
+  'emmaeluwa2021@gmail.com'
+]);
+
+function getEffectiveTier(email: string, tier: SubscriptionTier): SubscriptionTier {
+  if (TEST_ACCOUNT_EMAILS.has(email.toLowerCase())) return 'unlimited';
+  return tier;
+}
+// ────────────────────────────────────────────────────────────────────────────
+
 export const [AuthProvider, useAuth] = createContextHook(() => {
   const queryClient = useQueryClient();
   const [authData, setAuthData] = useState<AuthData>({
@@ -67,13 +83,14 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
 
       if (firebaseUser) {
         // Set initial local state immediately to allow UI to render/hide splash screen
+        const initialEmail = firebaseUser.email || '';
         setAuthData({
           user: {
-            email: firebaseUser.email || '',
+            email: initialEmail,
             name: firebaseUser.displayName || 'User',
             uid: firebaseUser.uid,
             photoURL: firebaseUser.photoURL || undefined,
-            tier: 'free', // Default to free until backend confirms
+            tier: getEffectiveTier(initialEmail, 'free'),
             createdAt: firebaseUser.metadata.creationTime,
           },
           isAuthenticated: true,
@@ -94,12 +111,13 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
 
             setAuthData(prev => {
               if (!prev.user) return prev;
+              const backendTier = (backendUser.tier as SubscriptionTier) || 'free';
               return {
                 ...prev,
                 user: {
                   ...prev.user,
                   name: backendUser.name || prev.user.name,
-                  tier: (backendUser.tier as SubscriptionTier) || 'free',
+                  tier: getEffectiveTier(prev.user.email, backendTier),
                   createdAt: backendUser.createdAt || prev.user.createdAt,
                 }
               };
@@ -174,12 +192,13 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
           .catch(err => console.log('[AuthContext] Welcome email failed (non-blocking):', err));
 
         // 5. Update local state
+        const registrationEmail = firebaseUser.email || data.email;
         const userData: User = {
-          email: firebaseUser.email || data.email,
+          email: registrationEmail,
           name: data.name,
           uid: firebaseUser.uid,
           photoURL: firebaseUser.photoURL || undefined,
-          tier: backendUser?.tier || 'free',
+          tier: getEffectiveTier(registrationEmail, (backendUser?.tier as SubscriptionTier) || 'free'),
           createdAt: backendUser?.createdAt || new Date().toISOString(),
         };
 

@@ -1,11 +1,11 @@
 export const TERMS_AND_CONDITIONS = `Terms and Conditions
-Cause Student AI Planner
+Cause Planner
 Effective Date: November 13, 2025
 
-Please read these Terms and Conditions ("Terms", "Terms and Conditions") carefully before using the Cause Student AI Planner mobile application (the "Service", "App") operated by Cause Student AI ("us", "we", or "our").
+Please read these Terms and Conditions ("Terms", "Terms and Conditions") carefully before using the Cause Planner mobile application (the "Service", "App") operated by Cause Student AI ("us", "we", or "our").
 
 1. Acceptance of Terms
-By accessing or using the Cause Student AI Planner app, you agree to be bound by these Terms and Conditions. If you disagree with any part of these terms, you do not have permission to access the Service.
+By accessing or using the Cause Planner app, you agree to be bound by these Terms and Conditions. If you disagree with any part of these terms, you do not have permission to access the Service.
 These Terms constitute a legally binding agreement between you and Cause Student AI. Your use of the Service is also governed by our Privacy Policy, which is incorporated into these Terms by reference.
 
 2. Age Requirement and Eligibility
@@ -13,7 +13,7 @@ You must be at least 18 years of age to use this Service. By using the Service, 
 The Service is intended for college students, university students, graduate students, and adult learners. We reserve the right to verify your age and may terminate accounts that do not meet the age requirement.
 
 3. Description of Service
-Cause Student AI Planner is a student productivity application that provides:
+Cause Planner is a student productivity application that provides:
 • AI-Powered Features: Personalized study plan generation, assignment tracking, and intelligent scheduling recommendations
 • Academic Planning Tools: Course management, assignment reminders, exam scheduling, and study organization
 • Social Impact Component: A portion of subscription fees supports educational nonprofits selected by users
@@ -35,7 +35,7 @@ You may delete your account at any time through the app settings. Upon deletion,
 
 5. Subscription and Payment Terms
 5.1 Subscription Model
-Cause Student AI Planner operates on a subscription basis. We offer two subscription options:
+Cause Planner operates on a subscription basis. We offer two subscription options:
 • Monthly Subscription: $5 per month
 • Annual Subscription: $20 per year (equivalent to $1.67 per month, saving you over 60%)
 Both subscription plans include:
@@ -192,7 +192,7 @@ Email: minatoventuresinc@gmail.com
 Address: 9 Chester Street, Apartment 34, Cambridge, MA 02140
 Response Time: We aim to respond to all inquiries within 30 days.
 
-By using Cause Student AI Planner, you acknowledge that you have read, understood, and agree to be bound by these Terms and Conditions.
+By using Cause Planner, you acknowledge that you have read, understood, and agree to be bound by these Terms and Conditions.
 _______________________________________________
 Last Updated: November 13, 2025
 Version 1.0

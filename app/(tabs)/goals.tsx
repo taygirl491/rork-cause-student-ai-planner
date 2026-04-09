@@ -49,7 +49,6 @@ export default function GoalsScreen() {
   // Edit/Delete state
   const [showActionSheet, setShowActionSheet] = useState(false);
   const [selectedGoal, setSelectedGoal] = useState<Goal | null>(null);
-  const [isSaving, setIsSaving] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [habits, setHabits] = useState<{
     title: string;
@@ -159,19 +158,19 @@ export default function GoalsScreen() {
       return habit;
     }));
 
-    setIsSaving(true);
-    try {
-      if (isEditing && selectedGoal) {
-        const updatedGoal: Partial<Goal> = {
-          title,
-          description,
-          dueDate: formattedDate,
-          dueTime: formattedTime,
-          habits: processedHabits,
-        };
-        updateGoal(selectedGoal.id, updatedGoal);
+    if (isEditing && selectedGoal) {
+      const updatedGoal: Partial<Goal> = {
+        title,
+        description,
+        dueDate: formattedDate,
+        dueTime: formattedTime,
+        habits: processedHabits,
+      };
+      // Optimistic — state updates instantly
+      updateGoal(selectedGoal.id, updatedGoal);
 
-        // Cancel old notification and schedule new one
+      // Handle notification rescheduling in background
+      (async () => {
         if (selectedGoal.notificationId) {
           await cancelNotification(selectedGoal.notificationId);
         }
@@ -180,47 +179,40 @@ export default function GoalsScreen() {
           ...updatedGoal,
         } as Goal);
         if (notificationId) {
-          await updateGoal(selectedGoal.id, { notificationId });
+          updateGoal(selectedGoal.id, { notificationId });
         }
-      } else {
-        const tempGoal: Goal = {
-          id: Date.now().toString(),
-          title,
-          description,
-          dueDate: formattedDate,
-          dueTime: formattedTime,
-          completed: false,
-          createdAt: new Date().toISOString(),
-          habits: processedHabits,
-        };
+      })();
+    } else {
+      const tempGoal: Goal = {
+        id: Date.now().toString(),
+        title,
+        description,
+        dueDate: formattedDate,
+        dueTime: formattedTime,
+        completed: false,
+        createdAt: new Date().toISOString(),
+        habits: processedHabits,
+      };
 
-        // Schedule notification first to get ID
+      // Fire-and-forget — optimistic update shows goal instantly
+      // Schedule notification and sync to backend in background
+      (async () => {
         const notificationId = await scheduleGoalNotification(tempGoal);
+        addGoal({ ...tempGoal, notificationId: notificationId || undefined });
+      })();
 
-        const newGoal: Goal = {
-          ...tempGoal,
-          notificationId: notificationId || undefined,
-        };
-
-        await addGoal(newGoal);
-        Analytics.logCustomEvent('goal_created', {
-          has_description: !!description,
-          habit_count: habits.length,
-          has_reminder: !!notificationId
-        });
-      }
-
-      await refreshGoals();
-      resetForm();
-      setShowModal(false);
-      setIsEditing(false);
-      setSelectedGoal(null);
-    } catch (error) {
-      console.error("Error saving goal:", error);
-      Alert.alert('Error', 'Failed to save goal. Please try again.');
-    } finally {
-      setIsSaving(false);
+      Analytics.logCustomEvent('goal_created', {
+        has_description: !!description,
+        habit_count: habits.length,
+        has_reminder: true
+      });
     }
+
+    // Close modal immediately
+    resetForm();
+    setShowModal(false);
+    setIsEditing(false);
+    setSelectedGoal(null);
   };
 
   const resetForm = () => {
@@ -346,7 +338,7 @@ export default function GoalsScreen() {
 			<ResponsiveContainer>
 				<View style={[styles.header, isTablet && { paddingHorizontal: 40 }]}>
 					<View>
-						<Text style={[styles.title, { fontSize: normalize(32) }]}>Goals & Purpose</Text>
+						<Text style={[styles.title, { fontSize: normalize(32) }]}>My Goals 🎯</Text>
 						<Text style={[styles.subtitle, { fontSize: normalize(14) }]}>Track your personal goals</Text>
 					</View>
 					<TouchableOpacity style={styles.addButton} onPress={() => {
@@ -670,7 +662,6 @@ export default function GoalsScreen() {
                     <Button
                       title={isEditing ? 'Update Goal' : 'Create Goal'}
                       onPress={handleAddGoal}
-                      isLoading={isSaving}
                       style={styles.createButton}
                       textStyle={{ fontSize: normalize(16) }}
                     />
@@ -726,6 +717,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
+    paddingTop: 10,
     paddingBottom: 16,
   },
   title: {
