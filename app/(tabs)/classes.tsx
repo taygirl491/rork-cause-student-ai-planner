@@ -301,7 +301,7 @@ export default function ClassesScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
+    <SafeAreaView style={styles.container} edges={['left', 'right']}>
       <ResponsiveContainer>
       <FlatList
         key={isTablet ? 'tablet' : 'mobile'}
@@ -585,7 +585,7 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     paddingBottom: 16,
   },
-  title: { fontSize: 32, fontWeight: '800', color: colors.text },
+  title: { fontSize: 22, fontWeight: '800', color: colors.text },
   columnWrapper: {
     justifyContent: 'space-between',
     gap: 12,

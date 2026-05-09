@@ -37,16 +37,6 @@ async function setupNotificationCategories() {
   }
 }
 
-/**
- * Returns how many more local notifications can be scheduled on iOS
- * before hitting the system 64-notification limit.
- * Returns Infinity on Android (no such limit).
- */
-async function getAvailableNotificationSlots(): Promise<number> {
-  if (Platform.OS !== 'ios') return Infinity;
-  const scheduled = await Notifications.getAllScheduledNotificationsAsync();
-  return Math.max(0, 64 - scheduled.length);
-}
 
 /**
  * Configure notification handler
@@ -296,7 +286,19 @@ function calculateTriggerTime(task: Task): Date | null {
       break;
     case 'custom':
       if (task.customReminderDate) {
-        triggerDate = new Date(task.customReminderDate);
+        // Parse as local time to avoid UTC-midnight shift from ISO date strings
+        const raw = task.customReminderDate;
+        const dtMatch = raw.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+        const dateMatch = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if (dtMatch) {
+          const [, y, m, d, h, min] = dtMatch.map(Number);
+          triggerDate = new Date(y, m - 1, d, h, min, 0, 0);
+        } else if (dateMatch) {
+          const [, y, m, d] = dateMatch.map(Number);
+          triggerDate = new Date(y, m - 1, d, 9, 0, 0, 0);
+        } else {
+          triggerDate = new Date(raw);
+        }
       } else {
         return null;
       }
@@ -331,6 +333,45 @@ function getReminderLabel(reminder: ReminderTime): string {
       return 'at custom time';
     default:
       return '';
+  }
+}
+
+/**
+ * Schedule two "echo" notifications that replay the alarm sound after the
+ * main notification fires, extending the total audio coverage to ~75 seconds.
+ *
+ * iOS notification sounds are hard-capped at 30 seconds — longer files cause
+ * iOS to silently fall back to the default sound. Doubling the WAV would break
+ * it. Instead we schedule fresh notifications at T+25s and T+50s so the alarm
+ * keeps ringing past the end of the first sound.
+ *
+ * Echo notifications share the same taskId in data so cancelAllTaskNotifications
+ * cleans them up automatically — no extra logic needed.
+ */
+async function scheduleAlarmEchos(task: Task, mainTriggerSeconds: number): Promise<void> {
+  if (Platform.OS !== 'ios' || !task.alarmEnabled) return;
+
+  const offsets = [25, 50]; // seconds after main notification fires
+  for (const offset of offsets) {
+    const seconds = mainTriggerSeconds + offset;
+    if (seconds <= 0) continue;
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: `Still ringing: ${task.type.toUpperCase()}`,
+        body: task.description,
+        data: { taskId: task.id, type: 'alarm_echo', className: task.className },
+        sound: 'alarm_clock_90867.wav',
+        badge: 1,
+        channelId: 'task-alarms',
+        interruptionLevel: 'timeSensitive',
+        categoryIdentifier: 'ALARM',
+      } as any,
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+        seconds,
+        repeats: false,
+      },
+    });
   }
 }
 
@@ -385,46 +426,10 @@ export async function scheduleTaskReminder(task: Task): Promise<string | null> {
       },
     });
 
-    // IMPLEMENTATION FOR iOS: "Chasing" notifications to simulate persistent alarm
-    // iOS standard notification sounds only ring once. We schedule a burst of
-    // notifications (capped at 6) at 30s intervals — ~3 mins of ringing.
-    // Capped at 6 (not 10) to protect the iOS 64-notification system limit.
-    if (task.alarmEnabled && Platform.OS === 'ios') {
-      try {
-        const slots = await getAvailableNotificationSlots();
-        const MAX_CHASERS = 6;
-        const chasersToSchedule = Math.min(MAX_CHASERS, slots);
-        console.log(`[Notification] Scheduling ${chasersToSchedule} chasers for task ${task.id} (${slots} slots free)`);
-        for (let i = 1; i <= chasersToSchedule; i++) {
-          await Notifications.scheduleNotificationAsync({
-            content: {
-              title: `Reminder: ${task.type.toUpperCase()} (${i + 1})`,
-              body: task.description,
-              data: {
-                taskId: task.id,
-                type: 'task_reminder_chaser',
-                className: task.className,
-              },
-              sound: sound,
-              badge: 1,
-              color: '#6366F1',
-              channelId: channelId,
-              interruptionLevel: 'timeSensitive',
-              categoryIdentifier: 'ALARM',
-            } as any,
-            trigger: {
-              type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
-              seconds: secondsUntilTrigger + (i * 30),
-              repeats: false,
-            },
-          });
-        }
-      } catch (chaseError) {
-        console.error('Error scheduling chasing notifications:', chaseError);
-      }
-    }
-
     console.log(`Scheduled notification ${notificationId} for task ${task.id} at ${triggerDate.toLocaleString()}`);
+
+    // Schedule echo notifications to extend alarm sound beyond the 25s file duration
+    await scheduleAlarmEchos(task, secondsUntilTrigger > 0 ? secondsUntilTrigger : 1);
 
     // Schedule persistent alarm for reminder if enabled (Android only)
     if (task.alarmEnabled && Platform.OS === 'android') {
@@ -522,45 +527,11 @@ export async function scheduleDueDateNotification(task: Task): Promise<string | 
       },
     });
 
-    // IMPLEMENTATION FOR iOS: "Chasing" notifications to simulate persistent alarm.
-    // Capped at 6 chasers to protect the iOS 64-notification system limit.
-    if (task.alarmEnabled && Platform.OS === 'ios') {
-      try {
-        const slots = await getAvailableNotificationSlots();
-        const MAX_CHASERS = 6;
-        const chasersToSchedule = Math.min(MAX_CHASERS, slots);
-        console.log(`[Notification] Scheduling ${chasersToSchedule} chasers for task (due) ${task.id} (${slots} slots free)`);
-        for (let i = 1; i <= chasersToSchedule; i++) {
-          await Notifications.scheduleNotificationAsync({
-            content: {
-              title: `Task Due: ${task.type.toUpperCase()} (${i + 1})`,
-              body: `${task.description}${task.className ? ` (${task.className})` : ''}`,
-              data: {
-                taskId: task.id,
-                type: 'task_due_chaser',
-                className: task.className,
-              },
-              sound: sound,
-              badge: 1,
-              color: '#6366F1',
-              channelId: channelId,
-              interruptionLevel: 'timeSensitive',
-              categoryIdentifier: 'ALARM',
-            } as any,
-            trigger: {
-              type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
-              seconds: secondsUntilDue + (i * 30),
-              repeats: false,
-            },
-          });
-        }
-      } catch (chaseError) {
-        console.error('Error scheduling chasing notifications:', chaseError);
-      }
-    }
-
     console.log(`Scheduled due date notification ${notificationId} for task ${task.id} at ${dueDate.toLocaleString()}`);
-    
+
+    // Schedule echo notifications to extend alarm sound beyond the 25s file duration
+    await scheduleAlarmEchos(task, secondsUntilDue > 0 ? secondsUntilDue : 1);
+
     // Schedule persistent alarm if enabled (Android only)
     if (task.alarmEnabled && Platform.OS === 'android') {
       try {
@@ -744,8 +715,15 @@ export async function scheduleGoalNotification(goal: Goal): Promise<string | nul
     
     // If goal has a specific time, use it
     if (goal.dueTime) {
-      const [hours, minutes] = goal.dueTime.split(':');
-      dueDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+      const parts = goal.dueTime.split(':');
+      const hours = parseInt(parts[0], 10);
+      const minutes = parseInt(parts[1] ?? '0', 10);
+      if (!isNaN(hours) && !isNaN(minutes) && hours >= 0 && hours < 24 && minutes >= 0 && minutes < 60) {
+        dueDate.setHours(hours, minutes, 0, 0);
+      } else {
+        console.warn(`[NotificationService] Malformed goal.dueTime "${goal.dueTime}", defaulting to 9 AM`);
+        dueDate.setHours(9, 0, 0, 0);
+      }
     } else {
       // Default to 9 AM if no time specified
       dueDate.setHours(9, 0, 0, 0);

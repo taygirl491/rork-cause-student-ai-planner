@@ -37,7 +37,7 @@ const pages: OnboardingPage[] = [
     {
         id: 2,
         title: 'Everything in One Place',
-        description: 'Manage classes, tasks, goals, and study groups all in one beautiful app',
+        description: 'Manage classes, tasks, goals, and notes all in one beautiful app',
         image: require('../assets/onboarding/screen-2.webp'),
     },
     {

@@ -18,6 +18,7 @@ import {
   Keyboard,
   Pressable,
   RefreshControl,
+  Dimensions,
 } from 'react-native';
 import Button from '@/components/Button';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
@@ -32,6 +33,10 @@ import SearchBar from '@/components/SearchBar';
 import * as Analytics from '@/utils/analytics';
 import { useResponsive } from '@/utils/responsive';
 import ResponsiveContainer from '@/components/ResponsiveContainer';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Linking } from 'react-native';
+
+const IOS_PERSISTENT_BANNER_KEY = '@ios_persistent_banner_confirmed';
 
 
 export default function TasksScreen() {
@@ -58,6 +63,18 @@ export default function TasksScreen() {
   const [customReminderDate, setCustomReminderDate] = useState(new Date());
   const [showCustomReminderPicker, setShowCustomReminderPicker] = useState(false);
   const [alarmEnabled, setAlarmEnabled] = useState(false);
+  const [showPersistentBanner, setShowPersistentBanner] = useState(false);
+
+  useEffect(() => {
+    if (Platform.OS !== 'ios') return;
+    const check = async () => {
+      const confirmed = await AsyncStorage.getItem(IOS_PERSISTENT_BANNER_KEY);
+      if (confirmed) return;
+      const hasAlarmTask = sortedTasks.some((t) => t.alarmEnabled && !t.completed);
+      setShowPersistentBanner(hasAlarmTask);
+    };
+    check();
+  }, [sortedTasks]);
 
   // Search and filter states
   const [searchQuery, setSearchQuery] = useState('');
@@ -407,7 +424,7 @@ export default function TasksScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
+    <SafeAreaView style={styles.container} edges={['left', 'right']}>
       <ResponsiveContainer>
       <FlatList
         key={isTablet ? 'tablet' : 'mobile'}
@@ -437,6 +454,40 @@ export default function TasksScreen() {
               </TouchableOpacity>
             </View>
 
+
+            {showPersistentBanner && (
+              <View style={styles.persistentBanner}>
+                <View style={styles.persistentBannerTop}>
+                  <Text style={styles.persistentBannerIcon}>🔔</Text>
+                  <View style={styles.persistentBannerTextBlock}>
+                    <Text style={styles.persistentBannerTitle}>Action needed for alarms</Text>
+                    <Text style={styles.persistentBannerBody}>
+                      To keep alarm banners on screen, go to{' '}
+                      <Text style={styles.persistentBannerBold}>Settings → Notifications → Cause Planner → Banner Style</Text>
+                      {' '}and select{' '}
+                      <Text style={styles.persistentBannerBold}>Persistent</Text>.
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.persistentBannerActions}>
+                  <TouchableOpacity
+                    style={styles.persistentBannerPrimaryBtn}
+                    onPress={() => Linking.openSettings()}
+                  >
+                    <Text style={styles.persistentBannerPrimaryBtnText}>Open Settings</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.persistentBannerSecondaryBtn}
+                    onPress={async () => {
+                      await AsyncStorage.setItem(IOS_PERSISTENT_BANNER_KEY, 'true');
+                      setShowPersistentBanner(false);
+                    }}
+                  >
+                    <Text style={styles.persistentBannerSecondaryBtnText}>Done, I've set it ✓</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
 
             <View style={styles.searchContainer}>
               <SearchBar
@@ -782,7 +833,14 @@ export default function TasksScreen() {
 
                     <TouchableOpacity
                       style={[styles.checkboxRow, alarmEnabled && styles.checkboxRowActive]}
-                      onPress={() => setAlarmEnabled(!alarmEnabled)}
+                      onPress={async () => {
+                        const next = !alarmEnabled;
+                        setAlarmEnabled(next);
+                        if (next && Platform.OS === 'ios') {
+                          const confirmed = await AsyncStorage.getItem(IOS_PERSISTENT_BANNER_KEY);
+                          if (!confirmed) setShowPersistentBanner(true);
+                        }
+                      }}
                     >
                       <View style={[styles.checkbox, alarmEnabled && styles.checkboxChecked]}>
                         {alarmEnabled && <CheckCircle size={20} color={colors.surface} />}
@@ -832,7 +890,11 @@ export default function TasksScreen() {
                   </TouchableOpacity>
                 </View>
 
-                <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.modalScrollContent}>
+                <ScrollView
+                  showsVerticalScrollIndicator={true}
+                  contentContainerStyle={styles.modalScrollContent}
+                  style={{ maxHeight: Dimensions.get('window').height * 0.5 }}
+                >
                   {/* Task Description */}
                   <View style={styles.detailSection}>
                     <Text style={styles.detailLabel}>Description</Text>
@@ -971,6 +1033,7 @@ export default function TasksScreen() {
           </TouchableOpacity>
         </SafeAreaView>
       </Modal>
+
     </SafeAreaView>
   );
 }
@@ -991,7 +1054,7 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
   },
   title: {
-    fontSize: 32,
+    fontSize: 22,
     fontWeight: '800' as const,
     color: colors.text,
     marginBottom: 4,
@@ -1364,5 +1427,69 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600' as const,
     color: colors.surface,
+  },
+  // ── iOS persistent banner ──────────────────────────────────────────────────
+  persistentBanner: {
+    backgroundColor: '#FFF7ED',
+    borderWidth: 1,
+    borderColor: '#FED7AA',
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 14,
+  },
+  persistentBannerTop: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    marginBottom: 12,
+  },
+  persistentBannerIcon: {
+    fontSize: 22,
+    lineHeight: 28,
+  },
+  persistentBannerTextBlock: {
+    flex: 1,
+  },
+  persistentBannerTitle: {
+    fontSize: 14,
+    fontWeight: '700' as const,
+    color: '#92400E',
+    marginBottom: 4,
+  },
+  persistentBannerBody: {
+    fontSize: 13,
+    color: '#78350F',
+    lineHeight: 19,
+  },
+  persistentBannerBold: {
+    fontWeight: '700' as const,
+  },
+  persistentBannerActions: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  persistentBannerPrimaryBtn: {
+    flex: 1,
+    backgroundColor: '#EA580C',
+    paddingVertical: 10,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  persistentBannerPrimaryBtnText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '700' as const,
+  },
+  persistentBannerSecondaryBtn: {
+    flex: 1,
+    backgroundColor: '#FED7AA',
+    paddingVertical: 10,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  persistentBannerSecondaryBtnText: {
+    color: '#92400E',
+    fontSize: 13,
+    fontWeight: '700' as const,
   },
 });

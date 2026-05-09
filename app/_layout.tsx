@@ -139,14 +139,14 @@ function CustomHeader() {
       <StatusBar barStyle="dark-content" backgroundColor={colors.surface} translucent={false} />
     <View style={[
       menuStyles.header,
-      { paddingTop: Platform.OS === 'ios' ? Math.max(0, insets.top - 16) : Math.max(0, insets.top - 4) },
+      { paddingTop: insets.top },
       isTablet && { paddingHorizontal: 40 }
     ]}>
       <View style={menuStyles.headerLeft}>
         <MenuButton />
       </View>
       <View style={menuStyles.headerCenter}>
-        <LogoButton size={100} />
+        <LogoButton size={65} />
         {!isOnline && (
           <View style={menuStyles.offlineBadge}>
             <WifiOff size={12} color={colors.surface} />
@@ -353,8 +353,24 @@ function RootLayoutNav() {
         // iOS alarm banner: user tapped "Dismiss" — nothing to do, notification clears
         if (actionId === 'DISMISS') return;
 
-        if (data.type === 'task_reminder' && data.taskId) {
+        // Route to the correct screen based on notification type
+        const type = data?.type as string | undefined;
+
+        if (
+          type === 'task_reminder' ||
+          type === 'task_due' ||
+          type === 'missed_task'
+        ) {
           router.push('/(tabs)/tasks');
+        } else if (type === 'goal_due') {
+          router.push('/(tabs)/goals');
+        } else if (type === 'habit_reminder') {
+          router.push('/(tabs)/goals');
+        } else if (type === 'streak') {
+          router.push('/(tabs)/home');
+        } else {
+          // Default: go to home for any unrecognised notification type
+          router.push('/(tabs)/home');
         }
       }
     );
@@ -443,21 +459,20 @@ function RootLayout() {
   const stripeKey = process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY || 'pk_live_51PRLrfP0t2AuYFqKyKwaltV3py5wvWtfdPgfadWXFl3k7nbhygi2O8J9XnwuZMWWfLavLKiN7E2A794UozlAOBq2003kcHeHIE';
 
   useEffect(() => {
-    // Initialize Sentry inside effect to prevent fatal error at module level if native module is missing
-    // Added a 500ms delay to allow the React Native bridge/New Architecture to fully stabilize
-    // before making aggressive native module calls that could crash ObjCTurboModule.
-    const sentryTimer = setTimeout(() => {
+    // Defer Sentry init until after all interactions/animations complete so it
+    // doesn't block the UI thread on slow or low-end devices.
+    const handle = InteractionManager.runAfterInteractions(() => {
       try {
-          Sentry.init({
-            dsn: process.env.EXPO_PUBLIC_SENTRY_DSN || 'https://b73520e1b6648db41574a92098b42ec2@o4510577981915136.ingest.us.sentry.io/4510577983356928',
-            debug: true,
-          });
+        Sentry.init({
+          dsn: process.env.EXPO_PUBLIC_SENTRY_DSN || 'https://b73520e1b6648db41574a92098b42ec2@o4510577981915136.ingest.us.sentry.io/4510577983356928',
+          debug: false,
+        });
       } catch (e) {
         console.warn('Sentry initialization failed:', e);
       }
-    }, 500);
+    });
 
-    return () => clearTimeout(sentryTimer);
+    return () => handle.cancel();
   }, []);
 
   console.log('[Stripe] Initializing with key:', stripeKey ? stripeKey.substring(0, 10) + '...' : 'MISSING');
@@ -510,7 +525,7 @@ const menuStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 12,
-    paddingBottom: 8,
+    paddingBottom: 2,
     backgroundColor: colors.surface,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,

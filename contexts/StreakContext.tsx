@@ -16,7 +16,7 @@ interface StreakData {
 interface StreakContextType {
     streakData: StreakData | null;
     isLoading: boolean;
-    updateStreak: () => Promise<{ increased: boolean; milestone: number | false; backendReachable: boolean; newStreakCount: number }>;
+    updateStreak: (opts?: { suppressAnimation?: boolean }) => Promise<{ increased: boolean; milestone: number | false; backendReachable: boolean; newStreakCount: number }>;
     refreshStreak: () => Promise<void>;
     awardPoints: (points: number, activityType: 'task' | 'streak' | 'goal' | 'habit' | 'feature') => Promise<{ points: number; level: number; leveledUp: boolean } | null>;
     triggerAnimation: (streakNumber?: number) => void;
@@ -92,20 +92,25 @@ export function StreakProvider({ children }: { children: ReactNode }) {
             // already populated from the cache in loadStreakData. It will update
             // automatically once the backend responds.
             if (cached) {
-                // Parse cached data directly — avoids race condition where
-                // state (prev) is still null if loadStreakData hasn't finished.
-                // Ensure minimum of 1 so a reset streak never shows Day 0.
+                // Parse the last backend-confirmed value from cache.
+                // We only update STATE here — NOT the cache — so the cache always
+                // holds the last confirmed backend count. Writing the +1 optimistic
+                // value into the cache would cause a double-increment on the next
+                // app open if the backend never got a chance to correct it.
                 const cachedData = JSON.parse(cached) as StreakData;
-                const optimistic = { ...cachedData, current: Math.max(1, cachedData.current + 1) };
-                setStreakData(optimistic);
-                AsyncStorage.setItem(STREAK_CACHE_KEY, JSON.stringify(optimistic)).catch(() => {});
+                const optimisticCount = Math.max(1, cachedData.current + 1);
+                setStreakData({ ...cachedData, current: optimisticCount });
                 setShowDailyModal(true);
-                // Mark today immediately so the modal doesn't appear again on re-open
+                // Mark today immediately so the modal doesn't fire again on re-open
                 await AsyncStorage.setItem(modalShownKey(user.uid), today);
             }
 
             // ── Background backend sync ──────────────────────────────────────
-            const result = await updateStreak();
+            // If we already showed the modal optimistically (cached !== null),
+            // suppress the animation inside updateStreak so a second popup doesn't fire.
+            // The already-open modal will silently show the correct backend number
+            // because it reads from streakData.current which updateStreak updates.
+            const result = await updateStreak({ suppressAnimation: !!cached });
             setSessionChecked(true);
 
             if (result.backendReachable) {
@@ -186,7 +191,8 @@ export function StreakProvider({ children }: { children: ReactNode }) {
                             // Only retry if the pending check-in is from today (same day retry)
                             if (pending === today) {
                                 console.log('[Streak] Retrying pending check-in...');
-                                const retryResult = await updateStreak();
+                                // Suppress animation — the modal already fired in the previous session
+                                const retryResult = await updateStreak({ suppressAnimation: true });
                                 if (retryResult.backendReachable) {
                                     await AsyncStorage.removeItem(pendingCheckInKey(user.uid));
                                     console.log('[Streak] Pending check-in successfully synced');
@@ -211,7 +217,7 @@ export function StreakProvider({ children }: { children: ReactNode }) {
         setShowAnimation(true);
     };
 
-    const updateStreak = React.useCallback(async (): Promise<{ increased: boolean; milestone: number | false; backendReachable: boolean }> => {
+    const updateStreak = React.useCallback(async (opts?: { suppressAnimation?: boolean }): Promise<{ increased: boolean; milestone: number | false; backendReachable: boolean; newStreakCount: number }> => {
         try {
             if (!user?.uid) {
                 throw new Error('User not authenticated');
@@ -222,9 +228,6 @@ export function StreakProvider({ children }: { children: ReactNode }) {
             });
 
             if (response.success) {
-                let milestone: number | false = false;
-                let increased = false;
-
                 setStreakData(prevData => {
                     const newStreakData = {
                         ...prevData,
@@ -235,13 +238,13 @@ export function StreakProvider({ children }: { children: ReactNode }) {
                         console.error('[Streak] Error caching streak data:', err)
                     );
 
-                    milestone = response.milestone;
-                    increased = response.increased;
-
                     return newStreakData;
                 });
 
-                if (response.increased) {
+                // Only trigger animation if caller hasn't already shown the modal optimistically.
+                // When suppressAnimation is true the already-open modal silently updates its
+                // number via the streakData state update above — no second popup fires.
+                if (response.increased && !opts?.suppressAnimation) {
                     triggerAnimation(response.streak.current);
                 }
 
@@ -256,7 +259,6 @@ export function StreakProvider({ children }: { children: ReactNode }) {
             return { increased: false, milestone: false, backendReachable: true, newStreakCount: 0 };
         } catch (error) {
             console.error('[Streak] Error updating streak:', error);
-            // Distinguish network failure from a logic response
             return { increased: false, milestone: false, backendReachable: false, newStreakCount: 0 };
         }
     }, [user?.uid, streakData?.current]);

@@ -52,12 +52,15 @@ export default function LoginScreen() {
     setIsNavigating(true);
     try {
       const user = await login(email.trim(), password);
-      // Ensure onboarding is marked as complete on successful login
       await AsyncStorage.setItem('@onboarding_complete', 'true');
 
-      const token = await NotificationService.registerForPushNotificationsAsync();
-      if (user && token) {
-        await NotificationService.savePushToken(user.uid, token, user.email || undefined);
+      // Register push token in the background — don't block navigation
+      if (user) {
+        NotificationService.registerForPushNotificationsAsync()
+          .then(token => {
+            if (token) NotificationService.savePushToken(user.uid, token, user.email || undefined);
+          })
+          .catch(() => {});
       }
 
       if (returnTo) {

@@ -1,8 +1,12 @@
-const {
-    getSentryExpoConfig
-} = require("@sentry/react-native/metro");
+const { getDefaultConfig } = require('expo/metro-config');
 
-const config = getSentryExpoConfig(__dirname);
+let config;
+if (process.env.VERIFY_BUILD === 'true') {
+  config = getDefaultConfig(__dirname);
+} else {
+  const { getSentryExpoConfig } = require('@sentry/react-native/metro');
+  config = getSentryExpoConfig(__dirname);
+}
 
 // Add resolver configuration for socket.io-client compatibility
 config.resolver = {

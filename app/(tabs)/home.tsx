@@ -33,6 +33,8 @@ export default function HomeScreen() {
   const videoConfig = ctx?.videoConfig;
   const isLoading = ctx?.isLoading;
   const refreshAllData = ctx?.refreshAllData;
+  const initialLoadFailed = ctx?.initialLoadFailed ?? false;
+  const retryInitialLoad = ctx?.retryInitialLoad;
 
   // Use optional chaining or try-catch for useStreak as it might be missing during early render/crashes
   let streakCtx: any = {};
@@ -43,15 +45,15 @@ export default function HomeScreen() {
   }
 
   const {
-    streakData,
-    refreshStreak,
-    showDailyModal,
-    setShowDailyModal,
-    showAnimation,
-    setShowAnimation,
-    animStreakNumber,
-    isLoading: isStreakLoading
-  } = streakCtx;
+    streakData = null,
+    refreshStreak = async () => {},
+    showDailyModal = false,
+    setShowDailyModal = () => {},
+    showAnimation = false,
+    setShowAnimation = () => {},
+    animStreakNumber = 0,
+    isLoading: isStreakLoading = false
+  } = streakCtx || {};
 
   const { user, checkPermission, isTrialActive, getTrialDaysRemaining } = useAuth();
   const router = useRouter();
@@ -79,6 +81,7 @@ export default function HomeScreen() {
 
   const [currentQuote, setCurrentQuote] = useState(educationQuotes[0]);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const quoteIndexRef = React.useRef(0);
 
   useEffect(() => {
     const checkTrialModal = async () => {
@@ -112,7 +115,8 @@ export default function HomeScreen() {
 
   useEffect(() => {
     const interval = setInterval(() => {
-      setCurrentQuote(educationQuotes[Math.floor(Math.random() * educationQuotes.length)]);
+      quoteIndexRef.current = (quoteIndexRef.current + 1) % educationQuotes.length;
+      setCurrentQuote(educationQuotes[quoteIndexRef.current]);
     }, 10000);
     return () => clearInterval(interval);
   }, [educationQuotes]);
@@ -140,7 +144,7 @@ export default function HomeScreen() {
       .slice(0, 3);
   }, [sortedTasks]);
 
-  const getDaysUntil = (dateStr: string) => {
+  const getDaysUntil = useCallback((dateStr: string) => {
     const date = new Date(dateStr);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -152,7 +156,7 @@ export default function HomeScreen() {
     if (diff === -1) return 'Yesterday';
     if (diff < 0) return `${Math.abs(diff)} days ago`;
     return `In ${diff} days`;
-  };
+  }, []);
 
   const { isTablet, normalize, width } = useResponsive();
 
@@ -166,11 +170,13 @@ export default function HomeScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
+    <SafeAreaView style={styles.container} edges={['left', 'right']}>
       <ResponsiveContainer>
         <ScrollView
           style={styles.scrollView}
           showsVerticalScrollIndicator={false}
+          scrollEventThrottle={16}
+          keyboardShouldPersistTaps="handled"
           contentContainerStyle={[
             styles.scrollContent,
             isTablet && { paddingHorizontal: 40 }
@@ -184,8 +190,16 @@ export default function HomeScreen() {
             />
           }
         >
+          {initialLoadFailed && (
+            <View style={styles.errorBanner}>
+              <Text style={styles.errorBannerText}>Failed to load data. Check your connection.</Text>
+              <TouchableOpacity onPress={retryInitialLoad} style={styles.retryButton}>
+                <Text style={styles.retryButtonText}>Retry</Text>
+              </TouchableOpacity>
+            </View>
+          )}
           <View style={styles.heroSection}>
-            <Text style={[styles.appTitle, { fontSize: normalize(28) }]}>Cause Planner</Text>
+            <Text style={[styles.appTitle, { fontSize: normalize(23) }]}>Cause Planner</Text>
             <Text style={[styles.heroSubtitle, { fontSize: normalize(14) }]}>Making a difference, one task at a time</Text>
 
             <View style={[styles.statsGrid, isTablet && { gap: 16 }]}>
@@ -257,6 +271,10 @@ export default function HomeScreen() {
               width={"100%"}
               videoId={videoConfig?.homeVideoId || "VRSnKzgVTiU"}
               play={false}
+              webViewProps={{
+                scrollEnabled: false,
+                overScrollMode: 'never',
+              }}
             />
           </View>
           <Text style={[styles.dynamicVideoTitle, { fontSize: normalize(16) }]}>{videoConfig?.homeVideoTitle || "Motivation from students like you"}</Text>
@@ -381,6 +399,34 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     paddingBottom: 20,
+  },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FEE2E2',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    marginHorizontal: 16,
+    marginTop: 8,
+    borderRadius: 8,
+  },
+  errorBannerText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#991B1B',
+  },
+  retryButton: {
+    marginLeft: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: '#DC2626',
+    borderRadius: 6,
+  },
+  retryButtonText: {
+    color: 'white',
+    fontSize: 13,
+    fontWeight: '600',
   },
   heroSection: {
     paddingHorizontal: 20,

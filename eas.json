@@ -17,14 +17,31 @@
         "SENTRY_DISABLE_AUTO_UPLOAD": "true"
       }
     },
+    "verify": {
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "VERIFY_BUILD": "true"
+      },
+      "prebuildCommand": "prebuild --platform android --clean"
+    },
     "production": {
       "autoIncrement": true,
+      "android": {
+        "buildType": "app-bundle"
+      },
       "env": {
         "SENTRY_DISABLE_AUTO_UPLOAD": "true"
       }
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "ios": {
+        "appleTeamId": "5C28S2GD6A",
+        "companyName": "Minato Ventures Inc"
+      }
+    }
   }
 }
