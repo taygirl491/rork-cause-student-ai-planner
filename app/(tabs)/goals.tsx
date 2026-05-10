@@ -25,7 +25,7 @@ import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Goal } from '@/types';
 import { cancelNotification, scheduleGoalNotification, scheduleHabitReminder } from '@/utils/notificationService';
-import { formatTime12H, formatStringTime12H, parseTime12H } from '@/utils/timeUtils';
+import { formatTime12H, formatStringTime12H, parseTime12H, formatLocalDate, parseLocalDate } from '@/utils/timeUtils';
 import UpgradeModal from '@/components/UpgradeModal';
 import * as Analytics from '@/utils/analytics';
 import { useResponsive } from '@/utils/responsive';
@@ -138,7 +138,7 @@ export default function GoalsScreen() {
       return;
     }
     // ... rest of function
-    const formattedDate = dueDate.toISOString().split('T')[0];
+    const formattedDate = formatLocalDate(dueDate);
     const formattedTime = dueTime.toTimeString().split(' ')[0].substring(0, 5);
 
     // Process habits to schedule notifications if needed
@@ -442,7 +442,7 @@ export default function GoalsScreen() {
 												)}
 												{goal.dueDate && (
 													<Text style={[styles.goalDueDate, { fontSize: normalize(12) }]}>
-														Due: {new Date(goal.dueDate).toLocaleDateString()}
+														Due: {parseLocalDate(goal.dueDate).toLocaleDateString()}
 														{goal.dueTime && ` at ${formatStringTime12H(goal.dueTime)}`}
 													</Text>
 												)}

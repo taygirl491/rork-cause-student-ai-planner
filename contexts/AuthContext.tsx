@@ -317,29 +317,43 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     return features[feature];
   };
 
+  // Safely parse createdAt which may be an ISO string, a Firebase
+  // Timestamp object ({ _seconds, _nanoseconds }), or undefined.
+  const parseCreatedAt = (createdAt: any): Date | null => {
+    if (!createdAt) return null;
+    // Firestore Timestamp shape
+    if (typeof createdAt === 'object' && '_seconds' in createdAt) {
+      return new Date(createdAt._seconds * 1000);
+    }
+    if (typeof createdAt === 'object' && 'seconds' in createdAt) {
+      return new Date(createdAt.seconds * 1000);
+    }
+    const d = new Date(createdAt);
+    return isNaN(d.getTime()) ? null : d;
+  };
+
   const isTrialActive = () => {
-    if (!authData.user?.createdAt || authData.user.tier !== 'free') return false;
+    if (authData.user?.tier !== 'free') return false;
     if (trialExhausted) return false;
 
-    const createdDate = new Date(authData.user.createdAt);
-    const now = new Date();
-    const diffTime = Math.abs(now.getTime() - createdDate.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    const createdDate = parseCreatedAt(authData.user?.createdAt);
+    if (!createdDate) return false;
 
+    const diffDays = Math.ceil(
+      (Date.now() - createdDate.getTime()) / (1000 * 60 * 60 * 24)
+    );
     return diffDays <= 14;
   };
 
   const getTrialDaysRemaining = () => {
-    if (!authData.user?.createdAt || trialExhausted) return 0;
+    if (trialExhausted) return 0;
 
-    const createdDate = new Date(authData.user.createdAt);
-    const trialEndDate = new Date(createdDate.getTime() + (14 * 24 * 60 * 60 * 1000));
-    const now = new Date();
+    const createdDate = parseCreatedAt(authData.user?.createdAt);
+    if (!createdDate) return 0;
 
-    const diffTime = trialEndDate.getTime() - now.getTime();
-    if (diffTime <= 0) return 0;
-
-    return Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+    const trialEndDate = new Date(createdDate.getTime() + 14 * 24 * 60 * 60 * 1000);
+    const diffTime = trialEndDate.getTime() - Date.now();
+    return diffTime <= 0 ? 0 : Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
   };
 
   return {

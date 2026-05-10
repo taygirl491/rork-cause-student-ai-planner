@@ -33,6 +33,7 @@ import { tasksAPI, classesAPI, notesAPI, goalsAPI, studyGroupsAPI } from "@/util
 import socketService from "@/utils/socketService";
 import { offlineQueue } from "@/utils/offlineQueue";
 import { Alert, Linking } from "react-native";
+import { formatLocalDate, parseLocalDate } from "@/utils/timeUtils";
 
 const STORAGE_KEYS = {
 	TASKS: "cause-student-tasks",
@@ -595,9 +596,9 @@ export const [AppProvider, useApp] = createContextHook(() => {
 			// update correctly, then spawn a fresh occurrence for tomorrow.
 			let dailyNextDate: string | null = null;
 			if (updates.completed === true && task.repeat === 'daily') {
-				const nextDay = new Date(task.dueDate);
+				const nextDay = parseLocalDate(task.dueDate);
 				nextDay.setDate(nextDay.getDate() + 1);
-				dailyNextDate = nextDay.toISOString().split('T')[0];
+				dailyNextDate = formatLocalDate(nextDay);
 				console.log(`[AppContext] Daily task "${task.description}" completed. Will spawn next occurrence for ${dailyNextDate}.`);
 			}
 

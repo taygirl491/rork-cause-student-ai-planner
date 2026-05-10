@@ -5,6 +5,7 @@ import { db } from '@/firebaseConfig';
 import Constants from 'expo-constants';
 import * as Device from 'expo-device';
 import { Task, ReminderTime, Goal } from '@/types';
+import { parseLocalDate } from '@/utils/timeUtils';
 
 // expo-alarm-module is Android-only. Importing it on iOS causes the native
 // module constructor (ExpoAlarmModule.swift) to run, which calls
@@ -711,8 +712,8 @@ export async function scheduleGoalNotification(goal: Goal): Promise<string | nul
       return null;
     }
 
-    const dueDate = new Date(goal.dueDate);
-    
+    const dueDate = parseLocalDate(goal.dueDate);
+
     // If goal has a specific time, use it
     if (goal.dueTime) {
       const parts = goal.dueTime.split(':');

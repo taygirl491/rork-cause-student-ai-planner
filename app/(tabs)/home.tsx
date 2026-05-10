@@ -85,14 +85,17 @@ export default function HomeScreen() {
 
   useEffect(() => {
     const checkTrialModal = async () => {
-      if (isTrialActive && isTrialActive()) {
-        const lastShown = await AsyncStorage.getItem('@trial_modal_last_shown');
-        const today = new Date().toDateString();
+      if (!user?.uid || !isTrialActive || !isTrialActive()) return;
 
-        if (lastShown !== today) {
-          setShowTrialModal(true);
-          await AsyncStorage.setItem('@trial_modal_last_shown', today);
-        }
+      // Key is scoped to the user so a new account on the same device
+      // always sees the modal even if another account saw it today.
+      const storageKey = `@trial_modal_last_shown_${user.uid}`;
+      const lastShown = await AsyncStorage.getItem(storageKey);
+      const today = new Date().toDateString();
+
+      if (lastShown !== today) {
+        setShowTrialModal(true);
+        await AsyncStorage.setItem(storageKey, today);
       }
     };
 

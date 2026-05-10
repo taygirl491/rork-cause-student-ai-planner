@@ -22,7 +22,7 @@ import {
 } from 'react-native';
 import Button from '@/components/Button';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
-import { formatTime12H, formatStringTime12H, parseTime12H } from '@/utils/timeUtils';
+import { formatTime12H, formatStringTime12H, parseTime12H, formatLocalDate, parseLocalDate } from '@/utils/timeUtils';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Plus, X, CheckCircle, Circle, Edit2, Trash2 } from 'lucide-react-native';
 import colors from '@/constants/colors';
@@ -178,7 +178,7 @@ export default function TasksScreen() {
   const handleAddTask = () => {
     if (!description) return;
 
-    const formattedDate = dueDate.toISOString().split('T')[0];
+    const formattedDate = formatLocalDate(dueDate);
     const formattedTime = dueTime.toTimeString().split(' ')[0].substring(0, 5);
 
     if (isEditing && selectedTask) {
@@ -248,7 +248,7 @@ export default function TasksScreen() {
       Analytics.logCustomEvent('task_completed', {
         type: task.type,
         priority: task.priority,
-        days_to_due: Math.ceil((new Date(task.dueDate).getTime() - new Date().getTime()) / (1000 * 3600 * 24))
+        days_to_due: Math.ceil((parseLocalDate(task.dueDate).getTime() - new Date().getTime()) / (1000 * 3600 * 24))
       });
     }
 
@@ -267,7 +267,7 @@ export default function TasksScreen() {
     setDescription(taskToEdit.description);
     setTaskType(taskToEdit.type);
     setSelectedClass(taskToEdit.className || '');
-    setDueDate(new Date(taskToEdit.dueDate));
+    setDueDate(parseLocalDate(taskToEdit.dueDate));
     setDueTime(taskToEdit.dueTime ? parseTime12H(formatStringTime12H(taskToEdit.dueTime)) : new Date());
     setPriority(taskToEdit.priority);
     setReminder(taskToEdit.reminder || '1d');

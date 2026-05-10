@@ -24,19 +24,26 @@ export default function LoginScreen() {
   const [resetEmail, setResetEmail] = useState('');
   const [isResetting, setIsResetting] = useState(false);
 
+  const openForgotModal = () => {
+    // Pre-fill from the login form's email; if empty the modal will show an input
+    setResetEmail(email.trim());
+    setShowForgotModal(true);
+  };
+
   const handleForgotPassword = async () => {
-    if (!resetEmail.trim()) {
-      Alert.alert('Error', 'Please enter your email address');
+    const target = resetEmail.trim();
+    if (!target) {
+      Alert.alert('Email Required', 'Please enter your email address.');
       return;
     }
 
     setIsResetting(true);
     try {
-      await resetPassword(resetEmail.trim());
+      await resetPassword(target);
       setShowForgotModal(false);
-      setResetEmail('');
-      Alert.alert('Success', 'Password reset email sent! Check your inbox.');
+      Alert.alert('Reset Link Sent', `A password reset link has been sent to ${target}. Check your inbox.`);
     } catch (error: any) {
+      setShowForgotModal(false);
       Alert.alert('Error', error.message || 'Failed to send reset email');
     } finally {
       setIsResetting(false);
@@ -175,7 +182,7 @@ export default function LoginScreen() {
               </View>
 
               <TouchableOpacity
-                onPress={() => setShowForgotModal(true)}
+                onPress={openForgotModal}
                 style={styles.forgotPasswordButton}
               >
                 <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
@@ -227,31 +234,44 @@ export default function LoginScreen() {
                   onPress={(e) => e.stopPropagation()}
                 >
                   <View style={styles.modalContent}>
-                    <Text style={styles.modalTitle}>Reset Password</Text>
-                    <Text style={styles.modalSubtitle}>
-                      Enter your email address and we'll send you a link to reset your password.
-                    </Text>
+                    <Text style={styles.modalTitle}>Reset Password?</Text>
 
-                    <TextInput
-                      style={styles.modalInput}
-                      placeholder="Email Address"
-                      placeholderTextColor={colors.textSecondary}
-                      value={resetEmail}
-                      onChangeText={setResetEmail}
-                      autoCapitalize="none"
-                      keyboardType="email-address"
-                    />
+                    {email.trim() ? (
+                      <Text style={styles.modalSubtitle}>
+                        We&apos;ll send a password reset link to{' '}
+                        <Text style={{ fontWeight: '700', color: colors.text }}>{resetEmail}</Text>.
+                        {'\n\n'}
+                        Do you want to continue?
+                      </Text>
+                    ) : (
+                      <>
+                        <Text style={styles.modalSubtitle}>
+                          Enter your email address and we&apos;ll send you a link to reset your password.
+                        </Text>
+                        <TextInput
+                          style={styles.modalInput}
+                          placeholder="Email Address"
+                          placeholderTextColor={colors.textSecondary}
+                          value={resetEmail}
+                          onChangeText={setResetEmail}
+                          autoCapitalize="none"
+                          autoCorrect={false}
+                          keyboardType="email-address"
+                          autoFocus
+                        />
+                      </>
+                    )}
 
                     <View style={styles.modalButtons}>
                       <Button
-                        title="Cancel"
+                        title={email.trim() ? 'No' : 'Cancel'}
                         onPress={() => setShowForgotModal(false)}
                         variant="outline"
                         style={styles.modalButton}
                       />
 
                       <Button
-                        title="Send Link"
+                        title={email.trim() ? 'Yes, Send Link' : 'Send Link'}
                         onPress={handleForgotPassword}
                         isLoading={isResetting}
                         style={styles.modalButton}

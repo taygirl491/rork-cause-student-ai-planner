@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiService from '@/utils/apiService';
 import { useAuth } from './AuthContext';
+import { formatLocalDate } from '@/utils/timeUtils';
 
 interface StreakData {
     current: number;
@@ -151,8 +152,9 @@ export function StreakProvider({ children }: { children: ReactNode }) {
 
             // ── Background backend fetch ──────────────────────────────────────
             if (user?.uid) {
+                const clientToday = formatLocalDate(new Date());
                 const [streakRes, statsRes] = await Promise.all([
-                    apiService.get(`/api/streak/${user.uid}`),
+                    apiService.get(`/api/streak/${user.uid}?clientToday=${clientToday}`),
                     apiService.get(`/api/gamification/stats/${user.uid}`)
                 ]);
 
@@ -225,6 +227,7 @@ export function StreakProvider({ children }: { children: ReactNode }) {
 
             const response = await apiService.post('/api/streak/update', {
                 userId: user.uid,
+                clientToday: formatLocalDate(new Date()),
             });
 
             if (response.success) {

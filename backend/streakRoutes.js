@@ -8,7 +8,7 @@ const { updateStreak, getStreakData } = require("./streakService");
  */
 router.post("/update", async (req, res) => {
     try {
-        const { userId } = req.body;
+        const { userId, clientToday } = req.body;
 
         if (!userId) {
             return res.status(400).json({
@@ -16,7 +16,7 @@ router.post("/update", async (req, res) => {
             });
         }
 
-        const result = await updateStreak(userId);
+        const result = await updateStreak(userId, clientToday);
         res.json(result);
     } catch (error) {
         console.error("Error updating streak:", error);
@@ -34,6 +34,7 @@ router.post("/update", async (req, res) => {
 router.get("/:userId", async (req, res) => {
     try {
         const { userId } = req.params;
+        const { clientToday } = req.query;
 
         if (!userId) {
             return res.status(400).json({
@@ -41,7 +42,7 @@ router.get("/:userId", async (req, res) => {
             });
         }
 
-        const result = await getStreakData(userId);
+        const result = await getStreakData(userId, clientToday);
         res.json(result);
     } catch (error) {
         console.error("Error getting streak data:", error);

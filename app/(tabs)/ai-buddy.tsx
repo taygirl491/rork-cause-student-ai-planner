@@ -12,10 +12,11 @@ import {
   TouchableWithoutFeedback,
   Keyboard,
   Modal,
+  BackHandler,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Send, Bot, User as UserIcon, Sparkles, BookOpen, FileText, BrainCircuit, ArrowLeft, Paperclip, X, Clock } from 'lucide-react-native';
-import { useRouter, useNavigation } from 'expo-router';
+import { useRouter, useNavigation, useFocusEffect } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 // import TextRecognition from '@react-native-ml-kit/text-recognition';
 import * as DocumentPicker from 'expo-document-picker';
@@ -68,6 +69,23 @@ export default function AIBuddyScreen() {
           },
     });
   }, [mode, insets.bottom]);
+
+  // Intercept the Android hardware back button while a mode is active so it
+  // returns to the mode list instead of leaving the AI tab. Registered via
+  // useFocusEffect so the listener only runs while this screen is focused.
+  useFocusEffect(
+    React.useCallback(() => {
+      const onBack = () => {
+        if (mode) {
+          setMode(null);
+          return true; // we handled it — don't let RN navigate away
+        }
+        return false; // no active chat — let the OS handle it normally
+      };
+      const sub = BackHandler.addEventListener('hardwareBackPress', onBack);
+      return () => sub.remove();
+    }, [mode])
+  );
   const [messages, setMessages] = useState<AIMessage[]>([]);
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);

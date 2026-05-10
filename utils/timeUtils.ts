@@ -1,4 +1,29 @@
 /**
+ * Format a Date to a YYYY-MM-DD string using LOCAL timezone components.
+ *
+ * Never use date.toISOString().split('T')[0] — toISOString() converts to UTC
+ * first, which shifts the date by ±1 day for users not on UTC.
+ */
+export const formatLocalDate = (date: Date): string => {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
+
+/**
+ * Parse a YYYY-MM-DD string into a local-timezone Date (midnight local).
+ *
+ * Never use new Date(dateString) with an ISO date string — JavaScript
+ * interprets YYYY-MM-DD as UTC midnight, which lands on the previous day
+ * for users west of UTC.
+ */
+export const parseLocalDate = (dateStr: string): Date => {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return new Date(y, m - 1, d, 0, 0, 0, 0);
+};
+
+/**
  * Formats a Date object into a 12-hour time string with AM/PM.
  * Example: Date(14:30) -> "2:30 PM"
  */
