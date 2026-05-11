@@ -47,6 +47,10 @@ export function StreakProvider({ children }: { children: ReactNode }) {
     const [showDailyModal, setShowDailyModal] = useState(false);
     const [sessionChecked, setSessionChecked] = useState(false);
 
+    // Prevents loadStreakData's GET response from overwriting the optimistic
+    // streak count while performDailyCheckIn is mid-flight.
+    const checkInInProgress = React.useRef(false);
+
     useEffect(() => {
         if (user?.uid) {
             loadStreakData();
@@ -73,6 +77,7 @@ export function StreakProvider({ children }: { children: ReactNode }) {
     const performDailyCheckIn = async () => {
         if (!user?.uid || sessionChecked) return;
 
+        checkInInProgress.current = true;
         try {
             const today = new Date().toDateString();
 
@@ -144,6 +149,8 @@ export function StreakProvider({ children }: { children: ReactNode }) {
         } catch (error) {
             console.error('[Streak] Error in daily check-in:', error);
             setSessionChecked(true);
+        } finally {
+            checkInInProgress.current = false;
         }
     };
 
@@ -171,7 +178,14 @@ export function StreakProvider({ children }: { children: ReactNode }) {
                         let hasUpdates = false;
 
                         if (streakRes && streakRes.success && streakRes.streak) {
-                            Object.assign(combinedData, streakRes.streak);
+                            if (checkInInProgress.current) {
+                                // Check-in is in flight — don't let the GET overwrite
+                                // the optimistic current count with the pre-increment value.
+                                const { current: _ignored, ...rest } = streakRes.streak;
+                                Object.assign(combinedData, rest);
+                            } else {
+                                Object.assign(combinedData, streakRes.streak);
+                            }
                             hasUpdates = true;
                         }
 
