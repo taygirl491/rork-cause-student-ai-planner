@@ -43,18 +43,7 @@ type AuthData = {
   isAuthenticated: boolean;
 };
 
-// ─── TEMPORARY: test accounts with full unlimited access ────────────────────
-// Remove this block before production launch.
-const TEST_ACCOUNT_EMAILS = new Set([
-  'morris1@gmail.com',
-  'tuasebolu@gmail.com',
-  'ogabud@gmail.com',
-  'onyenaka08@gmail.com',
-  'emmaeluwa2021@gmail.com'
-]);
-
 function getEffectiveTier(email: string, tier: SubscriptionTier): SubscriptionTier {
-  if (TEST_ACCOUNT_EMAILS.has(email.toLowerCase())) return 'unlimited';
   return tier;
 }
 // ────────────────────────────────────────────────────────────────────────────
@@ -68,6 +57,8 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
   const [isLoading, setIsLoading] = useState(true);
   const isRegisteringRef = useRef(false);
   const [registeredAt, setRegisteredAt] = useState<number | null>(null);
+  const [trialExhausted, setTrialExhausted] = useState(false);
+  const prevTierRef = useRef<SubscriptionTier | null>(null);
 
 
   // Listen for auth state changes
@@ -141,6 +132,30 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     return () => unsubscribe();
   }, []);
 
+  // Load trial-exhausted flag from storage when user signs in
+  useEffect(() => {
+    const uid = authData.user?.uid;
+    if (!uid) {
+      setTrialExhausted(false);
+      prevTierRef.current = null;
+      return;
+    }
+    AsyncStorage.getItem(`@trial_used_${uid}`).then(val => {
+      if (val === 'true') setTrialExhausted(true);
+    }).catch(() => {});
+  }, [authData.user?.uid]);
+
+  // Persist trial-exhausted when user upgrades from free to a paid tier
+  useEffect(() => {
+    const uid = authData.user?.uid;
+    const currentTier = authData.user?.tier ?? null;
+    if (!uid || !currentTier) return;
+    if (prevTierRef.current === 'free' && currentTier !== 'free') {
+      AsyncStorage.setItem(`@trial_used_${uid}`, 'true').catch(() => {});
+      setTrialExhausted(true);
+    }
+    prevTierRef.current = currentTier;
+  }, [authData.user?.tier, authData.user?.uid]);
 
   const loginMutation = useMutation({
     mutationFn: async (credentials: { email: string; password: string }) => {
@@ -302,28 +317,43 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     return features[feature];
   };
 
+  // Safely parse createdAt which may be an ISO string, a Firebase
+  // Timestamp object ({ _seconds, _nanoseconds }), or undefined.
+  const parseCreatedAt = (createdAt: any): Date | null => {
+    if (!createdAt) return null;
+    // Firestore Timestamp shape
+    if (typeof createdAt === 'object' && '_seconds' in createdAt) {
+      return new Date(createdAt._seconds * 1000);
+    }
+    if (typeof createdAt === 'object' && 'seconds' in createdAt) {
+      return new Date(createdAt.seconds * 1000);
+    }
+    const d = new Date(createdAt);
+    return isNaN(d.getTime()) ? null : d;
+  };
+
   const isTrialActive = () => {
-    if (!authData.user?.createdAt || authData.user.tier !== 'free') return false;
+    if (authData.user?.tier !== 'free') return false;
+    if (trialExhausted) return false;
 
-    const createdDate = new Date(authData.user.createdAt);
-    const now = new Date();
-    const diffTime = Math.abs(now.getTime() - createdDate.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    const createdDate = parseCreatedAt(authData.user?.createdAt);
+    if (!createdDate) return false;
 
+    const diffDays = Math.ceil(
+      (Date.now() - createdDate.getTime()) / (1000 * 60 * 60 * 24)
+    );
     return diffDays <= 14;
   };
 
   const getTrialDaysRemaining = () => {
-    if (!authData.user?.createdAt) return 0;
+    if (trialExhausted) return 0;
 
-    const createdDate = new Date(authData.user.createdAt);
-    const trialEndDate = new Date(createdDate.getTime() + (14 * 24 * 60 * 60 * 1000));
-    const now = new Date();
+    const createdDate = parseCreatedAt(authData.user?.createdAt);
+    if (!createdDate) return 0;
 
-    const diffTime = trialEndDate.getTime() - now.getTime();
-    if (diffTime <= 0) return 0;
-
-    return Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+    const trialEndDate = new Date(createdDate.getTime() + 14 * 24 * 60 * 60 * 1000);
+    const diffTime = trialEndDate.getTime() - Date.now();
+    return diffTime <= 0 ? 0 : Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
   };
 
   return {

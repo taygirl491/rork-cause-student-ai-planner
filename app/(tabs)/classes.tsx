@@ -22,7 +22,7 @@ import Button from '@/components/Button';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Plus, X, BookOpen, Clock, User, Calendar as CalendarIcon, Edit2, Trash2 } from 'lucide-react-native';
-import { formatTime12H } from '@/utils/timeUtils';
+import { formatTime12H, formatLocalDate } from '@/utils/timeUtils';
 import colors from '@/constants/colors';
 import { useApp } from '@/contexts/AppContext';
 import { Class } from '@/types';
@@ -134,8 +134,8 @@ export default function ClassesScreen() {
     // section is optional, so no check for it.
     // Times and Dates default to values, so they are always present.
 
-    const formattedStartDate = startDate.toISOString().split('T')[0];
-    const formattedEndDate = endDate.toISOString().split('T')[0];
+    const formattedStartDate = formatLocalDate(startDate);
+    const formattedEndDate = formatLocalDate(endDate);
 
     const timeString = `${formatTime12H(startTime)} - ${formatTime12H(endTime)}`;
 
@@ -301,7 +301,7 @@ export default function ClassesScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
+    <SafeAreaView style={styles.container} edges={['left', 'right']}>
       <ResponsiveContainer>
       <FlatList
         key={isTablet ? 'tablet' : 'mobile'}
@@ -585,7 +585,7 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     paddingBottom: 16,
   },
-  title: { fontSize: 32, fontWeight: '800', color: colors.text },
+  title: { fontSize: 22, fontWeight: '800', color: colors.text },
   columnWrapper: {
     justifyContent: 'space-between',
     gap: 12,

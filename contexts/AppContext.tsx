@@ -32,6 +32,8 @@ import apiService from "@/utils/apiService";
 import { tasksAPI, classesAPI, notesAPI, goalsAPI, studyGroupsAPI } from "@/utils/dataAPI";
 import socketService from "@/utils/socketService";
 import { offlineQueue } from "@/utils/offlineQueue";
+import { Alert, Linking } from "react-native";
+import { formatLocalDate, parseLocalDate } from "@/utils/timeUtils";
 
 const STORAGE_KEYS = {
 	TASKS: "cause-student-tasks",
@@ -54,6 +56,8 @@ export const [AppProvider, useApp] = createContextHook(() => {
 	const [notes, setNotes] = useState<Note[]>([]);
 	const [studyGroups, setStudyGroups] = useState<StudyGroup[]>([]);
 	const [tasksLoading, setTasksLoading] = useState(false);
+	const [initialLoadFailed, setInitialLoadFailed] = useState(false);
+	const [isAIConversationActive, setIsAIConversationActive] = useState(false);
 	const [classesLoading, setClassesLoading] = useState(false);
 	const [goalsLoading, setGoalsLoading] = useState(false);
 	const [notesLoading, setNotesLoading] = useState(false);
@@ -96,6 +100,10 @@ export const [AppProvider, useApp] = createContextHook(() => {
 		console.log(`[AppContext] Processing ${pending.length} queued operations`);
 
 		for (const operation of pending) {
+			if (operation.retryCount >= offlineQueue.getMaxRetries()) {
+				await offlineQueue.incrementRetryCount(operation.id);
+				continue;
+			}
 			try {
 				if (operation.entity === 'task' && operation.type === 'create') {
 					const { tempId, ...taskPayload } = operation.data;
@@ -147,8 +155,10 @@ export const [AppProvider, useApp] = createContextHook(() => {
 					}
 				}
 			} catch (error) {
-				console.warn(`[AppContext] Retry failed for queued operation, will retry later:`, operation.id);
-				// Leave in queue — will be retried on next processOfflineQueue call
+				const discarded = await offlineQueue.incrementRetryCount(operation.id);
+				if (!discarded) {
+					console.warn(`[AppContext] Retry failed for queued operation ${operation.id}, will retry later`);
+				}
 			}
 		}
 
@@ -169,7 +179,7 @@ export const [AppProvider, useApp] = createContextHook(() => {
 				const stillPending = pendingTemps.filter((t) => !confirmedIds.has(t.id));
 				return [...stillPending, ...tasksData];
 			});
-			AsyncStorage.setItem(STORAGE_KEYS.TASKS, JSON.stringify(tasksData)).catch(() => {});
+			AsyncStorage.setItem(STORAGE_KEYS.TASKS, JSON.stringify(tasksData)).catch(e => console.warn('[AppContext] Failed to cache tasks:', e));
 			// Backend is confirmed alive — flush any queued creates
 			processOfflineQueue();
 		} catch (error) {
@@ -236,7 +246,7 @@ export const [AppProvider, useApp] = createContextHook(() => {
 				const stillPending = pendingTemps.filter((c) => !confirmedIds.has(c.id));
 				return [...stillPending, ...sortedClasses];
 			});
-			AsyncStorage.setItem(STORAGE_KEYS.CLASSES, JSON.stringify(sortedClasses)).catch(() => {});
+			AsyncStorage.setItem(STORAGE_KEYS.CLASSES, JSON.stringify(sortedClasses)).catch(e => console.warn('[AppContext] Failed to cache classes:', e));
 		} catch (error) {
 			console.error("Error loading classes:", error);
 		} finally {
@@ -261,7 +271,7 @@ export const [AppProvider, useApp] = createContextHook(() => {
 				const stillPending = pendingTemps.filter((g) => !confirmedIds.has(g.id));
 				return [...stillPending, ...sortedGoals];
 			});
-			AsyncStorage.setItem(STORAGE_KEYS.GOALS, JSON.stringify(sortedGoals)).catch(() => {});
+			AsyncStorage.setItem(STORAGE_KEYS.GOALS, JSON.stringify(sortedGoals)).catch(e => console.warn('[AppContext] Failed to cache goals:', e));
 		} catch (error) {
 			console.error("Error loading goals:", error);
 		} finally {
@@ -281,7 +291,7 @@ export const [AppProvider, useApp] = createContextHook(() => {
 				const stillPending = pendingTemps.filter((n) => !confirmedIds.has(n.id));
 				return [...stillPending, ...notesData];
 			});
-			AsyncStorage.setItem(STORAGE_KEYS.NOTES, JSON.stringify(notesData)).catch(() => {});
+			AsyncStorage.setItem(STORAGE_KEYS.NOTES, JSON.stringify(notesData)).catch(e => console.warn('[AppContext] Failed to cache notes:', e));
 		} catch (error) {
 			console.error("Error loading notes:", error);
 		} finally {
@@ -314,13 +324,19 @@ export const [AppProvider, useApp] = createContextHook(() => {
 		};
 
 		// Fetch fresh data from API — all 4 in parallel, silently (no loading spinners)
-		const fetchFresh = () => {
-			Promise.all([
-				refreshTasks({ silent: true }),
-				refreshClasses({ silent: true }),
-				refreshGoals({ silent: true }),
-				refreshNotes({ silent: true }),
-			]).catch((e) => console.error('[AppContext] Initial data fetch failed:', e));
+		const fetchFresh = async () => {
+			try {
+				setInitialLoadFailed(false);
+				await Promise.all([
+					refreshTasks({ silent: true }),
+					refreshClasses({ silent: true }),
+					refreshGoals({ silent: true }),
+					refreshNotes({ silent: true }),
+				]);
+			} catch (e) {
+				console.error('[AppContext] Initial data fetch failed:', e);
+				setInitialLoadFailed(true);
+			}
 		};
 
 		// Fire-and-forget side effects
@@ -332,29 +348,44 @@ export const [AppProvider, useApp] = createContextHook(() => {
 	}, [user?.uid]);
 
 
-	// Video Configuration Listener
+	// Video Configuration Listener — retries with exponential backoff on error
 	useEffect(() => {
-		const videoDocRef = doc(db, 'content', 'videos');
-		const unsubscribe = onSnapshot(videoDocRef, (docSnap) => {
-			if (docSnap.exists()) {
-				const data = docSnap.data();
-				setVideoConfig({
-					homeVideoId: data.homeVideoId || "VRSnKzgVTiU",
-					homeVideoTitle: data.homeVideoTitle || "Pep Talk - Motivation from students like you",
-					causesVideoId: data.causesVideoId || "dQw4w9WgXcQ",
-					causesVideo1Id: data.causesVideo1Id || "dQw4w9WgXcQ",
-					causesVideo2Id: data.causesVideo2Id || "dQw4w9WgXcQ",
-					causesVideo3Id: data.causesVideo3Id || "dQw4w9WgXcQ",
-					causesVideo4Id: data.causesVideo4Id || "dQw4w9WgXcQ",
-					essay1: data.essay1 || { title: '', author: '', content: '' },
-					essay2: data.essay2 || { title: '', author: '', content: '' }
-				});
-			}
-		}, (error) => {
-			console.error("Error listening to video config:", error);
-		});
+		let retryTimer: ReturnType<typeof setTimeout> | null = null;
+		let retryCount = 0;
+		let currentUnsub: (() => void) | null = null;
 
-		return () => unsubscribe();
+		const subscribe = () => {
+			const videoDocRef = doc(db, 'content', 'videos');
+			currentUnsub = onSnapshot(videoDocRef, (docSnap) => {
+				retryCount = 0;
+				if (docSnap.exists()) {
+					const data = docSnap.data();
+					setVideoConfig({
+						homeVideoId: data.homeVideoId || "VRSnKzgVTiU",
+						homeVideoTitle: data.homeVideoTitle || "Pep Talk - Motivation from students like you",
+						causesVideoId: data.causesVideoId || "dQw4w9WgXcQ",
+						causesVideo1Id: data.causesVideo1Id || "dQw4w9WgXcQ",
+						causesVideo2Id: data.causesVideo2Id || "dQw4w9WgXcQ",
+						causesVideo3Id: data.causesVideo3Id || "dQw4w9WgXcQ",
+						causesVideo4Id: data.causesVideo4Id || "dQw4w9WgXcQ",
+						essay1: data.essay1 || { title: '', author: '', content: '' },
+						essay2: data.essay2 || { title: '', author: '', content: '' }
+					});
+				}
+			}, (error) => {
+				console.error('[AppContext] Video config listener error, will retry:', error);
+				retryCount++;
+				const delay = Math.min(1000 * Math.pow(2, retryCount), 30000);
+				retryTimer = setTimeout(subscribe, delay);
+			});
+		};
+
+		subscribe();
+
+		return () => {
+			currentUnsub?.();
+			if (retryTimer) clearTimeout(retryTimer);
+		};
 	}, []);
 
 	// Network status listener
@@ -378,25 +409,7 @@ export const [AppProvider, useApp] = createContextHook(() => {
 		};
 	}, [processOfflineQueue]);
 
-	const tasksQuery = useQuery({
-		queryKey: ["tasks"],
-		queryFn: async () => {
-			const stored = await AsyncStorage.getItem(STORAGE_KEYS.TASKS);
-			return stored ? JSON.parse(stored) : [];
-		},
-		enabled: false, // Disabled since we're using Firestore listener
-	});
-
-	const classesQuery = useQuery({
-		queryKey: ["classes"],
-		queryFn: async () => {
-			const stored = await AsyncStorage.getItem(STORAGE_KEYS.CLASSES);
-			return stored ? JSON.parse(stored) : [];
-		},
-		enabled: false, // Disabled since we're using Firestore listener
-	});
-
-	// Load calendar sync settings
+	// Load calendar sync settings and validate the stored calendar ID is still valid
 	useEffect(() => {
 		const loadCalendarSettings = async () => {
 			try {
@@ -408,10 +421,22 @@ export const [AppProvider, useApp] = createContextHook(() => {
 				);
 
 				if (syncEnabled === "true") {
-					setCalendarSyncEnabled(true);
-				}
-				if (calendarId) {
-					setAppCalendarId(calendarId);
+					if (calendarId) {
+						// Verify the calendar still exists and allows writes (user may
+						// have deleted it from the iOS Calendar app)
+						const stillValid = await calendarSync.validateCalendarId(calendarId);
+						if (stillValid) {
+							setCalendarSyncEnabled(true);
+							setAppCalendarId(calendarId);
+						} else {
+							// Calendar gone — reset sync state so next toggle re-creates it
+							await AsyncStorage.setItem(STORAGE_KEYS.CALENDAR_SYNC_ENABLED, "false");
+							await AsyncStorage.removeItem(STORAGE_KEYS.APP_CALENDAR_ID);
+							console.warn("Stored calendar ID is no longer valid, resetting sync state");
+						}
+					} else {
+						setCalendarSyncEnabled(true);
+					}
 				}
 			} catch (error) {
 				console.error("Error loading calendar settings:", error);
@@ -567,17 +592,14 @@ export const [AppProvider, useApp] = createContextHook(() => {
 				);
 			}
 
-			// Handle daily repeating tasks
+			// Handle daily repeating tasks — let completion fire normally so streaks/points
+			// update correctly, then spawn a fresh occurrence for tomorrow.
+			let dailyNextDate: string | null = null;
 			if (updates.completed === true && task.repeat === 'daily') {
-				const currentDate = new Date(task.dueDate);
-				currentDate.setDate(currentDate.getDate() + 1);
-				const nextDueDate = currentDate.toISOString().split('T')[0];
-
-				// Instead of marking completed, we move it to tomorrow
-				updates.completed = false;
-				updates.dueDate = nextDueDate;
-
-				console.log(`[AppContext] Daily task "${task.description}" completed. Moving to ${nextDueDate}.`);
+				const nextDay = parseLocalDate(task.dueDate);
+				nextDay.setDate(nextDay.getDate() + 1);
+				dailyNextDate = formatLocalDate(nextDay);
+				console.log(`[AppContext] Daily task "${task.description}" completed. Will spawn next occurrence for ${dailyNextDate}.`);
 			}
 
 			// Update local state immediately (Optimistic Update)
@@ -599,6 +621,33 @@ export const [AppProvider, useApp] = createContextHook(() => {
 				} else {
 					// If completed, refresh streaks to update the UI
 					refreshStreak();
+					// Spawn tomorrow's occurrence for daily repeating tasks
+					if (dailyNextDate) {
+						try {
+							const nextTask = await tasksAPI.createTask({
+								userId: user.uid,
+								description: task.description,
+								type: task.type,
+								className: task.className,
+								dueDate: dailyNextDate,
+								dueTime: task.dueTime,
+								priority: task.priority,
+								reminder: task.reminder,
+								customReminderDate: task.customReminderDate || undefined,
+								alarmEnabled: task.alarmEnabled,
+								completed: false,
+								createdAt: new Date().toISOString(),
+								repeat: 'daily',
+							} as any);
+							if (nextTask) {
+								setTasks(prev => [nextTask, ...prev]);
+								if (nextTask.reminder) NotificationService.scheduleTaskReminder(nextTask).catch(() => {});
+								NotificationService.scheduleDueDateNotification(nextTask).catch(() => {});
+							}
+						} catch (e) {
+							console.error('[AppContext] Failed to create next daily task occurrence:', e);
+						}
+					}
 				}
 			} else {
 				// Rollback on failure (optional, but good practice)
@@ -1478,17 +1527,37 @@ export const [AppProvider, useApp] = createContextHook(() => {
 	const toggleCalendarSync = async (enabled: boolean) => {
 		try {
 			if (enabled) {
-				// Request permissions
-				const hasPermission = await calendarSync.requestCalendarPermissions();
-				if (!hasPermission) {
-					console.error("Calendar permissions denied");
+				// Check / request permissions
+				const permissionResult = await calendarSync.requestCalendarPermissions();
+
+				if (permissionResult === 'blocked') {
+					// User previously denied — OS won't show the prompt again on iOS
+					Alert.alert(
+						'Calendar Access Blocked',
+						'Cause Planner needs calendar access to sync your tasks and classes. Please enable it in Settings.',
+						[
+							{ text: 'Not Now', style: 'cancel' },
+							{ text: 'Open Settings', onPress: () => Linking.openSettings() },
+						]
+					);
 					return false;
 				}
 
-				// Get or create calendar
+				if (permissionResult === 'denied') {
+					Alert.alert(
+						'Calendar Access Denied',
+						'Calendar permission is required to sync your schedule. Please allow access when prompted.'
+					);
+					return false;
+				}
+
+				// Get or create the app calendar
 				const calendarId = await calendarSync.getOrCreateAppCalendar();
 				if (!calendarId) {
-					console.error("Failed to create calendar");
+					Alert.alert(
+						'Calendar Setup Failed',
+						'Could not create a Cause Planner calendar on your device. Please check that your device has at least one active calendar account in Settings → Calendar → Accounts.'
+					);
 					return false;
 				}
 
@@ -1497,19 +1566,12 @@ export const [AppProvider, useApp] = createContextHook(() => {
 
 				// Bulk sync existing tasks
 				const syncedTasks = await calendarSync.bulkSyncTasks(tasks, calendarId);
-
-				// Update tasks with calendar event IDs
 				for (const [taskId, eventId] of syncedTasks.entries()) {
 					await updateTask(taskId, { calendarEventId: eventId });
 				}
 
 				// Bulk sync existing classes
-				const syncedClasses = await calendarSync.bulkSyncClasses(
-					classes,
-					calendarId
-				);
-
-				// Update classes with calendar event IDs
+				const syncedClasses = await calendarSync.bulkSyncClasses(classes, calendarId);
 				for (const [classId, eventId] of syncedClasses.entries()) {
 					await updateClass(classId, { calendarEventId: eventId });
 				}
@@ -1523,6 +1585,10 @@ export const [AppProvider, useApp] = createContextHook(() => {
 			return true;
 		} catch (error) {
 			console.error("Error toggling calendar sync:", error);
+			Alert.alert(
+				'Sync Error',
+				'Something went wrong while setting up calendar sync. Please try again.'
+			);
 			return false;
 		}
 	};
@@ -1581,13 +1647,17 @@ export const [AppProvider, useApp] = createContextHook(() => {
 		refreshGoals,
 		refreshStudyGroups,
 		refreshAllData: async (options?: { silent?: boolean }) => {
-			await Promise.all([
-				refreshTasks(options),
-				refreshClasses(options),
-				refreshNotes(options),
-				refreshGoals(options),
-				refreshStudyGroups(),
-			]);
+			try {
+				await Promise.all([
+					refreshTasks(options),
+					refreshClasses(options),
+					refreshNotes(options),
+					refreshGoals(options),
+					refreshStudyGroups(),
+				]);
+			} catch (e) {
+				console.error('[AppContext] refreshAllData failed:', e);
+			}
 		},
 		isLoading: tasksLoading || classesLoading || goalsLoading || notesLoading,
 		videoConfig,
@@ -1598,6 +1668,23 @@ export const [AppProvider, useApp] = createContextHook(() => {
 		markGroupAsRead,
 		groupLastRead,
 		unreadCountMapping,
+		isAIConversationActive,
+		setIsAIConversationActive,
+		initialLoadFailed,
+		retryInitialLoad: async () => {
+			try {
+				setInitialLoadFailed(false);
+				await Promise.all([
+					refreshTasks({ silent: true }),
+					refreshClasses({ silent: true }),
+					refreshGoals({ silent: true }),
+					refreshNotes({ silent: true }),
+				]);
+			} catch (e) {
+				console.error('[AppContext] Retry failed:', e);
+				setInitialLoadFailed(true);
+			}
+		},
 	};
 });
 

@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Alert,
   Switch,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react-native';
@@ -23,15 +24,8 @@ export default function CalendarScreen() {
   const { sortedTasks, classes, calendarSyncEnabled, toggleCalendarSync } = useApp();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<ViewMode>('month');
+  const [showEmptySyncModal, setShowEmptySyncModal] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-
-  // Debug: Log classes to see if they're loaded
-  React.useEffect(() => {
-    console.log('📚 Calendar - Total classes loaded:', classes.length);
-    if (classes.length > 0) {
-      console.log('📚 Calendar - First class:', classes[0]);
-    }
-  }, [classes]);
 
   const formatMonthYear = (date: Date) => {
     return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
@@ -330,6 +324,13 @@ export default function CalendarScreen() {
         ]
       );
     } else {
+      // Block sync when there is nothing to sync
+      const hasContent = sortedTasks.length > 0 || classes.length > 0;
+      if (!hasContent) {
+        setShowEmptySyncModal(true);
+        return;
+      }
+
       // Enable sync
       const success = await toggleCalendarSync(true);
       if (success) {
@@ -352,11 +353,11 @@ export default function CalendarScreen() {
   const { isTablet, normalize } = useResponsive();
 
   return (
-    <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
+    <SafeAreaView style={styles.container} edges={['left', 'right']}>
       <ResponsiveContainer>
       <View style={[styles.header, isTablet && { paddingHorizontal: 40 }]}>
         <View>
-          <Text style={[styles.title, { fontSize: normalize(32) }]}>My Calendar 🗓️</Text>
+          <Text style={styles.title}>My Calendar 🗓️</Text>
           <Text style={[styles.subtitle, { fontSize: normalize(14) }]}>Your week at a glance</Text>
         </View>
       </View>
@@ -476,6 +477,34 @@ export default function CalendarScreen() {
         {viewMode === 'day' && renderDayView()}
       </ScrollView>
       </ResponsiveContainer>
+
+      {/* Empty-state sync modal */}
+      <Modal
+        visible={showEmptySyncModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowEmptySyncModal(false)}
+      >
+        <View style={styles.emptySyncOverlay}>
+          <View style={styles.emptySyncCard}>
+            <Text style={styles.emptySyncEmoji}>📭</Text>
+            <Text style={styles.emptySyncTitle}>Nothing to Sync Yet</Text>
+            <Text style={styles.emptySyncBody}>
+              Your calendar sync is empty because you haven't added any classes or tasks yet.{'\n\n'}
+              To get started:{'\n'}
+              <Text style={styles.emptySyncBold}>1. Go to Classes</Text> and add your courses.{'\n'}
+              <Text style={styles.emptySyncBold}>2. Go to Tasks</Text> and create your assignments, exams, or events.{'\n\n'}
+              Once you have content, come back here and enable sync — everything will appear on your device calendar automatically.
+            </Text>
+            <TouchableOpacity
+              style={styles.emptySyncBtn}
+              onPress={() => setShowEmptySyncModal(false)}
+            >
+              <Text style={styles.emptySyncBtnText}>Got it</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -494,7 +523,7 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
   },
   title: {
-    fontSize: 32,
+    fontSize: 22,
     fontWeight: '800' as const,
     color: colors.text,
     marginBottom: 4,
@@ -844,5 +873,60 @@ const styles = StyleSheet.create({
     marginTop: -2,
     marginLeft: 1,
     fontWeight: '700',
+  },
+  emptySyncOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  emptySyncCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 24,
+    padding: 28,
+    width: '100%',
+    maxWidth: 380,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.2,
+    shadowRadius: 16,
+    elevation: 10,
+  },
+  emptySyncEmoji: {
+    fontSize: 48,
+    marginBottom: 12,
+  },
+  emptySyncTitle: {
+    fontSize: 20,
+    fontWeight: '700' as const,
+    color: colors.text,
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  emptySyncBody: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    lineHeight: 22,
+    textAlign: 'left',
+    marginBottom: 24,
+    width: '100%',
+  },
+  emptySyncBold: {
+    fontWeight: '700' as const,
+    color: colors.text,
+  },
+  emptySyncBtn: {
+    backgroundColor: colors.primary,
+    paddingVertical: 14,
+    borderRadius: 14,
+    width: '100%',
+    alignItems: 'center',
+  },
+  emptySyncBtnText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700' as const,
   },
 });

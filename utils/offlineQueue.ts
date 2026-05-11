@@ -162,6 +162,24 @@ class OfflineQueueService {
 		throw new Error('Operation needs retry');
 	}
 
+	// Increment retry count for an operation; removes and returns true if MAX_RETRIES exceeded
+	async incrementRetryCount(id: string): Promise<boolean> {
+		const idx = this.queue.findIndex(op => op.id === id);
+		if (idx === -1) return true; // already gone
+		this.queue[idx].retryCount++;
+		const exceeded = this.queue[idx].retryCount >= this.MAX_RETRIES;
+		if (exceeded) {
+			console.warn(`[OfflineQueue] Discarding operation ${id} after ${this.MAX_RETRIES} retries`);
+			this.queue.splice(idx, 1);
+		}
+		await this.saveQueue();
+		return exceeded;
+	}
+
+	getMaxRetries(): number {
+		return this.MAX_RETRIES;
+	}
+
 	// Get pending operations count
 	getPendingCount(): number {
 		return this.queue.length;

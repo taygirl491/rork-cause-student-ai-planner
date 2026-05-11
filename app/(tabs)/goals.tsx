@@ -25,7 +25,7 @@ import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Goal } from '@/types';
 import { cancelNotification, scheduleGoalNotification, scheduleHabitReminder } from '@/utils/notificationService';
-import { formatTime12H, formatStringTime12H, parseTime12H } from '@/utils/timeUtils';
+import { formatTime12H, formatStringTime12H, parseTime12H, formatLocalDate, parseLocalDate } from '@/utils/timeUtils';
 import UpgradeModal from '@/components/UpgradeModal';
 import * as Analytics from '@/utils/analytics';
 import { useResponsive } from '@/utils/responsive';
@@ -138,7 +138,7 @@ export default function GoalsScreen() {
       return;
     }
     // ... rest of function
-    const formattedDate = dueDate.toISOString().split('T')[0];
+    const formattedDate = formatLocalDate(dueDate);
     const formattedTime = dueTime.toTimeString().split(' ')[0].substring(0, 5);
 
     // Process habits to schedule notifications if needed
@@ -283,20 +283,24 @@ export default function GoalsScreen() {
   };
 
   const addHabitToState = () => {
-    if (newHabit.trim()) {
-      const reminderTimeStr = newHabitTime
-        ? newHabitTime.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' })
-        : undefined;
+    const title = newHabit.trim();
+    if (!title) return;
 
-      setHabits([...habits, {
-        title: newHabit.trim(),
-        completed: false,
-        reminderEnabled: !!newHabitTime,
-        reminderTime: reminderTimeStr
-      }]);
-      setNewHabit('');
-      setNewHabitTime(null);
+    let reminderTimeStr: string | undefined;
+    if (newHabitTime instanceof Date && !isNaN(newHabitTime.getTime())) {
+      const h = String(newHabitTime.getHours()).padStart(2, '0');
+      const m = String(newHabitTime.getMinutes()).padStart(2, '0');
+      reminderTimeStr = `${h}:${m}`;
     }
+
+    setHabits([...habits, {
+      title,
+      completed: false,
+      reminderEnabled: !!reminderTimeStr,
+      reminderTime: reminderTimeStr
+    }]);
+    setNewHabit('');
+    setNewHabitTime(null);
   };
 
   const removeHabitFromState = (index: number) => {
@@ -328,7 +332,7 @@ export default function GoalsScreen() {
   };
 
   	return (
-		<SafeAreaView style={styles.container} edges={["left", "right", "bottom"]}>
+		<SafeAreaView style={styles.container} edges={["left", "right"]}>
 			<UpgradeModal
 				visible={showUpgradeModal}
 				onClose={() => setShowUpgradeModal(false)}
@@ -338,7 +342,7 @@ export default function GoalsScreen() {
 			<ResponsiveContainer>
 				<View style={[styles.header, isTablet && { paddingHorizontal: 40 }]}>
 					<View>
-						<Text style={[styles.title, { fontSize: normalize(32) }]}>My Goals 🎯</Text>
+						<Text style={styles.title}>My Goals 🎯</Text>
 						<Text style={[styles.subtitle, { fontSize: normalize(14) }]}>Track your personal goals</Text>
 					</View>
 					<TouchableOpacity style={styles.addButton} onPress={() => {
@@ -438,7 +442,7 @@ export default function GoalsScreen() {
 												)}
 												{goal.dueDate && (
 													<Text style={[styles.goalDueDate, { fontSize: normalize(12) }]}>
-														Due: {new Date(goal.dueDate).toLocaleDateString()}
+														Due: {parseLocalDate(goal.dueDate).toLocaleDateString()}
 														{goal.dueTime && ` at ${formatStringTime12H(goal.dueTime)}`}
 													</Text>
 												)}
@@ -721,7 +725,7 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
   },
   title: {
-    fontSize: 32,
+    fontSize: 22,
     fontWeight: '800' as const,
     color: colors.text,
   },

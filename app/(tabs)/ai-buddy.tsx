@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -11,10 +11,12 @@ import {
   Alert,
   TouchableWithoutFeedback,
   Keyboard,
+  Modal,
+  BackHandler,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Send, Bot, User as UserIcon, Sparkles, BookOpen, FileText, BrainCircuit, ArrowLeft, Paperclip, X, Clock } from 'lucide-react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useNavigation, useFocusEffect } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 // import TextRecognition from '@react-native-ml-kit/text-recognition';
 import * as DocumentPicker from 'expo-document-picker';
@@ -23,6 +25,7 @@ import CryptoJS from 'crypto-js';
 import colors from '@/constants/colors';
 import * as Analytics from '@/utils/analytics';
 import { useAuth } from '@/contexts/AuthContext';
+import { useApp } from '@/contexts/AppContext';
 import { sendMessage, generateMessageId, analyzeImage, getUsageStats } from '@/utils/aiService';
 import { AIMessage } from '@/types';
 import Markdown from 'react-native-markdown-display';
@@ -32,16 +35,57 @@ import { useResponsive } from '@/utils/responsive';
 import ResponsiveContainer from '@/components/ResponsiveContainer';
 
 const STORAGE_KEY_PREFIX = 'ai-buddy-conversation-';
-const SHARED_MEMORY_KEY = 'ai-buddy-shared-memory';
 const MAX_STORED_MESSAGES = 50;
-const MAX_SHARED_MESSAGES = 100; // Store more in shared memory for cross-mode context
 
 type AIMode = 'homework' | 'summarize' | 'quiz' | null;
 
 export default function AIBuddyScreen() {
   const { user, getFeatureLimit, checkPermission, isTrialActive } = useAuth();
+  const { setIsAIConversationActive } = useApp();
   const router = useRouter();
+  const navigation = useNavigation();
+  const { isTablet, normalize } = useResponsive();
+  const insets = useSafeAreaInsets();
   const [mode, setMode] = useState<AIMode>(null);
+
+  useLayoutEffect(() => {
+    setIsAIConversationActive(!!mode);
+    return () => setIsAIConversationActive(false);
+  }, [mode]);
+
+  // Hide the bottom tab bar when inside a conversation, restore it on the main page.
+  // navigation.setOptions() targets the Tab navigator (correct level for tabBarStyle).
+  useEffect(() => {
+    navigation.setOptions({
+      tabBarStyle: mode
+        ? { display: 'none' }
+        : {
+            backgroundColor: '#FFFFFF',
+            borderTopColor: '#F0F0F0',
+            borderTopWidth: 1,
+            paddingTop: 10,
+            height: Platform.OS === 'ios' ? 70 + insets.bottom : 65 + insets.bottom,
+            paddingBottom: Math.max(insets.bottom, Platform.OS === 'ios' ? 10 : 8),
+          },
+    });
+  }, [mode, insets.bottom]);
+
+  // Intercept the Android hardware back button while a mode is active so it
+  // returns to the mode list instead of leaving the AI tab. Registered via
+  // useFocusEffect so the listener only runs while this screen is focused.
+  useFocusEffect(
+    React.useCallback(() => {
+      const onBack = () => {
+        if (mode) {
+          setMode(null);
+          return true; // we handled it — don't let RN navigate away
+        }
+        return false; // no active chat — let the OS handle it normally
+      };
+      const sub = BackHandler.addEventListener('hardwareBackPress', onBack);
+      return () => sub.remove();
+    }, [mode])
+  );
   const [messages, setMessages] = useState<AIMessage[]>([]);
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -52,6 +96,8 @@ export default function AIBuddyScreen() {
   const [displayedContent, setDisplayedContent] = useState<Record<string, string>>({});
   const [usageStats, setUsageStats] = useState<{ remaining: number | string; limit: number | string } | null>(null);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [showLimitModal, setShowLimitModal] = useState(false);
+  const [showApiErrorModal, setShowApiErrorModal] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
 
   // Load usage stats
@@ -87,9 +133,11 @@ export default function AIBuddyScreen() {
     }
   };
 
-  // Load conversation history when mode changes
+  // Load conversation history when mode changes — clear immediately so previous
+  // mode's messages never flash before the new ones load
   useEffect(() => {
     if (mode) {
+      setMessages([]);
       loadConversationHistory(mode);
     }
   }, [mode]);
@@ -144,81 +192,34 @@ export default function AIBuddyScreen() {
 
   const saveConversationHistory = async (newMessages: AIMessage[], currentMode: string) => {
     try {
-      // Save mode-specific conversation (encrypted)
       const messagesToStore = newMessages.slice(-MAX_STORED_MESSAGES);
       await AsyncStorage.setItem(`${STORAGE_KEY_PREFIX}${currentMode}`, encryptData(messagesToStore));
-
-      // Also save to shared memory with mode tags
-      await saveToSharedMemory(newMessages, currentMode);
     } catch (error) {
       console.error('Error saving conversation:', error);
     }
   };
 
-  const saveToSharedMemory = async (newMessages: AIMessage[], currentMode: string) => {
-    try {
-      // Load existing shared memory (decrypt if needed)
-      const stored = await AsyncStorage.getItem(SHARED_MEMORY_KEY);
-      let sharedMemory: Array<AIMessage & { mode: AIMode }> = [];
-      if (stored) {
-        const decrypted = decryptData(stored);
-        sharedMemory = decrypted ?? JSON.parse(stored);
-      }
-
-      // Add mode tags to new messages
-      const taggedMessages = newMessages.map(msg => ({ ...msg, mode: currentMode as AIMode }));
-
-      // Merge and deduplicate by message ID
-      const messageMap = new Map();
-      [...sharedMemory, ...taggedMessages].forEach(msg => {
-        messageMap.set(msg.id, msg);
-      });
-
-      // Keep only the most recent messages
-      sharedMemory = Array.from(messageMap.values())
-        .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
-        .slice(-MAX_SHARED_MESSAGES);
-
-      await AsyncStorage.setItem(SHARED_MEMORY_KEY, encryptData(sharedMemory));
-    } catch (error) {
-      console.error('Error saving to shared memory:', error);
-    }
-  };
-
-  const loadSharedMemory = async (): Promise<Array<AIMessage & { mode: AIMode }>> => {
-    try {
-      const stored = await AsyncStorage.getItem(SHARED_MEMORY_KEY);
-      if (!stored) return [];
-      const decrypted = decryptData(stored);
-      return decrypted ?? JSON.parse(stored);
-    } catch (error) {
-      console.error('Error loading shared memory:', error);
-      return [];
-    }
-  };
-
   const animateTyping = async (messageId: string, fullText: string) => {
-    const typingSpeed = 0.0001; // milliseconds per character
+    const tickMs = 16;       // ~60fps
+    const charsPerTick = 12; // characters revealed per tick
     let currentIndex = 0;
 
     return new Promise<void>((resolve) => {
       const interval = setInterval(() => {
-        if (currentIndex <= fullText.length) {
-          setDisplayedContent(prev => ({
-            ...prev,
-            [messageId]: fullText.substring(0, currentIndex)
-          }));
-          currentIndex++;
+        currentIndex = Math.min(currentIndex + charsPerTick, fullText.length);
+        setDisplayedContent(prev => ({
+          ...prev,
+          [messageId]: fullText.substring(0, currentIndex)
+        }));
 
-          // Auto-scroll as text appears
-          setTimeout(() => {
-            scrollViewRef.current?.scrollToEnd({ animated: true });
-          }, 50);
-        } else {
+        // Auto-scroll as text appears
+        scrollViewRef.current?.scrollToEnd({ animated: false });
+
+        if (currentIndex >= fullText.length) {
           clearInterval(interval);
           resolve();
         }
-      }, typingSpeed);
+      }, tickMs);
     });
   };
 
@@ -227,12 +228,9 @@ export default function AIBuddyScreen() {
     if (!user?.uid || !mode) return;
 
     // Check usage limits
-    if (usageStats && usageStats.limit !== 'Unlimited') {
-      const remaining = usageStats.remaining as number;
-      if (remaining <= 0) {
-        setShowUpgradeModal(true);
-        return;
-      }
+    if (usageStats && typeof usageStats.remaining === 'number' && usageStats.remaining <= 0) {
+      setShowLimitModal(true);
+      return;
     }
 
     const userMessage: AIMessage = {
@@ -277,12 +275,8 @@ export default function AIBuddyScreen() {
         // Clear selection
         setSelectedFile(null);
       } else {
-        // Regular text message
-        const sharedMemory = await loadSharedMemory();
-        const otherModesContext = sharedMemory.filter(msg => msg.mode !== mode).slice(-10);
-        const contextMessages = [...otherModesContext.map(({ mode: _, ...msg }) => msg), ...messages];
-
-        response = await sendMessage(userMessage.content, user.uid, contextMessages, mode);
+        // Regular text message — only this mode's history is sent as context
+        response = await sendMessage(userMessage.content, user.uid, messages, mode);
 
         if (usageStats && usageStats.limit !== 'Unlimited') {
           setUsageStats(prev => prev ? ({ ...prev, remaining: response.usageRemaining ?? prev.remaining }) : null);
@@ -307,20 +301,26 @@ export default function AIBuddyScreen() {
       await saveConversationHistory(finalMessages, mode);
     } catch (error: any) {
       console.error('Error sending message:', error);
+      const msg: string = (error.message || '').toLowerCase();
 
-      // Check for specific error messages
-      if (error.message.includes('busy') || error.message.includes('capacity') || error.message.includes('credits') || error.message.includes('limit')) {
-        let alertTitle = 'AI Buddy is Busy';
-        let alertMsg = 'The AI service is currently experiencing high demand. Please try again in a little while.';
-
-        if (error.message.includes('limit')) {
-          alertTitle = 'Limit Reached';
-          alertMsg = error.message;
-        }
-
-        Alert.alert(alertTitle, alertMsg);
+      if (
+        msg.includes('insufficient_quota') ||
+        msg.includes('rate_limit') ||
+        msg.includes('quota') ||
+        msg.includes('capacity') ||
+        msg.includes('credits') ||
+        msg.includes('busy') ||
+        msg.includes('overloaded') ||
+        msg.includes('context_length') ||
+        msg.includes('token')
+      ) {
+        // API-level exhaustion or overload — show a graceful modal
+        setShowApiErrorModal(true);
+      } else if (msg.includes('daily limit') || msg.includes('inquiry limit') || msg.includes('limit reached')) {
+        // Backend-reported daily limit hit
+        setShowLimitModal(true);
       } else {
-        Alert.alert('Error', error.message || 'Failed to get response from AI Buddy');
+        Alert.alert('Something went wrong', error.message || 'Failed to get a response from AI Buddy. Please try again.');
       }
 
       // Remove the user message on error
@@ -407,17 +407,15 @@ export default function AIBuddyScreen() {
     );
   };
 
-  const { isTablet, normalize } = useResponsive();
-  const insets = useSafeAreaInsets();
-
-  // Track keyboard height for chat layout
+  // Track keyboard height to shrink the conversation view (WhatsApp-style)
   const [keyboardHeight, setKeyboardHeight] = React.useState(0);
   useEffect(() => {
     const show = Keyboard.addListener(
       Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
       (e) => {
         setKeyboardHeight(e.endCoordinates.height);
-        scrollViewRef.current?.scrollToEnd({ animated: true });
+        // Scroll to bottom so the input stays visible
+        setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: false }), 50);
       }
     );
     const hide = Keyboard.addListener(
@@ -426,6 +424,7 @@ export default function AIBuddyScreen() {
     );
     return () => { show.remove(); hide.remove(); };
   }, []);
+
 
   const getModeTitle = (m: AIMode) => {
     switch (m) {
@@ -648,7 +647,7 @@ export default function AIBuddyScreen() {
         <View style={styles.chatHeaderText}>
           <Text style={styles.chatTitle}>{getModeTitle(mode)}</Text>
           <Text style={styles.chatSubtitle}>{getModeSubtitle(mode)}</Text>
-          {usageStats && usageStats.limit !== 'Unlimited' && (
+          {usageStats && typeof usageStats.remaining === 'number' && (
             <Text style={styles.usageText}>
               AI Inquiries: {usageStats.remaining}/{usageStats.limit} left today
             </Text>
@@ -659,8 +658,7 @@ export default function AIBuddyScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Keyboard-aware wrapper: shrinks when keyboard opens */}
-      <View style={{ flex: 1, paddingBottom: Math.max(0, keyboardHeight - insets.bottom) }}>
+      <View style={{ flex: 1, paddingBottom: keyboardHeight > 0 ? keyboardHeight + insets.bottom : 0 }}>
       {isLoadingHistory ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
@@ -705,7 +703,7 @@ export default function AIBuddyScreen() {
             </ScrollView>
           </TouchableWithoutFeedback>
 
-          <View style={styles.inputContainer}>
+          <View style={[styles.inputContainer, keyboardHeight > 0 && styles.inputContainerCompact, { paddingBottom: keyboardHeight > 0 ? 8 : Math.max(insets.bottom, 16) }]}>
             {mode && (
               <View>
                 {selectedFile ? (
@@ -766,7 +764,7 @@ export default function AIBuddyScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
+    <SafeAreaView style={styles.container} edges={['left', 'right']}>
       <ResponsiveContainer>
         {mode ? renderChat() : renderDashboard()}
       </ResponsiveContainer>
@@ -774,8 +772,70 @@ export default function AIBuddyScreen() {
         visible={showUpgradeModal}
         onClose={() => setShowUpgradeModal(false)}
         featureName="AI Buddy"
-        message="You've reached your daily AI inquiry limit. Upgrade to Standard or Premium for more!"
+        message="Upgrade your plan to access AI Buddy features."
       />
+
+      {/* Daily inquiry limit reached */}
+      <Modal
+        visible={showLimitModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowLimitModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <TouchableOpacity style={styles.modalClose} onPress={() => setShowLimitModal(false)}>
+              <X size={22} color={colors.textSecondary} />
+            </TouchableOpacity>
+            <View style={styles.modalIconWrap}>
+              <Text style={styles.modalEmoji}>🧠</Text>
+            </View>
+            <Text style={styles.modalTitle}>Daily Limit Reached</Text>
+            <Text style={styles.modalBody}>
+              You've used all {usageStats?.limit} AI inquiries for today. Your limit resets at midnight.{'\n\n'}
+              Want more? Upgrade your plan for higher daily limits.
+            </Text>
+            <TouchableOpacity
+              style={styles.modalPrimaryBtn}
+              onPress={() => { setShowLimitModal(false); router.push('/account'); }}
+            >
+              <Text style={styles.modalPrimaryBtnText}>View Plans</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.modalSecondaryBtn} onPress={() => setShowLimitModal(false)}>
+              <Text style={styles.modalSecondaryBtnText}>OK, got it</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* API-level capacity / token exhaustion */}
+      <Modal
+        visible={showApiErrorModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowApiErrorModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <TouchableOpacity style={styles.modalClose} onPress={() => setShowApiErrorModal(false)}>
+              <X size={22} color={colors.textSecondary} />
+            </TouchableOpacity>
+            <View style={styles.modalIconWrap}>
+              <Text style={styles.modalEmoji}>⚡</Text>
+            </View>
+            <Text style={styles.modalTitle}>AI is Taking a Break</Text>
+            <Text style={styles.modalBody}>
+              Our AI service is currently experiencing high demand and needs a moment to catch up. Please wait a minute or two and try again — we'll be right back!
+            </Text>
+            <TouchableOpacity
+              style={styles.modalPrimaryBtn}
+              onPress={() => setShowApiErrorModal(false)}
+            >
+              <Text style={styles.modalPrimaryBtnText}>Got it</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -1000,6 +1060,10 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
     alignItems: 'flex-end',
   },
+  inputContainerCompact: {
+    paddingTop: 8,
+    paddingBottom: 8,
+  },
   attachmentButton: {
     padding: 12,
     marginRight: 8,
@@ -1085,5 +1149,80 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontSize: 14,
     fontWeight: '500',
+  },
+  // ── Inline modals (limit + API error) ──────────────────────────────────────
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  modalCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 24,
+    padding: 32,
+    width: '100%',
+    maxWidth: 380,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 10,
+  },
+  modalClose: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    padding: 4,
+  },
+  modalIconWrap: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: colors.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  modalEmoji: {
+    fontSize: 36,
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  modalBody: {
+    fontSize: 15,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 24,
+  },
+  modalPrimaryBtn: {
+    backgroundColor: colors.primary,
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+    borderRadius: 14,
+    width: '100%',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  modalPrimaryBtnText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  modalSecondaryBtn: {
+    paddingVertical: 10,
+  },
+  modalSecondaryBtnText: {
+    color: colors.textSecondary,
+    fontSize: 15,
+    fontWeight: '600',
   },
 });

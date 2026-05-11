@@ -4,10 +4,8 @@
 # Dependencies
 node_modules/
 
-# Native build artifacts
-android/.gradle/
-android/build/
-android/app/build/
+# Native build artifacts — exclude entire android/ios dirs so EAS runs prebuild
+android/
 ios/build/
 ios/Pods/
 

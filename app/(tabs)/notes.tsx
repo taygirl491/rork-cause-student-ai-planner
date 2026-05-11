@@ -286,7 +286,7 @@ export default function NotesScreen() {
 	};
 
 	return (
-		<SafeAreaView style={styles.container} edges={["left", "right", "bottom"]}>
+		<SafeAreaView style={styles.container} edges={["left", "right"]}>
 			<ResponsiveContainer>
 			<UpgradeModal
 				visible={showUpgradeModal}
@@ -296,7 +296,7 @@ export default function NotesScreen() {
 			/>
 			<View style={[styles.header, isTablet && { paddingHorizontal: 40 }]}>
 				<View>
-					<Text style={[styles.title, { fontSize: normalize(32) }]}>My Notes 📓</Text>
+					<Text style={styles.title}>My Notes 📓</Text>
 					<Text style={[styles.subtitle, { fontSize: normalize(14) }]}>Capture your thoughts</Text>
 					{isTrialActive && isTrialActive() && (
 						<View style={styles.trialBadge}>
@@ -722,7 +722,7 @@ const styles = StyleSheet.create({
 		color: colors.premium,
 	},
 	title: {
-		fontSize: 32,
+		fontSize: 22,
 		fontWeight: "800" as const,
 		color: colors.text,
 	},

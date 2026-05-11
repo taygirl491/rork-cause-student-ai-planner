@@ -4,12 +4,10 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
-  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import YoutubePlayer from 'react-native-youtube-iframe';
-import { Heart, BookOpen, Brain, Users, GraduationCap, ExternalLink } from 'lucide-react-native';
+import { Heart, BookOpen, Brain, Users, GraduationCap } from 'lucide-react-native';
 import colors from '@/constants/colors';
 
 import { useApp } from '@/contexts/AppContext';
@@ -45,7 +43,7 @@ export default function CausesScreen() {
   ];
 
   return (
-    <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
+    <SafeAreaView style={styles.container} edges={['left', 'right']}>
       <View style={styles.header}>
         <View>
           <Text style={styles.title}>Make It Count 🌍</Text>
@@ -140,20 +138,6 @@ export default function CausesScreen() {
           </>
         )}
 
-        <View style={styles.groupTherapyCard}>
-          <Text style={styles.groupTherapyTitle}>Group Therapy 💬</Text>
-          <Text style={styles.groupTherapyText}>
-            We offer group therapy sessions to all users of our app.
-          </Text>
-          <TouchableOpacity
-            style={styles.groupTherapyButton}
-            onPress={() => Linking.openURL('https://causeai.app/group-therapy')}
-          >
-            <Text style={styles.groupTherapyButtonText}>Click here for more information and to sign up</Text>
-            <ExternalLink size={16} color={colors.primary} style={{ marginLeft: 6 }} />
-          </TouchableOpacity>
-        </View>
-
         <Text style={styles.sectionTitle}>Pep Talks 🎤</Text>
         <Text style={styles.sectionSubtitle}>Motivation from students like you: Lights, Camera, Win! – Submit your vid here for prizes. Must be 18 or over to submit.</Text>
 
@@ -231,7 +215,7 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
   },
   title: {
-    fontSize: 32,
+    fontSize: 22,
     fontWeight: '800' as const,
     color: colors.text,
   },
@@ -507,41 +491,5 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: colors.text,
     lineHeight: 24,
-  },
-  groupTherapyCard: {
-    backgroundColor: colors.surface,
-    borderRadius: 16,
-    padding: 20,
-    marginHorizontal: 20,
-    marginBottom: 20,
-    borderLeftWidth: 4,
-    borderLeftColor: '#56CCF2',
-    shadowColor: colors.cardShadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  groupTherapyTitle: {
-    fontSize: 20,
-    fontWeight: '700' as const,
-    color: colors.text,
-    marginBottom: 8,
-  },
-  groupTherapyText: {
-    fontSize: 15,
-    color: colors.textSecondary,
-    lineHeight: 22,
-    marginBottom: 12,
-  },
-  groupTherapyButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  groupTherapyButtonText: {
-    fontSize: 15,
-    fontWeight: '600' as const,
-    color: colors.primary,
-    textDecorationLine: 'underline',
   },
 });

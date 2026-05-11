@@ -537,7 +537,7 @@ export default function AccountScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
+    <SafeAreaView style={styles.container} edges={['left', 'right']}>
       <ResponsiveContainer>
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false} contentContainerStyle={isTablet && { paddingHorizontal: 40 }}>
         <View style={styles.header}>
@@ -633,6 +633,27 @@ export default function AccountScreen() {
           </TouchableOpacity>
         </View>
 
+        {Platform.OS === 'ios' && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>iOS Alarm Tip 🔔</Text>
+            <View style={styles.iosTipCard}>
+              <Text style={styles.iosTipText}>
+                For alarms to ring for their full duration, set your notification banner style to{' '}
+                <Text style={styles.iosTipBold}>Persistent</Text> in your iPhone settings.
+              </Text>
+              <Text style={styles.iosTipSteps}>
+                Settings → Notifications → Cause Planner → Banner Style → <Text style={styles.iosTipBold}>Persistent</Text>
+              </Text>
+              <TouchableOpacity
+                style={styles.iosTipBtn}
+                onPress={() => Linking.openSettings()}
+              >
+                <Text style={styles.iosTipBtnText}>Open Notification Settings</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Help & Support</Text>
 
@@ -707,7 +728,7 @@ export default function AccountScreen() {
       >
         <View style={styles.safeAreaModal}>
           <View style={[styles.modalOverlay, isTablet && styles.modalOverlayTablet]}>
-            <View style={[styles.modalContent, isTablet && styles.modalContentTablet, { paddingBottom: Math.max(insets.bottom, 24) }]}>
+            <View style={[styles.modalContent, isTablet && styles.modalContentTablet, { paddingBottom: insets.bottom > 0 ? insets.bottom + 8 : 16 }]}>
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>Choose Your Plan</Text>
                 <TouchableOpacity onPress={() => setShowPaymentModal(false)}>
@@ -739,7 +760,7 @@ export default function AccountScreen() {
                     <Text style={styles.pricingPeriod}>per month</Text>
                     <View style={styles.pricingDivider} />
                     <Text style={styles.pricingFeatureText}>• Tasks, Calendar, Classes</Text>
-                    <Text style={styles.pricingFeatureText}>• Study Groups & Causes</Text>
+                    <Text style={styles.pricingFeatureText}>• Causes & Community</Text>
                     <Text style={styles.pricingFeatureText}>• 50 AI inquiries/day</Text>
                   </TouchableOpacity>
 
@@ -765,7 +786,7 @@ export default function AccountScreen() {
                     <Text style={styles.pricingPeriod}>per year</Text>
                     <View style={styles.pricingDivider} />
                     <Text style={styles.pricingFeatureText}>• Tasks, Calendar, Classes</Text>
-                    <Text style={styles.pricingFeatureText}>• Study Groups & Causes</Text>
+                    <Text style={styles.pricingFeatureText}>• Causes & Community</Text>
                     <Text style={styles.pricingFeatureText}>• 50 AI inquiries/day</Text>
                   </TouchableOpacity>
 
@@ -789,7 +810,7 @@ export default function AccountScreen() {
                     <View style={styles.pricingDivider} />
                     <Text style={styles.pricingFeatureText}>• Everything in Standard</Text>
                     <Text style={styles.pricingFeatureText}>• Sync Syllabus with Calendar</Text>
-                    <Text style={styles.pricingFeatureText}>• 500 AI inquiries/day</Text>
+                    <Text style={styles.pricingFeatureText}>• 100 AI inquiries/day</Text>
                   </TouchableOpacity>
 
                   {/* Premium Yearly */}
@@ -815,7 +836,7 @@ export default function AccountScreen() {
                     <View style={styles.pricingDivider} />
                     <Text style={styles.pricingFeatureText}>• Everything in Standard</Text>
                     <Text style={styles.pricingFeatureText}>• Sync Syllabus with Calendar</Text>
-                    <Text style={styles.pricingFeatureText}>• 500 AI inquiries/day</Text>
+                    <Text style={styles.pricingFeatureText}>• 100 AI inquiries/day</Text>
                   </TouchableOpacity>
 
                   {/* Unlimited Monthly */}
@@ -837,7 +858,7 @@ export default function AccountScreen() {
                     <Text style={styles.pricingPeriod}>per month</Text>
                     <View style={styles.pricingDivider} />
                     <Text style={styles.pricingFeatureText}>• Everything in Premium</Text>
-                    <Text style={styles.pricingFeatureText}>• Unlimited AI inquiries</Text>
+                    <Text style={styles.pricingFeatureText}>• 200 AI inquiries/day</Text>
                     <Text style={styles.pricingFeatureText}>• Priority support</Text>
                   </TouchableOpacity>
 
@@ -863,7 +884,7 @@ export default function AccountScreen() {
                     <Text style={styles.pricingPeriod}>per year</Text>
                     <View style={styles.pricingDivider} />
                     <Text style={styles.pricingFeatureText}>• Everything in Premium</Text>
-                    <Text style={styles.pricingFeatureText}>• Unlimited AI inquiries</Text>
+                    <Text style={styles.pricingFeatureText}>• 200 AI inquiries/day</Text>
                     <Text style={styles.pricingFeatureText}>• Priority support</Text>
                   </TouchableOpacity>
                 </View>
@@ -1388,7 +1409,7 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   pricingCardsScroll: {
-    maxHeight: '70%',
+    flexShrink: 1,
   },
   pricingCards: {
     gap: 16,
@@ -1679,5 +1700,42 @@ const styles = StyleSheet.create({
   mockButtonTextActive: {
     color: colors.surface,
     fontWeight: 'bold',
+  },
+  // ── iOS alarm tip card ─────────────────────────────────────────────────────
+  iosTipCard: {
+    backgroundColor: colors.primary + '12',
+    borderRadius: 16,
+    padding: 18,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.primary,
+  },
+  iosTipText: {
+    fontSize: 14,
+    color: colors.text,
+    lineHeight: 21,
+    marginBottom: 8,
+  },
+  iosTipBold: {
+    fontWeight: '700' as const,
+    color: colors.primary,
+  },
+  iosTipSteps: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    lineHeight: 20,
+    marginBottom: 14,
+    fontStyle: 'italic',
+  },
+  iosTipBtn: {
+    backgroundColor: colors.primary,
+    paddingVertical: 11,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    alignSelf: 'flex-start',
+  },
+  iosTipBtnText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '700' as const,
   },
 });

@@ -15,7 +15,8 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "app.rork.cause-student-ai-planner",
+      "bundleIdentifier": "com.minatoventures.causeai",
+      "googleServicesFile": "./GoogleService-Info.plist",
       "buildNumber": "24",
       "entitlements": {
         "com.apple.developer.usernotifications.time-sensitive": true
@@ -62,6 +63,8 @@
     },
     "plugins": [
       "./plugins/withModularHeaders",
+      "./plugins/withAdiRegistration",
+      "./plugins/withAndroidSoftInput",
       [
         "expo-router",
         {
@@ -95,7 +98,7 @@
       [
         "@stripe/stripe-react-native",
         {
-          "merchantIdentifier": "merchant.com.causeai",
+          "merchantIdentifier": "merchant.com.minatoventures.causeai",
           "enableGooglePay": true
         }
       ],
@@ -112,6 +115,12 @@
         {
           "ios": {
             "deploymentTarget": "16.0"
+          },
+          "android": {
+            "enableProguardInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true,
+            "abiFilters": ["arm64-v8a"],
+            "extraProguardRules": "-dontwarn com.stripe.android.pushProvisioning.**\n-keep class com.stripe.android.pushProvisioning.** { *; }"
           }
         }
       ]
@@ -124,9 +133,9 @@
         "origin": "https://rork.com/"
       },
       "eas": {
-        "projectId": "4f03b063-7906-41bc-bbe8-fb11613e296e"
+        "projectId": "3b1f486b-50ab-4d58-90f3-ab34ba4fdcd0"
       }
     },
-    "owner": "uwaiz"
+    "owner": "eluwaiz"
   }
 }
