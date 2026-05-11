@@ -6,7 +6,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { View, TouchableOpacity, StyleSheet, Modal, Text, ScrollView, Pressable, StatusBar, Image, Platform, InteractionManager, Animated } from "react-native";
-import { Menu, CheckSquare, Calendar, Target, FileText, BookOpen, Heart, Sparkles, User, Home, X, Users, WifiOff, RefreshCw } from "lucide-react-native";
+import { Menu, CheckSquare, Calendar, Target, FileText, BookOpen, Heart, Sparkles, User, Home, X, Users, WifiOff } from "lucide-react-native";
 import { AppProvider, useApp } from "@/contexts/AppContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { StreakProvider } from "@/contexts/StreakContext";
@@ -123,16 +123,9 @@ function SyncErrorToast({ message }: { message: string }) {
 }
 
 function CustomHeader() {
-  const { isOnline, refreshAllData, syncError } = useApp();
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const { isOnline, syncError } = useApp();
   const insets = useSafeAreaInsets();
   const { isTablet } = useResponsive();
-
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
-    await refreshAllData();
-    setIsRefreshing(false);
-  };
 
   return (
     <>
@@ -155,19 +148,6 @@ function CustomHeader() {
         )}
       </View>
       <View style={menuStyles.headerRightContainer}>
-        {isOnline && (
-          <TouchableOpacity
-            onPress={handleRefresh}
-            style={menuStyles.refreshButton}
-            disabled={isRefreshing}
-          >
-            <RefreshCw
-              size={20}
-              color={colors.primary}
-              style={isRefreshing ? { opacity: 0.5 } : {}}
-            />
-          </TouchableOpacity>
-        )}
         <ProfileButton />
       </View>
       {syncError && <SyncErrorToast message={syncError} key={syncError + Date.now()} />}
