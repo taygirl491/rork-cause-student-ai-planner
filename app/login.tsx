@@ -9,6 +9,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import colors from '@/constants/colors';
 import * as NotificationService from '@/utils/notificationService';
 import Button from '@/components/Button';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
+import { auth } from '@/firebaseConfig';
+
+const ADMIN_EMAIL = 'minatoventuresinc@gmail.com';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -56,12 +60,29 @@ export default function LoginScreen() {
       return;
     }
 
+    const trimmedEmail = email.trim().toLowerCase();
+    const isAdminEmail = trimmedEmail === ADMIN_EMAIL;
+
     setIsNavigating(true);
     try {
-      const user = await login(email.trim(), password);
+      if (isAdminEmail) {
+        // Admin path — handle account recreation if it was deleted
+        try {
+          await signInWithEmailAndPassword(auth, trimmedEmail, password);
+        } catch (err: any) {
+          if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
+            await createUserWithEmailAndPassword(auth, trimmedEmail, password);
+          } else {
+            throw err;
+          }
+        }
+        router.replace('/admin' as any);
+        return;
+      }
+
+      const user = await login(trimmedEmail, password);
       await AsyncStorage.setItem('@onboarding_complete', 'true');
 
-      // Register push token in the background — don't block navigation
       if (user) {
         NotificationService.registerForPushNotificationsAsync()
           .then(token => {
@@ -78,7 +99,6 @@ export default function LoginScreen() {
     } catch (error: any) {
       setIsNavigating(false);
 
-      // Provide user-friendly error messages
       let errorTitle = 'Login Failed';
       let errorMessage = 'Unable to sign in. Please try again.';
 

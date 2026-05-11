@@ -351,9 +351,14 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     const createdDate = parseCreatedAt(authData.user?.createdAt);
     if (!createdDate) return 0;
 
-    const trialEndDate = new Date(createdDate.getTime() + 14 * 24 * 60 * 60 * 1000);
-    const diffTime = trialEndDate.getTime() - Date.now();
-    return diffTime <= 0 ? 0 : Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+    // Compare calendar dates (midnight-to-midnight) so the count is always
+    // based on the day the user registered, not the exact time of day.
+    const createdMidnight = new Date(createdDate.getFullYear(), createdDate.getMonth(), createdDate.getDate());
+    const todayMidnight = new Date();
+    todayMidnight.setHours(0, 0, 0, 0);
+
+    const daysSinceCreation = Math.floor((todayMidnight.getTime() - createdMidnight.getTime()) / (1000 * 60 * 60 * 24));
+    return Math.max(0, 14 - daysSinceCreation);
   };
 
   return {

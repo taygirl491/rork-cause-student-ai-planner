@@ -188,7 +188,7 @@ function resolveNotifRoute(data: any): NotifRoute | null {
   if (type === 'goal_due' || type === 'habit_reminder') {
     return { pathname: '/(tabs)/goals' };
   }
-  if (type === 'streak') {
+  if (type === 'streak' || type === 'streak_warning') {
     return { pathname: '/(tabs)/home' };
   }
   if (type === 'new_message' || type === 'member_approved') {
@@ -325,14 +325,9 @@ function RootLayoutNav() {
         const isInvite = segments?.startsWith('/invite');
 
         if (isAuthenticated && auth.currentUser && !segments?.startsWith('/admin')) {
-          try {
-            const tokenResult = await auth.currentUser.getIdTokenResult();
-            if (tokenResult.claims.admin) {
-              router.replace('/admin' as any);
-              return;
-            }
-          } catch (e) {
-            console.error('[Layout] Failed to get token claims:', e);
+          if (auth.currentUser.email === 'minatoventuresinc@gmail.com') {
+            router.replace('/admin' as any);
+            return;
           }
         }
 
@@ -383,6 +378,13 @@ function RootLayoutNav() {
 
         // iOS alarm banner: user tapped "Dismiss" — nothing to do, notification clears
         if (actionId === 'DISMISS') return;
+
+        // When a task alarm or echo is tapped, cancel all remaining echoes for that task
+        // so the user isn't interrupted by the T+25s / T+50s follow-up sounds.
+        const taskId = data?.taskId as string | undefined;
+        if (taskId && (data?.type === 'task_reminder' || data?.type === 'task_due' || data?.type === 'alarm_echo' || data?.type === 'missed_task')) {
+          NotificationService.cancelAllTaskNotifications(taskId).catch(() => {});
+        }
 
         const route = resolveNotifRoute(data);
         if (route) router.push(route as any);

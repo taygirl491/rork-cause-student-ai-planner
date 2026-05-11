@@ -118,6 +118,13 @@ export function StreakProvider({ children }: { children: ReactNode }) {
                 // Backend was reachable — clear any pending retry flag
                 await AsyncStorage.removeItem(pendingCheckInKey(user.uid));
 
+                // Cancel today's warning (user just opened the app) and reschedule
+                // for tomorrow at 10 PM so they're reminded if they forget tomorrow.
+                if (result.newStreakCount > 0) {
+                    const NotificationService = await import('@/utils/notificationService');
+                    NotificationService.scheduleStreakWarningNotification(result.newStreakCount).catch(() => {});
+                }
+
                 // First-time user or cache was cleared: show modal based on backend result.
                 // Set streak data explicitly so modal never reads stale null state.
                 if (!cached && result.increased) {

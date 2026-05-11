@@ -691,7 +691,11 @@ export default function TasksScreen() {
                       date={dueDate}
                       onConfirm={(date) => {
                         setShowDatePicker(false);
-                        setDueDate(date);
+                        // Picker returns midnight UTC on iOS — extract UTC components and
+                        // rebuild as local noon so formatLocalDate() returns the correct day
+                        // regardless of the user's timezone offset.
+                        const normalized = new Date(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 12, 0, 0);
+                        setDueDate(normalized);
                       }}
                       onCancel={() => setShowDatePicker(false)}
                     />
