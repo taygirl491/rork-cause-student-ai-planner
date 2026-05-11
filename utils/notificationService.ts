@@ -808,6 +808,55 @@ export async function scheduleHabitReminder(goalTitle: string, habitTitle: strin
 }
 
 /**
+ * Cancel any pending streak warning notification.
+ */
+export async function cancelStreakWarningNotification(): Promise<void> {
+  try {
+    const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+    for (const notif of scheduled) {
+      if (notif.content.data?.type === 'streak_warning') {
+        await Notifications.cancelScheduledNotificationAsync(notif.identifier);
+      }
+    }
+  } catch (error) {
+    console.error('[Notification] Error cancelling streak warning:', error);
+  }
+}
+
+/**
+ * Schedule a local notification for 10 PM tomorrow reminding the user to
+ * open the app so they don't lose their streak. Called each time the user
+ * opens the app — cancels any previous warning and reschedules for the next day.
+ */
+export async function scheduleStreakWarningNotification(streakCount: number): Promise<void> {
+  if (streakCount <= 0) return;
+
+  await cancelStreakWarningNotification();
+
+  // 10 PM local time tomorrow
+  const now = new Date();
+  const tomorrow10PM = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 22, 0, 0);
+  const secondsUntil = Math.floor((tomorrow10PM.getTime() - now.getTime()) / 1000);
+
+  if (secondsUntil <= 0) return;
+
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title: '🔥 Don\'t break your streak!',
+      body: `You have a ${streakCount} day streak. Open the app before midnight to keep it alive!`,
+      data: { type: 'streak_warning' },
+      sound: 'default',
+      channelId: 'default',
+    } as any,
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+      seconds: secondsUntil,
+      repeats: false,
+    },
+  });
+}
+
+/**
  * Schedule a simple push notification
  */
 export async function schedulePushNotification(content: { title: string, body: string, data?: any }) {

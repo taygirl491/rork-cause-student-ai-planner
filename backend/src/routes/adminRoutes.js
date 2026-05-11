@@ -5,9 +5,10 @@ const emailService = require('../services/emailService');
 const verifyFirebaseToken = require('../middleware/verifyFirebaseToken');
 const { safeError } = require('../utils/errorResponse');
 
-// Middleware: requires Firebase ID token AND admin custom claim
+const ADMIN_EMAIL = 'minatoventuresinc@gmail.com';
+
 const requireAdmin = (req, res, next) => {
-    if (!req.user || req.user.admin !== true) {
+    if (!req.user || req.user.email !== ADMIN_EMAIL) {
         return res.status(403).json({ error: 'Forbidden: admin access required' });
     }
     next();

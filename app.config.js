@@ -23,10 +23,10 @@ const verifyConfig = {
   ],
   extra: {
     eas: {
-      projectId: "c2f31aa7-cd96-465f-a379-5f1e04e8048f",
+      projectId: "4f03b063-7906-41bc-bbe8-fb11613e296e",
     },
   },
-  owner: "luwaiz",
+  owner: "uwaiz",
 };
 
 const fullConfig = require('./app.json').expo;

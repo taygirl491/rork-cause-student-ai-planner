@@ -134,13 +134,15 @@ export default function AIBuddyScreen() {
   };
 
   // Load conversation history when mode changes — clear immediately so previous
-  // mode's messages never flash before the new ones load
+  // mode's messages never flash before the new ones load.
+  // Also depends on user?.uid so we never decrypt with the wrong key if auth
+  // is still initializing when the mode is first selected.
   useEffect(() => {
-    if (mode) {
+    if (mode && user?.uid) {
       setMessages([]);
       loadConversationHistory(mode);
     }
-  }, [mode]);
+  }, [mode, user?.uid]);
 
   // Auto-scroll when messages change
   useEffect(() => {
@@ -703,7 +705,7 @@ export default function AIBuddyScreen() {
             </ScrollView>
           </TouchableWithoutFeedback>
 
-          <View style={[styles.inputContainer, keyboardHeight > 0 && styles.inputContainerCompact, { paddingBottom: keyboardHeight > 0 ? 8 : Math.max(insets.bottom, 16) }]}>
+          <View style={[styles.inputContainer, keyboardHeight > 0 && styles.inputContainerCompact, { paddingBottom: keyboardHeight > 0 ? 8 : Math.max(insets.bottom, Platform.OS === 'android' ? 24 : 16) }]}>
             {mode && (
               <View>
                 {selectedFile ? (

@@ -237,7 +237,7 @@ export default function GoalsScreen() {
 
     setTitle(selectedGoal.title);
     setDescription(selectedGoal.description || '');
-    setDueDate(selectedGoal.dueDate ? new Date(selectedGoal.dueDate) : new Date());
+    setDueDate(selectedGoal.dueDate ? parseLocalDate(selectedGoal.dueDate) : new Date());
     setDueTime(selectedGoal.dueTime ? parseTime12H(formatStringTime12H(selectedGoal.dueTime)) : new Date());
     setHabits(selectedGoal.habits || []);
 
@@ -579,7 +579,10 @@ export default function GoalsScreen() {
                       date={dueDate}
                       onConfirm={(date) => {
                         setShowDatePicker(false);
-                        setDueDate(date);
+                        // Picker returns midnight UTC on iOS — extract UTC components and
+                        // rebuild as local noon so formatLocalDate() returns the correct day.
+                        const normalized = new Date(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 12, 0, 0);
+                        setDueDate(normalized);
                       }}
                       onCancel={() => setShowDatePicker(false)}
                     />

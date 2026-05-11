@@ -22,7 +22,6 @@ import { formatStringTime12H } from '@/utils/timeUtils';
 import UpgradeModal from '@/components/UpgradeModal';
 import TrialCountdownModal from '@/components/TrialCountdownModal';
 import DailyStreakModal from '@/components/DailyStreakModal';
-import StreakFireAnimation from '@/components/StreakFireAnimation';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useResponsive } from '@/utils/responsive';
 import ResponsiveContainer from '@/components/ResponsiveContainer';
@@ -49,9 +48,6 @@ export default function HomeScreen() {
     refreshStreak = async () => {},
     showDailyModal = false,
     setShowDailyModal = () => {},
-    showAnimation = false,
-    setShowAnimation = () => {},
-    animStreakNumber = 0,
     isLoading: isStreakLoading = false
   } = streakCtx || {};
 
@@ -86,6 +82,10 @@ export default function HomeScreen() {
   useEffect(() => {
     const checkTrialModal = async () => {
       if (!user?.uid || !isTrialActive || !isTrialActive()) return;
+      // iOS cannot display two native Modals simultaneously. Wait for the
+      // streak modal to close before showing the trial modal so it isn't
+      // silently swallowed by the OS.
+      if (showDailyModal) return;
 
       // Key is scoped to the user so a new account on the same device
       // always sees the modal even if another account saw it today.
@@ -100,7 +100,7 @@ export default function HomeScreen() {
     };
 
     checkTrialModal();
-  }, [user]);
+  }, [user, showDailyModal]);
   const lastFocusRef = React.useRef(0);
 
   // Refresh gamification points whenever coming back to this screen
@@ -351,12 +351,6 @@ export default function HomeScreen() {
         onClose={() => setShowUpgradeModal(false)}
         featureName="Syllabus Parser"
         message="Automatically import your assignments and exams from your syllabus with the premium plan!"
-      />
-
-      <StreakFireAnimation
-        visible={showAnimation}
-        streakNumber={animStreakNumber}
-        onFinish={() => setShowAnimation(false)}
       />
 
       <DailyStreakModal

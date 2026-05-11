@@ -2,7 +2,7 @@ import "react-native-get-random-values";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack, useRouter, usePathname } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { View, TouchableOpacity, StyleSheet, Modal, Text, ScrollView, Pressable, StatusBar, Image, Platform, InteractionManager, Animated } from "react-native";
@@ -178,7 +178,29 @@ function CustomHeader() {
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+type NotifRoute = { pathname: string; params?: Record<string, string> };
 
+function resolveNotifRoute(data: any): NotifRoute | null {
+  const type = data?.type as string | undefined;
+  if (type === 'task_reminder' || type === 'task_due' || type === 'missed_task' || type === 'alarm_echo') {
+    return { pathname: '/(tabs)/tasks' };
+  }
+  if (type === 'goal_due' || type === 'habit_reminder') {
+    return { pathname: '/(tabs)/goals' };
+  }
+  if (type === 'streak' || type === 'streak_warning') {
+    return { pathname: '/(tabs)/home' };
+  }
+  if (type === 'new_message' || type === 'member_approved') {
+    const groupId = data?.groupId as string | undefined;
+    if (groupId) return { pathname: '/group-detail', params: { groupId } };
+    return { pathname: '/(tabs)/study-groups' };
+  }
+  if (type === 'group_join' || type === 'join_request' || type === 'member_rejected') {
+    return { pathname: '/(tabs)/study-groups' };
+  }
+  return null;
+}
 
 function RootLayoutNav() {
   const { isAuthenticated, isLoading, user, isRegistering, registeredAt } = useAuth();
@@ -186,6 +208,7 @@ function RootLayoutNav() {
   // Initialize to false (not null) so the cover screen only waits for Firebase auth,
   // not for the AsyncStorage read. The AsyncStorage check updates this shortly after.
   const [onboardingComplete, setOnboardingComplete] = useState<boolean>(false);
+  const pendingNotifRoute = useRef<NotifRoute | null>(null);
 
   const segments = usePathname();
 
@@ -302,14 +325,9 @@ function RootLayoutNav() {
         const isInvite = segments?.startsWith('/invite');
 
         if (isAuthenticated && auth.currentUser && !segments?.startsWith('/admin')) {
-          try {
-            const tokenResult = await auth.currentUser.getIdTokenResult();
-            if (tokenResult.claims.admin) {
-              router.replace('/admin' as any);
-              return;
-            }
-          } catch (e) {
-            console.error('[Layout] Failed to get token claims:', e);
+          if (auth.currentUser.email === 'minatoventuresinc@gmail.com') {
+            router.replace('/admin' as any);
+            return;
           }
         }
 
@@ -330,6 +348,14 @@ function RootLayoutNav() {
 
     // Request permissions on app start
     NotificationService.requestNotificationPermissions();
+
+    // Cold start: app was launched by tapping a notification while killed
+    Notifications.getLastNotificationResponseAsync().then((response) => {
+      if (response) {
+        const route = resolveNotifRoute(response.notification.request.content.data);
+        if (route) pendingNotifRoute.current = route;
+      }
+    });
 
     // Handle notification tap and action buttons (iOS snooze/dismiss)
     const subscription = Notifications.addNotificationResponseReceivedListener(
@@ -353,30 +379,30 @@ function RootLayoutNav() {
         // iOS alarm banner: user tapped "Dismiss" — nothing to do, notification clears
         if (actionId === 'DISMISS') return;
 
-        // Route to the correct screen based on notification type
-        const type = data?.type as string | undefined;
-
-        if (
-          type === 'task_reminder' ||
-          type === 'task_due' ||
-          type === 'missed_task'
-        ) {
-          router.push('/(tabs)/tasks');
-        } else if (type === 'goal_due') {
-          router.push('/(tabs)/goals');
-        } else if (type === 'habit_reminder') {
-          router.push('/(tabs)/goals');
-        } else if (type === 'streak') {
-          router.push('/(tabs)/home');
-        } else {
-          // Default: go to home for any unrecognised notification type
-          router.push('/(tabs)/home');
+        // When a task alarm or echo is tapped, cancel all remaining echoes for that task
+        // so the user isn't interrupted by the T+25s / T+50s follow-up sounds.
+        const taskId = data?.taskId as string | undefined;
+        if (taskId && (data?.type === 'task_reminder' || data?.type === 'task_due' || data?.type === 'alarm_echo' || data?.type === 'missed_task')) {
+          NotificationService.cancelAllTaskNotifications(taskId).catch(() => {});
         }
+
+        const route = resolveNotifRoute(data);
+        if (route) router.push(route as any);
       }
     );
 
     return () => subscription.remove();
   }, [router]);
+
+  // Execute cold-start notification navigation once auth has resolved
+  useEffect(() => {
+    if (!isLoading && isAuthenticated && pendingNotifRoute.current) {
+      const route = pendingNotifRoute.current;
+      pendingNotifRoute.current = null;
+      const timer = setTimeout(() => router.push(route as any), 500);
+      return () => clearTimeout(timer);
+    }
+  }, [isLoading, isAuthenticated, router]);
 
   const inAuthGroup = segments === '/login' || segments === '/register' || segments === '/onboarding' || segments === '/intro-survey';
   const isInvite = segments?.startsWith('/invite');
