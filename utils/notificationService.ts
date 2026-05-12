@@ -291,9 +291,17 @@ function calculateTriggerTime(task: Task): Date | null {
         const raw = task.customReminderDate;
         const dtMatch = raw.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
         const dateMatch = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        const isUTC = /Z|[+-]\d{2}:?\d{2}$/.test(raw);
         if (dtMatch) {
-          const [, y, m, d, h, min] = dtMatch.map(Number);
-          triggerDate = new Date(y, m - 1, d, h, min, 0, 0);
+          if (isUTC) {
+            // Legacy: stored as UTC ISO string — parse as absolute time so
+            // getTime() gives the correct millisecond regardless of timezone.
+            triggerDate = new Date(raw);
+          } else {
+            // New format: "YYYY-MM-DDTHH:mm" with no Z — treat as local time.
+            const [, y, m, d, h, min] = dtMatch.map(Number);
+            triggerDate = new Date(y, m - 1, d, h, min, 0, 0);
+          }
         } else if (dateMatch) {
           const [, y, m, d] = dateMatch.map(Number);
           triggerDate = new Date(y, m - 1, d, 9, 0, 0, 0);
@@ -868,4 +876,58 @@ export async function schedulePushNotification(content: { title: string, body: s
     },
     trigger: null, // deliver immediately
   });
+}
+
+/**
+ * Reschedule all task and goal notifications after a timezone change.
+ *
+ * Habit reminders use a calendar-based daily trigger and auto-adjust — they
+ * are intentionally left untouched. Only task/goal/streak notifications are
+ * cancelled and rebuilt from the current Firestore data.
+ */
+export async function rescheduleAllNotifications(userId: string): Promise<void> {
+  try {
+    console.log('[Notification] Rescheduling all notifications for timezone change...');
+
+    // Cancel only the notification types that are time-interval based (not habits)
+    const typesToCancel = new Set([
+      'task_reminder', 'task_due', 'missed_task', 'alarm_echo',
+      'goal_due', 'streak_warning',
+    ]);
+
+    const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+    await Promise.all(
+      scheduled
+        .filter(n => typesToCancel.has(n.content.data?.type as string))
+        .map(n => Notifications.cancelScheduledNotificationAsync(n.identifier))
+    );
+
+    // Fetch and reschedule tasks
+    const { db } = await import('@/firebaseConfig');
+    const { collection, query, where, getDocs } = await import('firebase/firestore');
+
+    const tasksSnap = await getDocs(
+      query(collection(db, 'tasks'), where('userId', '==', userId), where('completed', '==', false))
+    );
+
+    for (const doc of tasksSnap.docs) {
+      const task = { id: doc.id, ...doc.data() } as Task;
+      if (task.reminder) await scheduleTaskReminder(task);
+      await scheduleDueDateNotification(task);
+    }
+
+    // Fetch and reschedule goals
+    const goalsSnap = await getDocs(
+      query(collection(db, 'goals'), where('userId', '==', userId), where('completed', '==', false))
+    );
+
+    for (const doc of goalsSnap.docs) {
+      const goal = { id: doc.id, ...doc.data() } as Goal;
+      await scheduleGoalNotification(goal);
+    }
+
+    console.log(`[Notification] Rescheduled ${tasksSnap.size} tasks, ${goalsSnap.size} goals`);
+  } catch (error) {
+    console.error('[Notification] Error rescheduling notifications:', error);
+  }
 }

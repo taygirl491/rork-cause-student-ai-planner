@@ -12,6 +12,22 @@ export const formatLocalDate = (date: Date): string => {
 };
 
 /**
+ * Format a Date to a local datetime string "YYYY-MM-DDTHH:mm" (no Z suffix).
+ *
+ * Use this instead of toISOString() when storing a user-selected datetime
+ * that must be interpreted in local time (e.g. custom reminder dates).
+ * toISOString() converts to UTC first, which shifts the time for non-UTC users.
+ */
+export const formatLocalDateTime = (date: Date): string => {
+  const y = date.getFullYear();
+  const mo = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  const h = String(date.getHours()).padStart(2, '0');
+  const mi = String(date.getMinutes()).padStart(2, '0');
+  return `${y}-${mo}-${d}T${h}:${mi}`;
+};
+
+/**
  * Parse a YYYY-MM-DD string into a local-timezone Date (midnight local).
  *
  * Never use new Date(dateString) with an ISO date string — JavaScript

@@ -48,6 +48,7 @@ export default function HomeScreen() {
     refreshStreak = async () => {},
     showDailyModal = false,
     setShowDailyModal = () => {},
+    modalStreakCount = 0,
     isLoading: isStreakLoading = false
   } = streakCtx || {};
 
@@ -148,11 +149,14 @@ export default function HomeScreen() {
   }, [sortedTasks]);
 
   const getDaysUntil = useCallback((dateStr: string) => {
-    const date = new Date(dateStr);
+    // Parse as local date — never use new Date("YYYY-MM-DD") directly
+    // because JS treats bare date strings as UTC midnight, shifting the
+    // date back one day for users west of UTC (e.g. all US timezones).
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const date = new Date(year, month - 1, day, 0, 0, 0, 0);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    date.setHours(0, 0, 0, 0);
-    const diff = Math.ceil((date.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    const diff = Math.round((date.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 
     if (diff === 0) return 'Today';
     if (diff === 1) return 'Tomorrow';
@@ -355,7 +359,7 @@ export default function HomeScreen() {
 
       <DailyStreakModal
         visible={showDailyModal}
-        streakCount={streakData?.current || 0}
+        streakCount={modalStreakCount}
         onClose={() => setShowDailyModal(false)}
       />
 

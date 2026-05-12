@@ -22,7 +22,7 @@ import {
 } from 'react-native';
 import Button from '@/components/Button';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
-import { formatTime12H, formatStringTime12H, parseTime12H, formatLocalDate, parseLocalDate } from '@/utils/timeUtils';
+import { formatTime12H, formatStringTime12H, parseTime12H, formatLocalDate, parseLocalDate, formatLocalDateTime } from '@/utils/timeUtils';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Plus, X, CheckCircle, Circle, Edit2, Trash2 } from 'lucide-react-native';
 import colors from '@/constants/colors';
@@ -192,7 +192,7 @@ export default function TasksScreen() {
         repeat,
         priority,
         reminder,
-        customReminderDate: reminder === 'custom' ? customReminderDate.toISOString() : undefined,
+        customReminderDate: reminder === 'custom' ? formatLocalDateTime(customReminderDate) : undefined,
         alarmEnabled,
       });
     } else {
@@ -206,7 +206,7 @@ export default function TasksScreen() {
         repeat,
         priority,
         reminder,
-        customReminderDate: reminder === 'custom' ? customReminderDate.toISOString() : undefined,
+        customReminderDate: reminder === 'custom' ? formatLocalDateTime(customReminderDate) : undefined,
         alarmEnabled,
         completed: false,
         createdAt: new Date().toISOString(),
@@ -272,7 +272,14 @@ export default function TasksScreen() {
     setPriority(taskToEdit.priority);
     setReminder(taskToEdit.reminder || '1d');
     if (taskToEdit.customReminderDate) {
-      setCustomReminderDate(new Date(taskToEdit.customReminderDate));
+      const isUTC = /Z|[+-]\d{2}:?\d{2}$/.test(taskToEdit.customReminderDate);
+      const dtMatch = taskToEdit.customReminderDate.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+      if (isUTC) {
+        setCustomReminderDate(new Date(taskToEdit.customReminderDate));
+      } else if (dtMatch) {
+        const [, y, mo, d, h, min] = dtMatch.map(Number);
+        setCustomReminderDate(new Date(y, mo - 1, d, h, min, 0, 0));
+      }
     }
     setAlarmEnabled(taskToEdit.alarmEnabled);
     setRepeat(taskToEdit.repeat || 'none');

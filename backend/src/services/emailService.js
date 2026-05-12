@@ -107,12 +107,16 @@ async function sendWelcomeEmail(to, name) {
                         <li>📚 Organize your classes</li>
                         <li>🎯 Track your goals</li>
                         <li>📓 Keep notes organized</li>
-                        <li>👥 Collaborate in study groups</li>
+                        <li>🤖 Get support from your AI Buddy anytime</li>
                     </ul>
-                    <p>Get started by creating your first task or joining a study group!</p>
+                    <p>Get started by creating your first task or setting a goal for this semester!</p>
                     <p style="margin-top: 30px;">
                         Best regards,<br>
-                        <strong>The CauseAI Team</strong>
+                        <strong>Cause Planner Team</strong>
+                    </p>
+                    <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;">
+                    <p style="color: #999; font-size: 12px; text-align: center;">
+                        Please do not reply to this email — this mailbox is not monitored.
                     </p>
                 </div>
             `
@@ -147,11 +151,11 @@ async function sendPasswordResetEmail(to, resetLink) {
     const mailOptions = {
       from: `"Cause Planner" <${process.env.GMAIL_USER}>`,
       to: to,
-      subject: 'Reset Your Password - CauseAI',
+      subject: 'Reset Your Password - Cause Planner',
       html: `
                 <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
                     <h1 style="color: #6366F1;">Reset Your Password</h1>
-                    <p>You requested to reset your password for your CauseAI account.</p>
+                    <p>You requested to reset your password for your Cause Planner account.</p>
                     <p>Click the button below to reset your password:</p>
                     <div style="text-align: center; margin: 30px 0;">
                         <a href="${resetLink}" 
@@ -165,6 +169,10 @@ async function sendPasswordResetEmail(to, resetLink) {
                     </p>
                     <p style="color: #666; font-size: 14px;">
                         This link will expire in 1 hour.
+                    </p>
+                    <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;">
+                    <p style="color: #999; font-size: 12px; text-align: center;">
+                        Please do not reply to this email — this mailbox is not monitored.
                     </p>
                 </div>
             `
@@ -213,8 +221,9 @@ async function sendBroadcastEmail(recipients, subject, message, io = null) {
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
               ${message}
               <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;">
-              <p style="color: #666; font-size: 12px; text-align: center;">
-                This email was sent from Cause Planner
+              <p style="color: #999; font-size: 12px; text-align: center;">
+                This email was sent from Cause Planner.<br>
+                Please do not reply to this email — this mailbox is not monitored.
               </p>
             </div>
           `
@@ -296,7 +305,7 @@ async function sendTestEmail(to) {
     const mailOptions = {
       from: `"Cause Planner" <${process.env.GMAIL_USER}>`,
       to: to,
-      subject: 'Test Email from CauseAI',
+      subject: 'Test Email from Cause Planner',
       html: `
                 <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
                     <h1 style="color: #6366F1;">Email Service Test ✅</h1>
