@@ -26,6 +26,7 @@ interface StreakContextType {
     showAnimation: boolean;
     setShowAnimation: (show: boolean) => void;
     animStreakNumber: number;
+    modalStreakCount: number;
 }
 
 const StreakContext = createContext<StreakContextType | undefined>(undefined);
@@ -45,6 +46,7 @@ export function StreakProvider({ children }: { children: ReactNode }) {
 
     // Modal state for daily streak
     const [showDailyModal, setShowDailyModal] = useState(false);
+    const [modalStreakCount, setModalStreakCount] = useState(0);
     const [sessionChecked, setSessionChecked] = useState(false);
 
     // Prevents loadStreakData's GET response from overwriting the optimistic
@@ -98,16 +100,11 @@ export function StreakProvider({ children }: { children: ReactNode }) {
             // already populated from the cache in loadStreakData. It will update
             // automatically once the backend responds.
             if (cached) {
-                // Parse the last backend-confirmed value from cache.
-                // We only update STATE here — NOT the cache — so the cache always
-                // holds the last confirmed backend count. Writing the +1 optimistic
-                // value into the cache would cause a double-increment on the next
-                // app open if the backend never got a chance to correct it.
                 const cachedData = JSON.parse(cached) as StreakData;
                 const optimisticCount = Math.max(1, cachedData.current + 1);
                 setStreakData({ ...cachedData, current: optimisticCount });
+                setModalStreakCount(optimisticCount);
                 setShowDailyModal(true);
-                // Mark today immediately so the modal doesn't fire again on re-open
                 await AsyncStorage.setItem(modalShownKey(user.uid), today);
             }
 
@@ -133,10 +130,12 @@ export function StreakProvider({ children }: { children: ReactNode }) {
                 // First-time user or cache was cleared: show modal based on backend result.
                 // Set streak data explicitly so modal never reads stale null state.
                 if (!cached && result.increased) {
+                    const confirmedCount = Math.max(1, result.newStreakCount);
                     setStreakData(prev => ({
                         ...(prev ?? { longest: 0, totalTasksCompleted: 0, streakFreezes: 0, points: 0, level: 1, lastCompletionDate: null }),
-                        current: Math.max(1, result.newStreakCount),
+                        current: confirmedCount,
                     }));
+                    setModalStreakCount(confirmedCount);
                     setShowDailyModal(true);
                     await AsyncStorage.setItem(modalShownKey(user.uid), today);
                 }
@@ -328,7 +327,8 @@ export function StreakProvider({ children }: { children: ReactNode }) {
             setShowDailyModal,
             showAnimation,
             setShowAnimation,
-            animStreakNumber
+            animStreakNumber,
+            modalStreakCount,
         }}>
             {children}
         </StreakContext.Provider>

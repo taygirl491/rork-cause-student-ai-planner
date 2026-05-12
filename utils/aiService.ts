@@ -1,4 +1,5 @@
 import apiService from './apiService';
+import { formatLocalDate } from './timeUtils';
 
 export interface AIMessage {
   id: string;
@@ -32,6 +33,7 @@ export async function sendMessage(
       userId,
       conversationHistory: formattedHistory,
       mode,
+      clientToday: formatLocalDate(new Date()),
     });
 
     if (response.success) {
@@ -113,7 +115,7 @@ export async function getUsageStats(
   userId: string
 ): Promise<{ visionLimit: number; visionUsed: number; visionRemaining: number }> {
   try {
-    const response = await apiService.get(`/api/ai/usage/${userId}`);
+    const response = await apiService.get(`/api/ai/usage/${userId}?clientToday=${formatLocalDate(new Date())}`);
     
     if (response.success) {
       return {

@@ -45,13 +45,15 @@ const TIER_LIMITS = {
  * @param {string} userId
  * @returns {Promise<{currentUsage: number, usageRemaining: number, limitReached: boolean, limit: number}>}
  */
-async function trackUsage(userId) {
+async function trackUsage(userId, clientToday) {
     // Get user tier from MongoDB
     const user = await User.findById(userId);
     const tier = user?.tier || 'free';
     const limit = TIER_LIMITS[tier];
 
-    const today = new Date().toISOString().split('T')[0];
+    // Use the client's local date so the daily reset happens at the user's
+    // local midnight rather than server UTC midnight.
+    const today = clientToday || new Date().toISOString().split('T')[0];
     const usageKey = `ai_usage_${userId}_${today}`;
     const usageDoc = await db.collection('ai_usage').doc(usageKey).get();
     const currentUsage = usageDoc.exists ? usageDoc.data().count : 0;
@@ -213,7 +215,7 @@ router.post("/syllabus/parse", perUserAiLimiter, upload.single('file'), async (r
 router.get("/usage/:userId", async (req, res) => {
     try {
         const { userId } = req.params;
-        const today = new Date().toISOString().split('T')[0];
+        const today = req.query.clientToday || new Date().toISOString().split('T')[0];
         const usageKey = `ai_usage_${userId}_${today}`;
 
         const usageDoc = await db.collection('ai_usage').doc(usageKey).get();
@@ -248,7 +250,7 @@ router.get("/usage/:userId", async (req, res) => {
  */
 router.post("/chat", perUserAiLimiter, async (req, res) => {
     try {
-        const { message, conversationHistory = [], userId, mode = "homework" } = req.body;
+        const { message, conversationHistory = [], userId, mode = "homework", clientToday } = req.body;
 
         if (!message || !message.trim()) {
             return res.status(400).json({
@@ -263,7 +265,7 @@ router.post("/chat", perUserAiLimiter, async (req, res) => {
         }
 
         // Check and track usage
-        const { usageRemaining, limitReached, currentUsage, limit } = await trackUsage(userId);
+        const { usageRemaining, limitReached, currentUsage, limit } = await trackUsage(userId, clientToday);
 
         if (limitReached) {
             return res.status(429).json({
@@ -275,7 +277,7 @@ router.post("/chat", perUserAiLimiter, async (req, res) => {
         }
 
         // Fetch user context from Firestore
-        const userContext = await fetchUserContext(userId);
+        const userContext = await fetchUserContext(userId, clientToday);
 
         // Prepare messages for OpenAI (limit to last 10 for context window)
         const recentHistory = conversationHistory.slice(-10);
@@ -307,11 +309,11 @@ router.post("/chat", perUserAiLimiter, async (req, res) => {
  * @param {string} userId - User ID
  * @returns {Promise<Object>} User context with tasks, classes, and goals
  */
-async function fetchUserContext(userId) {
+async function fetchUserContext(userId, clientToday) {
     try {
         const now = new Date();
         const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-        const today = now.toISOString().split("T")[0];
+        const today = clientToday || now.toISOString().split("T")[0];
 
         // Fetch upcoming tasks (next 7 days, not completed)
         const tasksSnapshot = await db

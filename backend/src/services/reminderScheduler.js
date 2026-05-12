@@ -8,7 +8,9 @@ const { sendTaskReminder } = require('./notificationService');
 function calculateReminderTime(task) {
     if (!task.dueDate || !task.reminder) return null;
 
-    const dueDate = new Date(task.dueDate);
+    // Parse YYYY-MM-DD as local midnight, not UTC midnight
+    const [y, mo, d] = task.dueDate.split('-').map(Number);
+    const dueDate = new Date(y, mo - 1, d, 0, 0, 0, 0);
 
     // If task has a specific time, use it
     if (task.dueTime) {
@@ -36,7 +38,17 @@ function calculateReminderTime(task) {
             break;
         case 'custom':
             if (task.customReminderDate) {
-                reminderDate = new Date(task.customReminderDate);
+                // Handle both legacy UTC ISO strings and new local datetime strings
+                const isUTC = /Z|[+-]\d{2}:?\d{2}$/.test(task.customReminderDate);
+                const dtMatch = task.customReminderDate.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+                if (isUTC) {
+                    reminderDate = new Date(task.customReminderDate);
+                } else if (dtMatch) {
+                    const [, cy, cm, cd, ch, cmin] = dtMatch.map(Number);
+                    reminderDate = new Date(cy, cm - 1, cd, ch, cmin, 0, 0);
+                } else {
+                    return null;
+                }
             } else {
                 return null;
             }

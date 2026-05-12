@@ -488,7 +488,8 @@ export default function ClassesScreen() {
                       date={startDate}
                       onConfirm={(date) => {
                         setShowStartDatePicker(false);
-                        setStartDate(date);
+                        const normalized = new Date(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 12, 0, 0);
+                        setStartDate(normalized);
                       }}
                       onCancel={() => setShowStartDatePicker(false)}
                     />
@@ -507,7 +508,8 @@ export default function ClassesScreen() {
                       date={endDate}
                       onConfirm={(date) => {
                         setShowEndDatePicker(false);
-                        setEndDate(date);
+                        const normalized = new Date(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 12, 0, 0);
+                        setEndDate(normalized);
                       }}
                       onCancel={() => setShowEndDatePicker(false)}
                     />

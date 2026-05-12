@@ -5,7 +5,7 @@ import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect, useRef, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { View, TouchableOpacity, StyleSheet, Modal, Text, ScrollView, Pressable, StatusBar, Image, Platform, InteractionManager, Animated } from "react-native";
+import { View, TouchableOpacity, StyleSheet, Modal, Text, ScrollView, Pressable, StatusBar, Image, Platform, InteractionManager, Animated, AppState, AppStateStatus } from "react-native";
 import { Menu, CheckSquare, Calendar, Target, FileText, BookOpen, Heart, Sparkles, User, Home, X, Users, WifiOff } from "lucide-react-native";
 import { AppProvider, useApp } from "@/contexts/AppContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
@@ -373,6 +373,35 @@ function RootLayoutNav() {
 
     return () => subscription.remove();
   }, [router]);
+
+  // Detect timezone changes and reschedule time-interval notifications accordingly.
+  // Habit reminders use calendar triggers and auto-adjust — they are left alone.
+  useEffect(() => {
+    if (!user) return;
+
+    const TIMEZONE_KEY = '@device_timezone';
+
+    const checkTimezone = async () => {
+      const currentTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      try {
+        const storedTz = await AsyncStorage.getItem(TIMEZONE_KEY);
+        if (storedTz && storedTz !== currentTz) {
+          console.log(`[Timezone] Changed: ${storedTz} → ${currentTz}`);
+          await NotificationService.rescheduleAllNotifications(user.uid);
+        }
+        await AsyncStorage.setItem(TIMEZONE_KEY, currentTz);
+      } catch (e) {
+        console.error('[Timezone] Check failed:', e);
+      }
+    };
+
+    // Run once on authenticated load, then on every app foreground
+    checkTimezone();
+    const subscription = AppState.addEventListener('change', (next: AppStateStatus) => {
+      if (next === 'active') checkTimezone();
+    });
+    return () => subscription.remove();
+  }, [user]);
 
   // Execute cold-start notification navigation once auth has resolved
   useEffect(() => {
