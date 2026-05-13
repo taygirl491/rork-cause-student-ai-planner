@@ -136,7 +136,16 @@ export default function TasksScreen() {
 
   const taskTypes: TaskType[] = ['task', 'event', 'exam', 'paper', 'appointment', 'homework', 'work', 'internship'];
   const priorities: Priority[] = ['low', 'medium', 'high'];
-  const reminders: ReminderTime[] = ['1h', '2h', '1d', '2d', 'custom'];
+  const reminders: ReminderTime[] = ['none', '1h', '2h', '1d', '2d', 'custom'];
+
+  const reminderLabel: Record<ReminderTime, string> = {
+    none: 'None',
+    '1h': '1h',
+    '2h': '2h',
+    '1d': '1d',
+    '2d': '2d',
+    custom: 'Custom',
+  };
 
   // Filter tasks based on search and active filter
   const filteredTasks = React.useMemo(() => {
@@ -235,7 +244,7 @@ export default function TasksScreen() {
     setDueDate(new Date());
     setDueTime(new Date());
     setPriority('medium');
-    setReminder('1d');
+    setReminder('none');
     setCustomReminderDate(new Date());
     setAlarmEnabled(false);
     setRepeat('none');
@@ -270,7 +279,7 @@ export default function TasksScreen() {
     setDueDate(parseLocalDate(taskToEdit.dueDate));
     setDueTime(taskToEdit.dueTime ? parseTime12H(formatStringTime12H(taskToEdit.dueTime)) : new Date());
     setPriority(taskToEdit.priority);
-    setReminder(taskToEdit.reminder || '1d');
+    setReminder(taskToEdit.reminder || 'none');
     if (taskToEdit.customReminderDate) {
       const isUTC = /Z|[+-]\d{2}:?\d{2}$/.test(taskToEdit.customReminderDate);
       const dtMatch = taskToEdit.customReminderDate.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
@@ -319,11 +328,10 @@ export default function TasksScreen() {
 
   const getDaysUntil = (dateStr: string) => {
     const [year, month, day] = dateStr.split('-').map(Number);
-    const date = new Date(year, month - 1, day);
+    const date = new Date(year, month - 1, day, 0, 0, 0, 0);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    date.setHours(0, 0, 0, 0);
-    const diff = Math.ceil((date.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    const diff = Math.round((date.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 
     if (diff === 0) return 'Today';
     if (diff === 1) return 'Tomorrow';
@@ -698,10 +706,11 @@ export default function TasksScreen() {
                       date={dueDate}
                       onConfirm={(date) => {
                         setShowDatePicker(false);
-                        // Picker returns midnight UTC on iOS — extract UTC components and
-                        // rebuild as local noon so formatLocalDate() returns the correct day
-                        // regardless of the user's timezone offset.
-                        const normalized = new Date(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 12, 0, 0);
+                        // Picker returns midnight LOCAL time — use local date components so
+                        // getFullYear/Month/Date() give exactly the day the user tapped.
+                        // Using UTC components here would give the previous day for UTC+
+                        // timezones (e.g. Nigeria WAT+1: midnight local = 11 PM UTC prior day).
+                        const normalized = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 12, 0, 0);
                         setDueDate(normalized);
                       }}
                       onCancel={() => setShowDatePicker(false)}
@@ -776,7 +785,7 @@ export default function TasksScreen() {
                               reminder === r && { color: colors.surface },
                             ]}
                           >
-                            {r}
+                            {reminderLabel[r]}
                           </Text>
                         </TouchableOpacity>
                       ))}
@@ -954,6 +963,7 @@ export default function TasksScreen() {
                   <View style={styles.detailSection}>
                     <Text style={styles.detailLabel}>Reminder</Text>
                     <Text style={styles.detailValue}>
+                      {(!selectedTaskForDetail?.reminder || selectedTaskForDetail?.reminder === 'none') && 'No reminder'}
                       {selectedTaskForDetail?.reminder === '1h' && '1 hour before'}
                       {selectedTaskForDetail?.reminder === '2h' && '2 hours before'}
                       {selectedTaskForDetail?.reminder === '1d' && '1 day before'}

@@ -9,11 +9,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import YoutubePlayer from 'react-native-youtube-iframe';
 import { Heart, BookOpen, Brain, Users, GraduationCap } from 'lucide-react-native';
 import colors from '@/constants/colors';
-
 import { useApp } from '@/contexts/AppContext';
+import { useResponsive } from '@/utils/responsive';
 
 export default function CausesScreen() {
   const { videoConfig } = useApp();
+  const { isTablet, normalize } = useResponsive();
+
   const causes = [
     {
       icon: BookOpen,
@@ -33,7 +35,6 @@ export default function CausesScreen() {
       description: 'Supporting teachers who are making a difference in low-income communities.',
       color: colors.warning,
     },
-
     {
       icon: Brain,
       title: 'Mental Health',
@@ -42,11 +43,14 @@ export default function CausesScreen() {
     },
   ];
 
+  const videoHeight = isTablet ? 320 : 190;
+  const hPad = isTablet ? 40 : 20;
+
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right']}>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingHorizontal: hPad }]}>
         <View>
-          <Text style={styles.title}>Make It Count 🌍</Text>
+          <Text style={[styles.title, { fontSize: normalize(22) }]}>Make It Count 🌍</Text>
           <Text style={styles.subtitle}>Your impact in action</Text>
         </View>
         <View style={styles.heartContainer}>
@@ -54,7 +58,7 @@ export default function CausesScreen() {
         </View>
       </View>
 
-      <View style={styles.descriptionContainer}>
+      <View style={[styles.descriptionContainer, { paddingHorizontal: hPad }]}>
         <Text style={styles.description}>
           Check out your impact, explore causes that matter, and vibe with student
           pep talks, and student essays below 👇
@@ -62,139 +66,109 @@ export default function CausesScreen() {
       </View>
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        <View style={styles.impactCard}>
-          <Text style={styles.impactTitle}>Here's the Deal 🤝</Text>
-          <Text style={styles.impactText}>
-            10% of our profits go straight to helping students and supporting mental health. Every. Single. Month.
-          </Text>
-          <View style={styles.statsRow}>
-            <View style={styles.statBox}>
-              <Text style={styles.statValue}>100%</Text>
-              <Text style={styles.statLabel}>Transparent</Text>
+        {/* Constrain all content to a readable max-width on iPad */}
+        <View style={[styles.contentWrapper, isTablet && styles.contentWrapperTablet]}>
+
+          <View style={[styles.impactCard, { marginHorizontal: hPad }]}>
+            <Text style={[styles.impactTitle, { fontSize: normalize(24) }]}>Here's the Deal 🤝</Text>
+            <Text style={[styles.impactText, { fontSize: normalize(15) }]}>
+              10% of our profits go straight to helping students and supporting mental health. Every. Single. Month.
+            </Text>
+            <View style={styles.statsRow}>
+              <View style={styles.statBox}>
+                <Text style={[styles.statValue, { fontSize: normalize(28) }]}>100%</Text>
+                <Text style={styles.statLabel}>Transparent</Text>
+              </View>
             </View>
           </View>
-        </View>
 
+          <Text style={[styles.sectionTitle, { paddingHorizontal: hPad, fontSize: normalize(22) }]}>Supported Causes</Text>
 
-
-        <Text style={styles.sectionTitle}>Supported Causes</Text>
-
-        {causes.map((cause, index) => (
-          <View key={index} style={[styles.causeCard, { borderLeftColor: cause.color }]}>
-            <View style={[styles.causeIcon, { backgroundColor: cause.color + '20' }]}>
-              <cause.icon size={28} color={cause.color} />
+          {causes.map((cause, index) => (
+            <View key={index} style={[styles.causeCard, { marginHorizontal: hPad }]}>
+              <View style={[styles.causeIcon, { backgroundColor: cause.color + '20' }]}>
+                <cause.icon size={28} color={cause.color} />
+              </View>
+              <View style={styles.causeContent}>
+                <Text style={[styles.causeTitle, { fontSize: normalize(17) }]}>{cause.title}</Text>
+                <Text style={[styles.causeDescription, { fontSize: normalize(14) }]}>{cause.description}</Text>
+              </View>
             </View>
-            <View style={styles.causeContent}>
-              <Text style={styles.causeTitle}>{cause.title}</Text>
-              <Text style={styles.causeDescription}>{cause.description}</Text>
-            </View>
+          ))}
+
+          <View style={[styles.missionCard, { marginHorizontal: hPad }]}>
+            <Text style={[styles.missionTitle, { fontSize: normalize(20) }]}>Our Mission 🌍</Text>
+            <Text style={[styles.missionText, { fontSize: normalize(15) }]}>
+              We believe every student deserves the tools to absolutely crush it in school. When you use our app, you're not just getting your life together – you're helping students everywhere access education and get mental health support.
+            </Text>
+            <Text style={[styles.missionText, { fontSize: normalize(15) }]}>
+              Basically, you're making the world better while acing your classes. That's what we call a win-win.
+            </Text>
           </View>
-        ))}
 
-        <View style={styles.missionCard}>
-          <Text style={styles.missionTitle}>Our Mission 🌍</Text>
-          <Text style={styles.missionText}>
-            We believe every student deserves the tools to absolutely crush it in school. When you use our app, you're not just getting your life together – you're helping students everywhere access education and get mental health support.
-          </Text>
-          <Text style={styles.missionText}>
-            Basically, you're making the world better while acing your classes. That's what we call a win-win.
-          </Text>
-        </View>
+          {((videoConfig as any)?.essay1?.content || (videoConfig as any)?.essay2?.content) && (
+            <>
+              <Text style={[styles.sectionTitle, { paddingHorizontal: hPad, fontSize: normalize(22) }]}>Worth the Read 📖</Text>
+              <Text style={[styles.sectionSubtitle, { paddingHorizontal: hPad }]}>Student essay spotlight. Words That Win 📝 - Submit your essay to win.</Text>
 
-        {((videoConfig as any)?.essay1?.content || (videoConfig as any)?.essay2?.content) && (
-          <>
-            <Text style={styles.sectionTitle}>Worth the Read 📖</Text>
-            <Text style={styles.sectionSubtitle}>Student essay spotlight. Words That Win 📝 - Submit your essay to win.</Text>
-
-            {(videoConfig as any)?.essay1?.content ? (
-              <View style={styles.essayCard}>
-                <View style={styles.essayHeader}>
-                  <View style={styles.essayIcon}>
-                    <BookOpen size={20} color={colors.primary} />
+              {(videoConfig as any)?.essay1?.content ? (
+                <View style={[styles.essayCard, { marginHorizontal: hPad }]}>
+                  <View style={styles.essayHeader}>
+                    <View style={styles.essayIcon}>
+                      <BookOpen size={20} color={colors.primary} />
+                    </View>
+                    <View>
+                      <Text style={[styles.essayTitle, { fontSize: normalize(18) }]}>{(videoConfig as any).essay1.title}</Text>
+                      <Text style={styles.essayAuthor}>By {(videoConfig as any).essay1.author}</Text>
+                    </View>
                   </View>
-                  <View>
-                    <Text style={styles.essayTitle}>{(videoConfig as any).essay1.title}</Text>
-                    <Text style={styles.essayAuthor}>By {(videoConfig as any).essay1.author}</Text>
-                  </View>
+                  <Text style={[styles.essayContent, { fontSize: normalize(15) }]}>{(videoConfig as any).essay1.content}</Text>
                 </View>
-                <Text style={styles.essayContent}>{(videoConfig as any).essay1.content}</Text>
-              </View>
-            ) : null}
+              ) : null}
 
-            {(videoConfig as any)?.essay2?.content ? (
-              <View style={styles.essayCard}>
-                <View style={styles.essayHeader}>
-                  <View style={styles.essayIcon}>
-                    <BookOpen size={20} color={colors.primary} />
+              {(videoConfig as any)?.essay2?.content ? (
+                <View style={[styles.essayCard, { marginHorizontal: hPad }]}>
+                  <View style={styles.essayHeader}>
+                    <View style={styles.essayIcon}>
+                      <BookOpen size={20} color={colors.primary} />
+                    </View>
+                    <View>
+                      <Text style={[styles.essayTitle, { fontSize: normalize(18) }]}>{(videoConfig as any).essay2.title}</Text>
+                      <Text style={styles.essayAuthor}>By {(videoConfig as any).essay2.author}</Text>
+                    </View>
                   </View>
-                  <View>
-                    <Text style={styles.essayTitle}>{(videoConfig as any).essay2.title}</Text>
-                    <Text style={styles.essayAuthor}>By {(videoConfig as any).essay2.author}</Text>
-                  </View>
+                  <Text style={[styles.essayContent, { fontSize: normalize(15) }]}>{(videoConfig as any).essay2.content}</Text>
                 </View>
-                <Text style={styles.essayContent}>{(videoConfig as any).essay2.content}</Text>
-              </View>
-            ) : null}
-          </>
-        )}
+              ) : null}
+            </>
+          )}
 
-        <Text style={styles.sectionTitle}>Pep Talks 🎤</Text>
-        <Text style={styles.sectionSubtitle}>Motivation from students like you: Lights, Camera, Win! – Submit your vid here for prizes. Must be 18 or over to submit.</Text>
+          <Text style={[styles.sectionTitle, { paddingHorizontal: hPad, fontSize: normalize(22) }]}>Pep Talks 🎤</Text>
+          <Text style={[styles.sectionSubtitle, { paddingHorizontal: hPad }]}>Motivation from students like you: Lights, Camera, Win! – Submit your vid here for prizes. Must be 18 or over to submit.</Text>
 
-        <View style={styles.videoCard}>
-          <Text style={styles.videoTitle}>How I Changed the World as a Student</Text>
-          <YoutubePlayer
-            height={190}
-            width="100%"
-            videoId={videoConfig?.causesVideo1Id || "dQw4w9WgXcQ"}
-            play={false}
-          />
-        </View>
+          {[
+            { title: 'How I Changed the World as a Student', key: 'causesVideo1Id' },
+            { title: 'From Underperforming to High Achieving', key: 'causesVideo2Id' },
+            { title: 'What School Means to Me', key: 'causesVideo3Id' },
+            { title: 'Overcoming Challenges in My Academic Journey', key: 'causesVideo4Id' },
+            { title: 'How I Protect My Mental Health at School', key: 'causesVideo5Id' },
+          ].map((v) => (
+            <View key={v.key} style={[styles.videoCard, { marginHorizontal: hPad }]}>
+              <Text style={[styles.videoTitle, { fontSize: normalize(16) }]}>{v.title}</Text>
+              <YoutubePlayer
+                height={videoHeight}
+                width="100%"
+                videoId={(videoConfig as any)?.[v.key] || 'dQw4w9WgXcQ'}
+                play={false}
+              />
+            </View>
+          ))}
 
-        <View style={styles.videoCard}>
-          <Text style={styles.videoTitle}>From Underperforming to High Achieving</Text>
-          <YoutubePlayer
-            height={190}
-            width="100%"
-            videoId={videoConfig?.causesVideo2Id || "dQw4w9WgXcQ"}
-            play={false}
-          />
-        </View>
-
-        <View style={styles.videoCard}>
-          <Text style={styles.videoTitle}>What School Means to Me</Text>
-          <YoutubePlayer
-            height={190}
-            width="100%"
-            videoId={videoConfig?.causesVideo3Id || "dQw4w9WgXcQ"}
-            play={false}
-          />
-        </View>
-
-        <View style={styles.videoCard}>
-          <Text style={styles.videoTitle}>Overcoming Challenges in My Academic Journey</Text>
-          <YoutubePlayer
-            height={190}
-            width="100%"
-            videoId={videoConfig?.causesVideo4Id || "dQw4w9WgXcQ"}
-            play={false}
-          />
-        </View>
-
-        <View style={styles.videoCard}>
-          <Text style={styles.videoTitle}>How I Protect My Mental Health at School</Text>
-          <YoutubePlayer
-            height={190}
-            width="100%"
-            videoId={videoConfig?.causesVideo5Id || "dQw4w9WgXcQ"}
-            play={false}
-          />
-        </View>
-
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>
-            Thank you for being part of our community and making a difference! 💙
-          </Text>
+          <View style={[styles.footer, { paddingHorizontal: hPad }]}>
+            <Text style={styles.footerText}>
+              Thank you for being part of our community and making a difference! 💙
+            </Text>
+          </View>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -210,12 +184,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
     paddingTop: 10,
     paddingBottom: 16,
   },
   title: {
-    fontSize: 22,
     fontWeight: '800' as const,
     color: colors.text,
   },
@@ -233,7 +205,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   descriptionContainer: {
-    paddingHorizontal: 20,
     paddingBottom: 16,
   },
   description: {
@@ -244,11 +215,18 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
+  contentWrapper: {
+    width: '100%',
+  },
+  contentWrapperTablet: {
+    maxWidth: 800,
+    alignSelf: 'center',
+    width: '100%',
+  },
   impactCard: {
     backgroundColor: colors.primary,
     borderRadius: 20,
     padding: 24,
-    marginHorizontal: 20,
     marginBottom: 20,
     shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 4 },
@@ -257,19 +235,14 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   impactTitle: {
-    fontSize: 24,
     fontWeight: '800' as const,
     color: colors.surface,
     marginBottom: 12,
   },
   impactText: {
-    fontSize: 15,
     color: colors.surface,
     lineHeight: 22,
     marginBottom: 20,
-  },
-  impactHighlight: {
-    fontWeight: '700' as const,
   },
   statsRow: {
     flexDirection: 'row',
@@ -283,7 +256,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   statValue: {
-    fontSize: 28,
     fontWeight: '800' as const,
     color: colors.surface,
     marginBottom: 4,
@@ -293,75 +265,15 @@ const styles = StyleSheet.create({
     fontWeight: '600' as const,
     color: colors.surface,
   },
-  pricingCard: {
-    backgroundColor: colors.surface,
-    borderRadius: 16,
-    padding: 20,
-    marginHorizontal: 20,
-    marginBottom: 20,
-    shadowColor: colors.cardShadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  pricingTitle: {
-    fontSize: 20,
-    fontWeight: '700' as const,
-    color: colors.text,
-    marginBottom: 16,
-  },
-  pricingOption: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-  },
-  pricingLeft: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 6,
-  },
-  pricingPrice: {
-    fontSize: 28,
-    fontWeight: '800' as const,
-    color: colors.text,
-  },
-  pricingPeriod: {
-    fontSize: 14,
-    color: colors.textSecondary,
-  },
-  pricingRight: {
-    alignItems: 'flex-end',
-  },
-  pricingDonation: {
-    fontSize: 14,
-    fontWeight: '600' as const,
-    color: colors.secondary,
-    marginBottom: 4,
-  },
-  savingsBadge: {
-    fontSize: 12,
-    fontWeight: '700' as const,
-    color: colors.success,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: colors.border,
-    marginVertical: 8,
-  },
   sectionTitle: {
-    fontSize: 22,
     fontWeight: '700' as const,
     color: colors.text,
-    paddingHorizontal: 20,
     marginBottom: 16,
   },
   causeCard: {
     backgroundColor: colors.surface,
     borderRadius: 16,
     padding: 16,
-    marginHorizontal: 20,
     marginBottom: 12,
     flexDirection: 'row',
     borderLeftWidth: 4,
@@ -383,13 +295,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   causeTitle: {
-    fontSize: 17,
     fontWeight: '700' as const,
     color: colors.text,
     marginBottom: 6,
   },
   causeDescription: {
-    fontSize: 14,
     color: colors.textSecondary,
     lineHeight: 20,
   },
@@ -397,24 +307,20 @@ const styles = StyleSheet.create({
     backgroundColor: colors.secondaryLight,
     borderRadius: 16,
     padding: 20,
-    marginHorizontal: 20,
     marginTop: 8,
     marginBottom: 16,
   },
   missionTitle: {
-    fontSize: 20,
     fontWeight: '700' as const,
     color: colors.text,
     marginBottom: 12,
   },
   missionText: {
-    fontSize: 15,
     color: colors.text,
     lineHeight: 22,
     marginBottom: 12,
   },
   footer: {
-    paddingHorizontal: 20,
     paddingVertical: 24,
     alignItems: 'center',
   },
@@ -427,7 +333,6 @@ const styles = StyleSheet.create({
   sectionSubtitle: {
     fontSize: 14,
     color: colors.textSecondary,
-    paddingHorizontal: 20,
     marginBottom: 16,
     marginTop: -8,
   },
@@ -435,7 +340,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: 16,
     padding: 16,
-    marginHorizontal: 20,
     marginBottom: 16,
     shadowColor: colors.cardShadow,
     shadowOffset: { width: 0, height: 2 },
@@ -444,7 +348,6 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   videoTitle: {
-    fontSize: 16,
     fontWeight: '700' as const,
     color: colors.text,
     marginBottom: 12,
@@ -453,7 +356,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: 16,
     padding: 20,
-    marginHorizontal: 20,
     marginBottom: 16,
     shadowColor: colors.cardShadow,
     shadowOffset: { width: 0, height: 2 },
@@ -478,7 +380,6 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   essayTitle: {
-    fontSize: 18,
     fontWeight: '700' as const,
     color: colors.text,
   },
@@ -488,7 +389,6 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   essayContent: {
-    fontSize: 15,
     color: colors.text,
     lineHeight: 24,
   },

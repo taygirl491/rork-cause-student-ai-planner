@@ -542,7 +542,7 @@ export const [AppProvider, useApp] = createContextHook(() => {
 				});
 
 				// 4. Schedule notifications with the real backend ID
-				if (task.reminder && !task.completed) {
+				if (task.reminder && task.reminder !== 'none' && !task.completed) {
 					await NotificationService.scheduleTaskReminder(newTask);
 				}
 				if (!task.completed) {
@@ -553,6 +553,14 @@ export const [AppProvider, useApp] = createContextHook(() => {
 				await offlineQueue.addToQueue({ type: 'create', entity: 'task', data: { userId: user.uid, description: task.description, type: task.type, className: task.className, dueDate: task.dueDate, dueTime: task.dueTime, priority: task.priority, reminder: task.reminder, customReminderDate: task.customReminderDate || undefined, alarmEnabled: task.alarmEnabled, completed: task.completed, createdAt: task.createdAt, calendarEventId: undefined, repeat: task.repeat || 'none', tempId } });
 				setPendingOperations(offlineQueue.getPendingCount());
 				notifySyncError("Saving in background — will sync when server is ready.");
+
+				// Still schedule notifications so alarms fire even when backend is unavailable
+				if (!task.completed) {
+					if (task.reminder && task.reminder !== 'none') {
+						await NotificationService.scheduleTaskReminder(optimisticTask);
+					}
+					await NotificationService.scheduleDueDateNotification(optimisticTask);
+				}
 			}
 		} catch (error) {
 			console.error("Error adding task:", error);
@@ -560,6 +568,14 @@ export const [AppProvider, useApp] = createContextHook(() => {
 			await offlineQueue.addToQueue({ type: 'create', entity: 'task', data: { userId: user.uid, description: task.description, type: task.type, className: task.className, dueDate: task.dueDate, dueTime: task.dueTime, priority: task.priority, reminder: task.reminder, customReminderDate: task.customReminderDate || undefined, alarmEnabled: task.alarmEnabled, completed: task.completed, createdAt: task.createdAt, calendarEventId: undefined, repeat: task.repeat || 'none', tempId } });
 			setPendingOperations(offlineQueue.getPendingCount());
 			notifySyncError("Saving in background — will sync when server is ready.");
+
+			// Still schedule notifications so alarms fire even when backend is unavailable
+			if (!task.completed) {
+				if (task.reminder && task.reminder !== 'none') {
+					await NotificationService.scheduleTaskReminder(optimisticTask);
+				}
+				await NotificationService.scheduleDueDateNotification(optimisticTask);
+			}
 		}
 	};
 
@@ -614,7 +630,9 @@ export const [AppProvider, useApp] = createContextHook(() => {
 				const updatedTask = { ...task, ...updates } as Task;
 				// Reschedule if not completed
 				if (!updatedTask.completed) {
-					if (updatedTask.reminder) {
+					// Cancel old notifications/alarms first so stale triggers don't fire
+					await NotificationService.cancelAllTaskNotifications(id);
+					if (updatedTask.reminder && updatedTask.reminder !== 'none') {
 						await NotificationService.scheduleTaskReminder(updatedTask);
 					}
 					await NotificationService.scheduleDueDateNotification(updatedTask);

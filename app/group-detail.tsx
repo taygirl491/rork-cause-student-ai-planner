@@ -163,7 +163,7 @@ export default function GroupDetailScreen() {
     };
 
     const shareGroupCode = async (code: string) => {
-        const baseUrl = process.env.EXPO_PUBLIC_API_URL || "http://192.168.1.5:3000";
+        const baseUrl = process.env.EXPO_PUBLIC_API_URL || "https://rork-cause-student-ai-planner.onrender.com";
         const url = `${baseUrl}/join/${code}`;
 
         try {

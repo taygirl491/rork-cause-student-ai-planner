@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Alert, Modal, Image } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Alert, Modal, Image, useWindowDimensions } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -22,6 +22,8 @@ export default function LoginScreen() {
   const { login, isLoggingIn, loginError, resetPassword } = useAuth();
   const router = useRouter();
   const { returnTo } = useLocalSearchParams<{ returnTo: string }>();
+  const { width } = useWindowDimensions();
+  const isTablet = width >= 768;
 
   // Forgot Password State
   const [showForgotModal, setShowForgotModal] = useState(false);
@@ -146,6 +148,7 @@ export default function LoginScreen() {
             contentContainerStyle={styles.scrollContent}
             keyboardShouldPersistTaps="handled"
           >
+            <View style={[styles.formWrapper, isTablet && styles.formWrapperTablet]}>
             <View style={styles.header}>
 
               <View style={styles.iconContainer}>
@@ -228,6 +231,7 @@ export default function LoginScreen() {
                 disabled={isLoggingIn || isNavigating}
                 style={styles.registerButton}
               />
+            </View>
             </View>
           </ScrollView>
         </KeyboardAvoidingView>
@@ -325,6 +329,14 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: 'center',
     padding: 24,
+  },
+  formWrapper: {
+    width: '100%',
+  },
+  formWrapperTablet: {
+    maxWidth: 480,
+    alignSelf: 'center',
+    width: '100%',
   },
   header: {
     alignItems: 'center',

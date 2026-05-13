@@ -11,7 +11,7 @@ class SocketService {
     private API_URL: string;
 
     constructor() {
-        this.API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+        this.API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://rork-cause-student-ai-planner.onrender.com';
     }
 
     /**

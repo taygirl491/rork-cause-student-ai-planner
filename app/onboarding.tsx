@@ -3,20 +3,18 @@ import {
     View,
     Text,
     StyleSheet,
-    Dimensions,
     ScrollView,
     TouchableOpacity,
     Image,
     NativeSyntheticEvent,
     NativeScrollEvent,
+    useWindowDimensions,
 } from 'react-native';
 import Button from '@/components/Button';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import colors from '@/constants/colors';
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const ONBOARDING_COMPLETE_KEY = '@onboarding_complete';
 
@@ -52,6 +50,8 @@ export default function OnboardingScreen() {
     const router = useRouter();
     const scrollViewRef = useRef<ScrollView>(null);
     const [currentPage, setCurrentPage] = useState(0);
+    const { width: SCREEN_WIDTH } = useWindowDimensions();
+    const isTablet = SCREEN_WIDTH >= 768;
 
     const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
         const offsetX = event.nativeEvent.contentOffset.x;
@@ -103,21 +103,21 @@ export default function OnboardingScreen() {
                     style={styles.scrollView}
                 >
                     {pages.map((page) => (
-                        <View key={page.id} style={styles.page}>
-                            <View style={styles.content}>
+                        <View key={page.id} style={[styles.page, { width: SCREEN_WIDTH }]}>
+                            <View style={[styles.content, isTablet && styles.contentTablet]}>
                                 {/* Image */}
                                 <View style={styles.imageContainer}>
                                     <Image
                                         source={page.image}
-                                        style={styles.image}
+                                        style={[styles.image, isTablet && styles.imageTablet]}
                                         resizeMode="contain"
                                     />
                                 </View>
 
                                 {/* Text Content */}
                                 <View style={styles.textContainer}>
-                                    <Text style={styles.title}>{page.title}</Text>
-                                    <Text style={styles.description}>{page.description}</Text>
+                                    <Text style={[styles.title, isTablet && styles.titleTablet]}>{page.title}</Text>
+                                    <Text style={[styles.description, isTablet && styles.descriptionTablet]}>{page.description}</Text>
                                 </View>
                             </View>
                         </View>
@@ -125,7 +125,7 @@ export default function OnboardingScreen() {
                 </ScrollView>
 
                 {/* Bottom Section */}
-                <View style={styles.bottomSection}>
+                <View style={[styles.bottomSection, isTablet && styles.bottomSectionTablet]}>
                     {/* Page Indicators */}
                     <View style={styles.pagination}>
                         {pages.map((_, index) => (
@@ -192,7 +192,6 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     page: {
-        width: SCREEN_WIDTH,
         flex: 1,
     },
     content: {
@@ -200,6 +199,11 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         paddingHorizontal: 32,
+    },
+    contentTablet: {
+        maxWidth: 700,
+        alignSelf: 'center',
+        width: '100%',
     },
     imageContainer: {
         flex: 1,
@@ -213,6 +217,9 @@ const styles = StyleSheet.create({
         height: '100%',
         maxWidth: 350,
     },
+    imageTablet: {
+        maxWidth: 520,
+    },
     textContainer: {
         alignItems: 'center',
         paddingBottom: 40,
@@ -224,15 +231,27 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         marginBottom: 16,
     },
+    titleTablet: {
+        fontSize: 36,
+    },
     description: {
         fontSize: 16,
         color: colors.textSecondary,
         textAlign: 'center',
         lineHeight: 24,
     },
+    descriptionTablet: {
+        fontSize: 20,
+        lineHeight: 30,
+    },
     bottomSection: {
         paddingBottom: 40,
         paddingHorizontal: 32,
+    },
+    bottomSectionTablet: {
+        maxWidth: 560,
+        alignSelf: 'center',
+        width: '100%',
     },
     pagination: {
         flexDirection: 'row',

@@ -43,8 +43,8 @@ const taskSchema = new mongoose.Schema({
     },
     reminder: {
         type: String,
-        enum: ['1h', '2h', '1d', '2d', 'custom'],
-        default: '1d',
+        enum: ['none', '1h', '2h', '1d', '2d', 'custom'],
+        default: 'none',
     },
     customReminderDate: {
         type: String, // ISO date string

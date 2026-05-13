@@ -502,7 +502,6 @@ function RootLayout() {
           dsn: process.env.EXPO_PUBLIC_SENTRY_DSN || 'https://b73520e1b6648db41574a92098b42ec2@o4510577981915136.ingest.us.sentry.io/4510577983356928',
           debug: false,
         });
-        Sentry.captureMessage('Sentry test - CauseAI app started'); // TODO: remove after confirming Sentry works
       } catch (e) {
         console.warn('Sentry initialization failed:', e);
       }
@@ -510,8 +509,6 @@ function RootLayout() {
 
     return () => handle.cancel();
   }, []);
-
-  console.log('[Stripe] Initializing with key:', stripeKey ? stripeKey.substring(0, 10) + '...' : 'MISSING');
 
   return (
     <StripeProvider
