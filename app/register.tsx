@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Alert, Image, Keyboard } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Alert, Image, Keyboard, useWindowDimensions } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -19,6 +19,8 @@ export default function RegisterScreen() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const { register, isRegistering, registerError } = useAuth();
   const router = useRouter();
+  const { width } = useWindowDimensions();
+  const isTablet = width >= 768;
 
   const handleRegister = async () => {
     if (!name.trim() || !email.trim() || !password.trim() || !confirmPassword.trim()) {
@@ -125,6 +127,7 @@ export default function RegisterScreen() {
               </View>
             </TouchableOpacity>
 
+            <View style={[styles.formWrapper, isTablet && styles.formWrapperTablet]}>
             <View style={styles.header}>
               <View style={styles.iconContainer}>
                 <Image source={require('../assets/images/logo.png')} style={styles.logo} />
@@ -242,6 +245,7 @@ export default function RegisterScreen() {
                 </Text>
               </TouchableOpacity>
             </View>
+            </View>
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
@@ -264,6 +268,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: 24,
     paddingTop: 60,
+  },
+  formWrapper: {
+    width: '100%',
+  },
+  formWrapperTablet: {
+    maxWidth: 480,
+    alignSelf: 'center',
+    width: '100%',
   },
   backButton: {
     position: 'absolute',

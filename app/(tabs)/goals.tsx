@@ -579,9 +579,9 @@ export default function GoalsScreen() {
                       date={dueDate}
                       onConfirm={(date) => {
                         setShowDatePicker(false);
-                        // Picker returns midnight UTC on iOS — extract UTC components and
-                        // rebuild as local noon so formatLocalDate() returns the correct day.
-                        const normalized = new Date(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 12, 0, 0);
+                        // Picker returns midnight LOCAL time — use local date components.
+                        // UTC components give the previous day for UTC+ timezones.
+                        const normalized = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 12, 0, 0);
                         setDueDate(normalized);
                       }}
                       onCancel={() => setShowDatePicker(false)}

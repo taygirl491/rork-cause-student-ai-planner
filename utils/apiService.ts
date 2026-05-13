@@ -25,14 +25,6 @@ async function buildAuthHeaders(extra: Record<string, string> = {}): Promise<Rec
 	};
 }
 
-// Log API configuration on module load
-console.log('[API] ========== API Service Configuration ==========');
-console.log('[API] API URL:', API_BASE_URL);
-console.log('[API] API Key present:', !!API_KEY);
-console.log('[API] Platform:', Platform.OS);
-console.log('[API] Environment:', __DEV__ ? 'Development' : 'Production');
-console.log('[API] ================================================');
-
 // Timeout helper with better error handling
 const fetchWithTimeout = async (
 	url: string,

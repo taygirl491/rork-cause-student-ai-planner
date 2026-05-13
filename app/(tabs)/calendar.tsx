@@ -151,7 +151,7 @@ export default function CalendarScreen() {
     const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
     return (
-      <View style={styles.monthGrid}>
+      <View style={[styles.monthGrid, isTablet && { paddingHorizontal: 40 }]}>
         <View style={styles.weekDaysRow}>
           {weekDays.map((day) => (
             <Text key={day} style={styles.weekDayText}>{day}</Text>
@@ -219,7 +219,7 @@ export default function CalendarScreen() {
     const days = getWeekDays(currentDate);
 
     return (
-      <ScrollView style={styles.weekView}>
+      <ScrollView style={[styles.weekView, isTablet && { paddingHorizontal: 40 }]}>
         {days.map((day) => {
           const tasks = getTasksForDate(day);
           const dayClasses = getClassesForDate(day);
@@ -263,7 +263,7 @@ export default function CalendarScreen() {
     const dayClasses = getClassesForDate(currentDate);
 
     return (
-      <ScrollView style={styles.dayView}>
+      <ScrollView style={[styles.dayView, isTablet && { paddingHorizontal: 40 }]}>
         <Text style={styles.sectionTitle}>Classes</Text>
         {dayClasses.length === 0 ? (
           <Text style={styles.emptyText}>No classes scheduled</Text>
@@ -374,7 +374,7 @@ export default function CalendarScreen() {
         </View>
       </View>
 
-      <View style={styles.controls}>
+      <View style={[styles.controls, isTablet && { paddingHorizontal: 40 }]}>
         <View style={styles.viewModeToggle}>
           <TouchableOpacity
             style={[styles.viewModeButton, viewMode === 'month' && styles.viewModeButtonActive]}
@@ -403,7 +403,7 @@ export default function CalendarScreen() {
         </View>
       </View>
 
-      <View style={styles.navigation}>
+      <View style={[styles.navigation, isTablet && { paddingHorizontal: 40 }]}>
         <TouchableOpacity style={styles.navButton} onPress={navigatePrevious}>
           <ChevronLeft size={24} color={colors.text} />
         </TouchableOpacity>
@@ -424,7 +424,7 @@ export default function CalendarScreen() {
       >
         {viewMode === 'month' && renderMonthView()}
         {viewMode === 'month' && selectedDate && (
-          <View style={styles.selectedDaySection}>
+          <View style={[styles.selectedDaySection, isTablet && { marginHorizontal: 40 }]}>
             <View style={styles.selectedDayHeader}>
               <Text style={styles.selectedDayTitle}>
                 {selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}

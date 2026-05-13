@@ -91,24 +91,6 @@ export default function StudyGroupsScreen() {
 	const [groupDescription, setGroupDescription] = useState("");
 	const [isPrivate, setIsPrivate] = useState(false);
 
-	// DEBUG: Log study groups data
-	React.useEffect(() => {
-		console.log('=== STUDY GROUPS DEBUG ===');
-		console.log('Total groups:', studyGroups.length);
-		console.log('User UID:', user?.uid);
-		studyGroups.forEach((group, index) => {
-			console.log(`Group ${index + 1}:`, {
-				name: group.name,
-				id: group.id,
-				creatorId: group.creatorId,
-				admins: group.admins,
-				hasAdmins: !!group.admins,
-				adminsIsArray: Array.isArray(group.admins),
-				adminsLength: group.admins?.length,
-				isUserAdmin: group.admins?.includes(user?.uid || ''),
-			});
-		});
-	}, [studyGroups, user?.uid]);
 
 	const [joinCode, setJoinCode] = useState("");
 
@@ -170,8 +152,7 @@ export default function StudyGroupsScreen() {
 	};
 
 	const shareGroupCode = async (code: string) => {
-		// TODO: Replace with your production backend URL
-		const baseUrl = process.env.EXPO_PUBLIC_API_URL || "http://192.168.1.5:3000";
+		const baseUrl = process.env.EXPO_PUBLIC_API_URL || "https://rork-cause-student-ai-planner.onrender.com";
 		const url = `${baseUrl}/join/${code}`;
 
 		try {

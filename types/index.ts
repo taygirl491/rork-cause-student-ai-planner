@@ -1,6 +1,6 @@
 export type TaskType = 'task' | 'event' | 'exam' | 'paper' | 'appointment' | 'homework' | 'work' | 'internship';
 export type Priority = 'low' | 'medium' | 'high';
-export type ReminderTime = '1h' | '2h' | '1d' | '2d' | 'custom';
+export type ReminderTime = 'none' | '1h' | '2h' | '1d' | '2d' | 'custom';
 
 export interface Task {
   id: string;

@@ -313,6 +313,7 @@ const styles = StyleSheet.create({
         paddingBottom: 32,
         alignItems: 'center',
         width: width * 0.78,
+        maxWidth: 420,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 12 },
         shadowOpacity: 0.2,
