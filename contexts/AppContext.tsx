@@ -76,13 +76,21 @@ export const [AppProvider, useApp] = createContextHook(() => {
 
 	// Video Configuration State
 	const [videoConfig, setVideoConfig] = useState({
-		homeVideoId: "VRSnKzgVTiU", // Default Home Video
-		homeVideoTitle: "Pep Talk - Motivation from students like you", // Default Title
-		causesVideoId: "dQw4w9WgXcQ", // Default Causes Video
-		causesVideo1Id: "dQw4w9WgXcQ",
-		causesVideo2Id: "dQw4w9WgXcQ",
-		causesVideo3Id: "dQw4w9WgXcQ",
-		causesVideo4Id: "dQw4w9WgXcQ",
+		homeVideoId: "VRSnKzgVTiU",
+		homeVideoTitle: "Pep Talk - Motivation from students like you",
+		homeVideoName: '',
+		homeVideoSchool: '',
+		causesVideoId: '',
+		causesVideo1Id: '',
+		causesVideo1Title: '', causesVideo1Name: '', causesVideo1School: '',
+		causesVideo2Id: '',
+		causesVideo2Title: '', causesVideo2Name: '', causesVideo2School: '',
+		causesVideo3Id: '',
+		causesVideo3Title: '', causesVideo3Name: '', causesVideo3School: '',
+		causesVideo4Id: '',
+		causesVideo4Title: '', causesVideo4Name: '', causesVideo4School: '',
+		causesVideo5Id: '',
+		causesVideo5Title: '', causesVideo5Name: '', causesVideo5School: '',
 		essay1: { title: '', author: '', content: '' },
 		essay2: { title: '', author: '', content: '' }
 	});
@@ -363,11 +371,29 @@ export const [AppProvider, useApp] = createContextHook(() => {
 					setVideoConfig({
 						homeVideoId: data.homeVideoId || "VRSnKzgVTiU",
 						homeVideoTitle: data.homeVideoTitle || "Pep Talk - Motivation from students like you",
-						causesVideoId: data.causesVideoId || "dQw4w9WgXcQ",
-						causesVideo1Id: data.causesVideo1Id || "dQw4w9WgXcQ",
-						causesVideo2Id: data.causesVideo2Id || "dQw4w9WgXcQ",
-						causesVideo3Id: data.causesVideo3Id || "dQw4w9WgXcQ",
-						causesVideo4Id: data.causesVideo4Id || "dQw4w9WgXcQ",
+						homeVideoName: data.homeVideoName || '',
+						homeVideoSchool: data.homeVideoSchool || '',
+						causesVideoId: data.causesVideoId || '',
+						causesVideo1Id: data.causesVideo1Id || '',
+						causesVideo1Title: data.causesVideo1Title || '',
+						causesVideo1Name: data.causesVideo1Name || '',
+						causesVideo1School: data.causesVideo1School || '',
+						causesVideo2Id: data.causesVideo2Id || '',
+						causesVideo2Title: data.causesVideo2Title || '',
+						causesVideo2Name: data.causesVideo2Name || '',
+						causesVideo2School: data.causesVideo2School || '',
+						causesVideo3Id: data.causesVideo3Id || '',
+						causesVideo3Title: data.causesVideo3Title || '',
+						causesVideo3Name: data.causesVideo3Name || '',
+						causesVideo3School: data.causesVideo3School || '',
+						causesVideo4Id: data.causesVideo4Id || '',
+						causesVideo4Title: data.causesVideo4Title || '',
+						causesVideo4Name: data.causesVideo4Name || '',
+						causesVideo4School: data.causesVideo4School || '',
+						causesVideo5Id: data.causesVideo5Id || '',
+						causesVideo5Title: data.causesVideo5Title || '',
+						causesVideo5Name: data.causesVideo5Name || '',
+						causesVideo5School: data.causesVideo5School || '',
 						essay1: data.essay1 || { title: '', author: '', content: '' },
 						essay2: data.essay2 || { title: '', author: '', content: '' }
 					});

@@ -24,13 +24,13 @@ function checkEmailConfig() {
 }
 
 /**
- * Create a transporter using Gmail service
+ * Create a transporter using configured SMTP service
  */
 const createTransporter = () => {
   return nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 587,
-    secure: false, // Use STARTTLS
+    host: process.env.SMTP_HOST || 'smtp.zoho.com',
+    port: parseInt(process.env.SMTP_PORT || '587'),
+    secure: process.env.SMTP_SECURE === 'true',
     auth: {
       user: process.env.GMAIL_USER,
       pass: process.env.GMAIL_APP_PASSWORD
@@ -94,7 +94,7 @@ async function sendWelcomeEmail(to, name) {
     const transporter = createTransporter();
 
     const mailOptions = {
-      from: `"Cause Planner" <${process.env.GMAIL_USER}>`,
+      from: `"Cause Planner" <${process.env.FROM_EMAIL || process.env.GMAIL_USER}>`,
       to: to,
       subject: 'Welcome to Cause Planner! 🎓',
       html: `
@@ -149,7 +149,7 @@ async function sendPasswordResetEmail(to, resetLink) {
     const transporter = createTransporter();
 
     const mailOptions = {
-      from: `"Cause Planner" <${process.env.GMAIL_USER}>`,
+      from: `"Cause Planner" <${process.env.FROM_EMAIL || process.env.GMAIL_USER}>`,
       to: to,
       subject: 'Reset Your Password - Cause Planner',
       html: `
@@ -214,7 +214,7 @@ async function sendBroadcastEmail(recipients, subject, message, io = null) {
 
       try {
         const mailOptions = {
-          from: `"Cause Planner" <${process.env.GMAIL_USER}>`,
+          from: `"Cause Planner" <${process.env.FROM_EMAIL || process.env.GMAIL_USER}>`,
           to: recipient,
           subject: subject,
           html: `
@@ -303,7 +303,7 @@ async function sendTestEmail(to) {
     const transporter = createTransporter();
 
     const mailOptions = {
-      from: `"Cause Planner" <${process.env.GMAIL_USER}>`,
+      from: `"Cause Planner" <${process.env.FROM_EMAIL || process.env.GMAIL_USER}>`,
       to: to,
       subject: 'Test Email from Cause Planner',
       html: `
@@ -357,7 +357,7 @@ async function sendGroupCreatedNotification(to, groupData) {
   try {
     const transporter = createTransporter();
     const mailOptions = {
-      from: `"Cause Planner" <${process.env.GMAIL_USER}>`,
+      from: `"Cause Planner" <${process.env.FROM_EMAIL || process.env.GMAIL_USER}>`,
       to: to,
       subject: `Study Group Created: ${groupData.name} 📚`,
       html: `
@@ -384,6 +384,46 @@ async function sendGroupCreatedNotification(to, groupData) {
  */
 const sendAnnouncement = sendBroadcastEmail;
 
+/**
+ * Send a notification email to the admin when a new pep talk is submitted
+ */
+async function sendSubmissionNotification(submission) {
+  try {
+    const transporter = createTransporter();
+    const adminEmail = process.env.FROM_EMAIL || process.env.GMAIL_USER;
+    const submittedDate = new Date(submission.submittedAt).toLocaleString('en-US', {
+      dateStyle: 'medium', timeStyle: 'short'
+    });
+
+    await transporter.sendMail({
+      from: `"Cause Planner" <${adminEmail}>`,
+      to: adminEmail,
+      subject: `New Pep Talk Submission — ${submission.firstName} ${submission.lastName}`,
+      html: `
+        <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px">
+          <h2 style="color:#6366F1">New Pep Talk Submission 🎤</h2>
+          <table style="width:100%;border-collapse:collapse">
+            <tr><td style="padding:8px 0;font-weight:bold;width:160px">Name</td><td>${submission.firstName} ${submission.lastName}</td></tr>
+            <tr><td style="padding:8px 0;font-weight:bold">School</td><td>${submission.school}</td></tr>
+            <tr><td style="padding:8px 0;font-weight:bold">Video Link</td><td><a href="${submission.videoLink}" style="color:#6366F1">${submission.videoLink}</a></td></tr>
+            <tr><td style="padding:8px 0;font-weight:bold">Email</td><td>${submission.email}</td></tr>
+            <tr><td style="padding:8px 0;font-weight:bold">Phone</td><td>${submission.phone}</td></tr>
+            <tr><td style="padding:8px 0;font-weight:bold">Address</td><td>${submission.address}</td></tr>
+            <tr><td style="padding:8px 0;font-weight:bold">Permission</td><td>${submission.permission ? '✅ Granted' : '❌ Not granted'}</td></tr>
+            <tr><td style="padding:8px 0;font-weight:bold">Submitted</td><td>${submittedDate}</td></tr>
+          </table>
+          <p style="margin-top:24px;color:#64748b;font-size:13px">Review and manage submissions in the Cause Planner Admin Dashboard.</p>
+        </div>
+      `,
+    });
+    console.log(`[PepTalk] Submission notification sent to ${adminEmail}`);
+  } catch (error) {
+    console.error('[PepTalk] Failed to send submission notification:', error.message);
+    // Non-blocking — caller must handle/ignore
+    throw error;
+  }
+}
+
 module.exports = {
   sendWelcomeEmail,
   sendPasswordResetEmail,
@@ -392,6 +432,7 @@ module.exports = {
   sendTestEmail,
   sendJoinNotification,
   sendGroupCreatedNotification,
+  sendSubmissionNotification,
   checkEmailConfig,
   verifyEmailService
 };
