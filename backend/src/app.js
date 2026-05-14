@@ -23,6 +23,7 @@ const stripeRoutes = require("./routes/stripeRoutes");
 const uploadRoutes = require("./routes/uploadRoutes");
 const notifyRoutes = require("./routes/notifyRoutes");
 const authRoutes = require("./routes/authRoutes");
+const pepTalkRoutes = require("./routes/pepTalkRoutes");
 
 const app = express();
 const server = http.createServer(app);
@@ -252,9 +253,9 @@ app.post("/api/test-email", authenticate, async (req, res) => {
         try {
             const nodemailer = require("nodemailer");
             const transporter = nodemailer.createTransport({
-                host: 'smtp.gmail.com',
-                port: 587,
-                secure: false, // Use STARTTLS
+                host: process.env.SMTP_HOST || 'smtp.zoho.com',
+                port: parseInt(process.env.SMTP_PORT || '587'),
+                secure: process.env.SMTP_SECURE === 'true',
                 auth: {
                   user: process.env.GMAIL_USER,
                   pass: process.env.GMAIL_APP_PASSWORD
@@ -289,6 +290,7 @@ app.post("/api/test-email", authenticate, async (req, res) => {
 app.use("/api/upload", uploadLimiter, uploadRoutes);
 app.use("/api/notify", notifyRoutes);
 app.use("/api/auth", authLimiter, authRoutes);
+app.use("/api/pep-talks", pepTalkRoutes);
 
 // AI Routes
 app.use("/api/ai", aiLimiter, authenticate, aiRoutes);

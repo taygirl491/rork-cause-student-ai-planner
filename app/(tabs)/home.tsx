@@ -285,6 +285,13 @@ export default function HomeScreen() {
             />
           </View>
           <Text style={[styles.dynamicVideoTitle, { fontSize: normalize(16) }]}>{videoConfig?.homeVideoTitle || "Motivation from students like you"}</Text>
+          {(videoConfig?.homeVideoName || videoConfig?.homeVideoSchool) ? (
+            <Text style={[styles.videoByline, { fontSize: normalize(13) }]}>
+              {videoConfig.homeVideoName ? `By ${videoConfig.homeVideoName}` : ''}
+              {videoConfig.homeVideoName && videoConfig.homeVideoSchool ? ' · ' : ''}
+              {videoConfig.homeVideoSchool || ''}
+            </Text>
+          ) : null}
         </View>
 
         <View style={styles.quoteSection}>
@@ -623,6 +630,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: colors.text,
+    textAlign: 'center',
+    marginTop: 4,
+  },
+  videoByline: {
+    color: colors.textSecondary,
     textAlign: 'center',
     marginTop: 4,
   },

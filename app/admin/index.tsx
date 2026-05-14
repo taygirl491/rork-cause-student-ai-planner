@@ -10,13 +10,14 @@ import {
     KeyboardAvoidingView,
     Platform,
     ScrollView,
+    Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, Stack } from 'expo-router';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
-import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from '@/firebaseConfig';
-import { Lock, LogOut, Save, Video, ShieldCheck } from 'lucide-react-native';
+import { Lock, LogOut, Save, Video, ShieldCheck, Trash2 } from 'lucide-react-native';
 import colors from '@/constants/colors';
 import apiService from '@/utils/apiService';
 
@@ -46,11 +47,32 @@ function AdminContent() {
 
     const [homeVideoUrl, setHomeVideoUrl] = useState('');
     const [homeVideoTitle, setHomeVideoTitle] = useState('');
+    const [homeVideoName, setHomeVideoName] = useState('');
+    const [homeVideoSchool, setHomeVideoSchool] = useState('');
     const [causesVideo1Url, setCausesVideo1Url] = useState('');
+    const [causesVideo1Title, setCausesVideo1Title] = useState('');
+    const [causesVideo1Name, setCausesVideo1Name] = useState('');
+    const [causesVideo1School, setCausesVideo1School] = useState('');
     const [causesVideo2Url, setCausesVideo2Url] = useState('');
+    const [causesVideo2Title, setCausesVideo2Title] = useState('');
+    const [causesVideo2Name, setCausesVideo2Name] = useState('');
+    const [causesVideo2School, setCausesVideo2School] = useState('');
     const [causesVideo3Url, setCausesVideo3Url] = useState('');
+    const [causesVideo3Title, setCausesVideo3Title] = useState('');
+    const [causesVideo3Name, setCausesVideo3Name] = useState('');
+    const [causesVideo3School, setCausesVideo3School] = useState('');
     const [causesVideo4Url, setCausesVideo4Url] = useState('');
+    const [causesVideo4Title, setCausesVideo4Title] = useState('');
+    const [causesVideo4Name, setCausesVideo4Name] = useState('');
+    const [causesVideo4School, setCausesVideo4School] = useState('');
+    const [causesVideo5Url, setCausesVideo5Url] = useState('');
+    const [causesVideo5Title, setCausesVideo5Title] = useState('');
+    const [causesVideo5Name, setCausesVideo5Name] = useState('');
+    const [causesVideo5School, setCausesVideo5School] = useState('');
     const [saving, setSaving] = useState(false);
+
+    const [submissions, setSubmissions] = useState<any[]>([]);
+    const [submissionsLoading, setSubmissionsLoading] = useState(false);
 
     const [essay1Title, setEssay1Title] = useState('');
     const [essay1Author, setEssay1Author] = useState('');
@@ -66,6 +88,7 @@ function AdminContent() {
             if (user && user.email === ADMIN_EMAIL) {
                 setIsAdmin(true);
                 loadVideoConfig();
+                loadSubmissions();
             } else {
                 setIsAdmin(false);
             }
@@ -81,10 +104,28 @@ function AdminContent() {
                 const data = docSnap.data();
                 setHomeVideoUrl(data.homeVideoId ? `https://youtu.be/${data.homeVideoId}` : '');
                 setHomeVideoTitle(data.homeVideoTitle || '');
+                setHomeVideoName(data.homeVideoName || '');
+                setHomeVideoSchool(data.homeVideoSchool || '');
                 setCausesVideo1Url(data.causesVideo1Id ? `https://youtu.be/${data.causesVideo1Id}` : '');
+                setCausesVideo1Title(data.causesVideo1Title || '');
+                setCausesVideo1Name(data.causesVideo1Name || '');
+                setCausesVideo1School(data.causesVideo1School || '');
                 setCausesVideo2Url(data.causesVideo2Id ? `https://youtu.be/${data.causesVideo2Id}` : '');
+                setCausesVideo2Title(data.causesVideo2Title || '');
+                setCausesVideo2Name(data.causesVideo2Name || '');
+                setCausesVideo2School(data.causesVideo2School || '');
                 setCausesVideo3Url(data.causesVideo3Id ? `https://youtu.be/${data.causesVideo3Id}` : '');
+                setCausesVideo3Title(data.causesVideo3Title || '');
+                setCausesVideo3Name(data.causesVideo3Name || '');
+                setCausesVideo3School(data.causesVideo3School || '');
                 setCausesVideo4Url(data.causesVideo4Id ? `https://youtu.be/${data.causesVideo4Id}` : '');
+                setCausesVideo4Title(data.causesVideo4Title || '');
+                setCausesVideo4Name(data.causesVideo4Name || '');
+                setCausesVideo4School(data.causesVideo4School || '');
+                setCausesVideo5Url(data.causesVideo5Id ? `https://youtu.be/${data.causesVideo5Id}` : '');
+                setCausesVideo5Title(data.causesVideo5Title || '');
+                setCausesVideo5Name(data.causesVideo5Name || '');
+                setCausesVideo5School(data.causesVideo5School || '');
 
                 if (data.essay1) {
                     setEssay1Title(data.essay1.title || '');
@@ -101,6 +142,64 @@ function AdminContent() {
             console.error('Error loading video config:', error);
             Alert.alert('Error', 'Failed to load current video settings.');
         }
+    };
+
+    const loadSubmissions = async () => {
+        setSubmissionsLoading(true);
+        try {
+            const response = await apiService.get('/api/pep-talks/submissions');
+            if (response.success) {
+                setSubmissions(response.submissions || []);
+            }
+        } catch (error) {
+            console.error('Error loading submissions:', error);
+        } finally {
+            setSubmissionsLoading(false);
+        }
+    };
+
+    const handleDeleteSubmission = (id: string, name: string) => {
+        Alert.alert(
+            'Delete Submission',
+            `Remove the entry from ${name}? This cannot be undone.`,
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Delete',
+                    style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            await apiService.delete(`/api/pep-talks/submissions/${id}`);
+                            setSubmissions(prev => prev.filter(s => s._id !== id));
+                        } catch {
+                            Alert.alert('Error', 'Failed to delete submission. Please try again.');
+                        }
+                    },
+                },
+            ]
+        );
+    };
+
+    const handleDeleteAllSubmissions = () => {
+        Alert.alert(
+            'Delete All Submissions',
+            'This will permanently delete ALL student form submissions. This cannot be undone.',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Delete All',
+                    style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            await apiService.delete('/api/pep-talks/submissions/all');
+                            setSubmissions([]);
+                        } catch {
+                            Alert.alert('Error', 'Failed to delete submissions. Please try again.');
+                        }
+                    },
+                },
+            ]
+        );
     };
 
     const handleLogin = async () => {
@@ -149,12 +248,82 @@ function AdminContent() {
 
 
 
+    const clearVideoState = (num: number) => {
+        const map: Record<number, () => void> = {
+            1: () => { setCausesVideo1Url(''); setCausesVideo1Title(''); setCausesVideo1Name(''); setCausesVideo1School(''); },
+            2: () => { setCausesVideo2Url(''); setCausesVideo2Title(''); setCausesVideo2Name(''); setCausesVideo2School(''); },
+            3: () => { setCausesVideo3Url(''); setCausesVideo3Title(''); setCausesVideo3Name(''); setCausesVideo3School(''); },
+            4: () => { setCausesVideo4Url(''); setCausesVideo4Title(''); setCausesVideo4Name(''); setCausesVideo4School(''); },
+            5: () => { setCausesVideo5Url(''); setCausesVideo5Title(''); setCausesVideo5Name(''); setCausesVideo5School(''); },
+        };
+        map[num]?.();
+    };
+
+    const handleDeleteVideo = (num: number) => {
+        Alert.alert(
+            'Delete Submission',
+            `Remove Video ${num} from the Causes page? This takes effect immediately.`,
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Delete',
+                    style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            const docRef = doc(db, 'content', 'videos');
+                            await setDoc(docRef, {
+                                [`causesVideo${num}Id`]: null,
+                                [`causesVideo${num}Title`]: '',
+                                [`causesVideo${num}Name`]: '',
+                                [`causesVideo${num}School`]: '',
+                            }, { merge: true });
+                            clearVideoState(num);
+                        } catch {
+                            Alert.alert('Error', 'Failed to delete. Please try again.');
+                        }
+                    },
+                },
+            ]
+        );
+    };
+
+    const handleDeleteAllVideos = () => {
+        Alert.alert(
+            'Delete All Submissions',
+            'This will remove ALL pep talk videos from the Causes page immediately. This cannot be undone.',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Delete All',
+                    style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            const docRef = doc(db, 'content', 'videos');
+                            await setDoc(docRef, {
+                                causesVideo1Id: null, causesVideo1Title: '', causesVideo1Name: '', causesVideo1School: '',
+                                causesVideo2Id: null, causesVideo2Title: '', causesVideo2Name: '', causesVideo2School: '',
+                                causesVideo3Id: null, causesVideo3Title: '', causesVideo3Name: '', causesVideo3School: '',
+                                causesVideo4Id: null, causesVideo4Title: '', causesVideo4Name: '', causesVideo4School: '',
+                                causesVideo5Id: null, causesVideo5Title: '', causesVideo5Name: '', causesVideo5School: '',
+                            }, { merge: true });
+                            [1, 2, 3, 4, 5].forEach(clearVideoState);
+                            Alert.alert('Done', 'All submissions removed from the Causes page.');
+                        } catch {
+                            Alert.alert('Error', 'Failed to delete all. Please try again.');
+                        }
+                    },
+                },
+            ]
+        );
+    };
+
     const handleSave = async () => {
         const homeId = extractVideoId(homeVideoUrl);
         const causes1Id = extractVideoId(causesVideo1Url);
         const causes2Id = extractVideoId(causesVideo2Url);
         const causes3Id = extractVideoId(causesVideo3Url);
         const causes4Id = extractVideoId(causesVideo4Url);
+        const causes5Id = extractVideoId(causesVideo5Url);
 
         if (!homeId && homeVideoUrl) {
             Alert.alert('Invalid URL', 'Please enter a valid YouTube URL for the Home video.');
@@ -171,10 +340,28 @@ function AdminContent() {
             await setDoc(docRef, {
                 homeVideoId: homeId,
                 homeVideoTitle: homeVideoTitle,
+                homeVideoName: homeVideoName,
+                homeVideoSchool: homeVideoSchool,
                 causesVideo1Id: causes1Id,
+                causesVideo1Title: causesVideo1Title,
+                causesVideo1Name: causesVideo1Name,
+                causesVideo1School: causesVideo1School,
                 causesVideo2Id: causes2Id,
+                causesVideo2Title: causesVideo2Title,
+                causesVideo2Name: causesVideo2Name,
+                causesVideo2School: causesVideo2School,
                 causesVideo3Id: causes3Id,
+                causesVideo3Title: causesVideo3Title,
+                causesVideo3Name: causesVideo3Name,
+                causesVideo3School: causesVideo3School,
                 causesVideo4Id: causes4Id,
+                causesVideo4Title: causesVideo4Title,
+                causesVideo4Name: causesVideo4Name,
+                causesVideo4School: causesVideo4School,
+                causesVideo5Id: causes5Id,
+                causesVideo5Title: causesVideo5Title,
+                causesVideo5Name: causesVideo5Name,
+                causesVideo5School: causesVideo5School,
                 essay1: {
                     title: essay1Title,
                     author: essay1Author,
@@ -270,6 +457,61 @@ function AdminContent() {
                         Manage the featured videos linked in the app for Home and Causes screens.
                     </Text>
 
+                    {/* Pep Talk Submissions Card */}
+                    <View style={[styles.card, { marginBottom: 20 }]}>
+                        <View style={styles.cardHeader}>
+                            <ShieldCheck size={24} color={colors.primary} />
+                            <Text style={styles.cardTitle}>Pep Talk Submissions</Text>
+                            <TouchableOpacity onPress={loadSubmissions} style={styles.refreshButton}>
+                                <Text style={styles.refreshButtonText}>Refresh</Text>
+                            </TouchableOpacity>
+                        </View>
+
+                        {submissionsLoading ? (
+                            <ActivityIndicator color={colors.primary} style={{ marginVertical: 20 }} />
+                        ) : submissions.length === 0 ? (
+                            <View style={styles.emptySubmissions}>
+                                <Text style={styles.emptySubmissionsText}>No submissions yet.</Text>
+                            </View>
+                        ) : (
+                            <>
+                                {submissions.map((s: any) => (
+                                    <View key={s._id} style={styles.submissionItem}>
+                                        <View style={styles.submissionHeader}>
+                                            <View style={{ flex: 1 }}>
+                                                <Text style={styles.submissionName}>{s.firstName} {s.lastName}</Text>
+                                                <Text style={styles.submissionSchool}>{s.school}</Text>
+                                            </View>
+                                            <TouchableOpacity
+                                                onPress={() => handleDeleteSubmission(s._id, `${s.firstName} ${s.lastName}`)}
+                                                style={styles.deleteIconButton}
+                                            >
+                                                <Trash2 size={18} color="#EF4444" />
+                                            </TouchableOpacity>
+                                        </View>
+
+                                        <TouchableOpacity onPress={() => Linking.openURL(s.videoLink)}>
+                                            <Text style={styles.submissionLink} numberOfLines={1}>{s.videoLink}</Text>
+                                        </TouchableOpacity>
+
+                                        <View style={styles.submissionMeta}>
+                                            <Text style={styles.submissionMetaText}>{s.email}</Text>
+                                            <Text style={styles.submissionMetaText}>{s.phone}</Text>
+                                            <Text style={styles.submissionMetaText}>
+                                                {new Date(s.submittedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                            </Text>
+                                        </View>
+                                    </View>
+                                ))}
+
+                                <TouchableOpacity style={styles.clearButton} onPress={handleDeleteAllSubmissions}>
+                                    <Trash2 size={16} color="#EF4444" />
+                                    <Text style={styles.clearButtonText}>Delete All Submissions</Text>
+                                </TouchableOpacity>
+                            </>
+                        )}
+                    </View>
+
                     <View style={styles.card}>
                         <View style={styles.cardHeader}>
                             <Video size={24} color={colors.primary} />
@@ -298,57 +540,72 @@ function AdminContent() {
                                 autoCapitalize="none"
                             />
                         </View>
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.label}>Student Name</Text>
+                            <TextInput
+                                style={styles.input}
+                                placeholder="e.g., John"
+                                value={homeVideoName}
+                                onChangeText={setHomeVideoName}
+                                placeholderTextColor={colors.textLight}
+                            />
+                        </View>
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.label}>School / University</Text>
+                            <TextInput
+                                style={styles.input}
+                                placeholder="e.g., University of Lagos"
+                                value={homeVideoSchool}
+                                onChangeText={setHomeVideoSchool}
+                                placeholderTextColor={colors.textLight}
+                            />
+                        </View>
 
                         <Text style={styles.sectionHeader}>Causes Screen Videos</Text>
-                        <Text style={styles.sectionDescription}>Configure the 4 inspirational student talk videos</Text>
+                        <Text style={styles.sectionDescription}>Configure the 5 inspirational student talk videos</Text>
 
-                        <View style={styles.inputGroup}>
-                            <Text style={styles.label}>Video 1: "How I Changed the World as a Student"</Text>
-                            <TextInput
-                                style={styles.input}
-                                placeholder="https://youtu.be/..."
-                                value={causesVideo1Url}
-                                onChangeText={setCausesVideo1Url}
-                                placeholderTextColor={colors.textLight}
-                                autoCapitalize="none"
-                            />
-                        </View>
+                        {[
+                            { num: 1, label: 'Video 1', url: causesVideo1Url, setUrl: setCausesVideo1Url, title: causesVideo1Title, setTitle: setCausesVideo1Title, name: causesVideo1Name, setName: setCausesVideo1Name, school: causesVideo1School, setSchool: setCausesVideo1School },
+                            { num: 2, label: 'Video 2', url: causesVideo2Url, setUrl: setCausesVideo2Url, title: causesVideo2Title, setTitle: setCausesVideo2Title, name: causesVideo2Name, setName: setCausesVideo2Name, school: causesVideo2School, setSchool: setCausesVideo2School },
+                            { num: 3, label: 'Video 3', url: causesVideo3Url, setUrl: setCausesVideo3Url, title: causesVideo3Title, setTitle: setCausesVideo3Title, name: causesVideo3Name, setName: setCausesVideo3Name, school: causesVideo3School, setSchool: setCausesVideo3School },
+                            { num: 4, label: 'Video 4', url: causesVideo4Url, setUrl: setCausesVideo4Url, title: causesVideo4Title, setTitle: setCausesVideo4Title, name: causesVideo4Name, setName: setCausesVideo4Name, school: causesVideo4School, setSchool: setCausesVideo4School },
+                            { num: 5, label: 'Video 5', url: causesVideo5Url, setUrl: setCausesVideo5Url, title: causesVideo5Title, setTitle: setCausesVideo5Title, name: causesVideo5Name, setName: setCausesVideo5Name, school: causesVideo5School, setSchool: setCausesVideo5School },
+                        ].map((v) => (
+                            <View key={v.label} style={styles.videoGroup}>
+                                <View style={styles.videoGroupHeader}>
+                                    <Text style={styles.subHeader}>{v.label}</Text>
+                                    {v.url ? (
+                                        <TouchableOpacity onPress={() => handleDeleteVideo(v.num)} style={styles.deleteIconButton}>
+                                            <Trash2 size={18} color="#EF4444" />
+                                        </TouchableOpacity>
+                                    ) : null}
+                                </View>
+                                <View style={styles.inputGroup}>
+                                    <Text style={styles.label}>YouTube URL</Text>
+                                    <TextInput style={styles.input} placeholder="https://youtu.be/..." value={v.url} onChangeText={v.setUrl} placeholderTextColor={colors.textLight} autoCapitalize="none" />
+                                </View>
+                                <View style={styles.inputGroup}>
+                                    <Text style={styles.label}>Title of the Video</Text>
+                                    <TextInput style={styles.input} placeholder="e.g., How I Aced My Finals" value={v.title} onChangeText={v.setTitle} placeholderTextColor={colors.textLight} />
+                                </View>
+                                <View style={styles.inputGroup}>
+                                    <Text style={styles.label}>Student Name</Text>
+                                    <TextInput style={styles.input} placeholder="e.g., Sarah" value={v.name} onChangeText={v.setName} placeholderTextColor={colors.textLight} />
+                                </View>
+                                <View style={styles.inputGroup}>
+                                    <Text style={styles.label}>School / University</Text>
+                                    <TextInput style={styles.input} placeholder="e.g., MIT" value={v.school} onChangeText={v.setSchool} placeholderTextColor={colors.textLight} />
+                                </View>
+                            </View>
+                        ))}
 
-                        <View style={styles.inputGroup}>
-                            <Text style={styles.label}>Video 2: "From Underperforming to High Achieving"</Text>
-                            <TextInput
-                                style={styles.input}
-                                placeholder="https://youtu.be/..."
-                                value={causesVideo2Url}
-                                onChangeText={setCausesVideo2Url}
-                                placeholderTextColor={colors.textLight}
-                                autoCapitalize="none"
-                            />
-                        </View>
-
-                        <View style={styles.inputGroup}>
-                            <Text style={styles.label}>Video 3: "What School Means to Me"</Text>
-                            <TextInput
-                                style={styles.input}
-                                placeholder="https://youtu.be/..."
-                                value={causesVideo3Url}
-                                onChangeText={setCausesVideo3Url}
-                                placeholderTextColor={colors.textLight}
-                                autoCapitalize="none"
-                            />
-                        </View>
-
-                        <View style={styles.inputGroup}>
-                            <Text style={styles.label}>Video 4: "Overcoming Challenges in My Academic Journey"</Text>
-                            <TextInput
-                                style={styles.input}
-                                placeholder="https://youtu.be/..."
-                                value={causesVideo4Url}
-                                onChangeText={setCausesVideo4Url}
-                                placeholderTextColor={colors.textLight}
-                                autoCapitalize="none"
-                            />
-                        </View>
+                        <TouchableOpacity
+                            style={styles.clearButton}
+                            onPress={handleDeleteAllVideos}
+                        >
+                            <Trash2 size={16} color="#EF4444" />
+                            <Text style={styles.clearButtonText}>Delete All Submissions</Text>
+                        </TouchableOpacity>
 
                         <Text style={styles.sectionHeader}>Featured Essays</Text>
                         <Text style={styles.sectionDescription}>Add up to 2 featured student essays.</Text>
@@ -702,6 +959,32 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: colors.border,
     },
+    videoGroupHeader: {
+        flexDirection: 'row' as const,
+        justifyContent: 'space-between' as const,
+        alignItems: 'center' as const,
+        marginBottom: 12,
+    },
+    deleteIconButton: {
+        padding: 6,
+    },
+    clearButton: {
+        backgroundColor: 'transparent',
+        borderWidth: 1.5,
+        borderColor: '#EF4444',
+        borderRadius: 12,
+        padding: 14,
+        flexDirection: 'row' as const,
+        alignItems: 'center' as const,
+        justifyContent: 'center' as const,
+        gap: 8,
+        marginBottom: 12,
+    },
+    clearButtonText: {
+        color: '#EF4444',
+        fontWeight: '600' as const,
+        fontSize: 15,
+    },
     saveButton: {
         backgroundColor: colors.primary,
         flexDirection: 'row',
@@ -731,6 +1014,14 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: colors.textSecondary,
         marginBottom: 16,
+    },
+    videoGroup: {
+        backgroundColor: colors.background,
+        borderRadius: 12,
+        padding: 16,
+        marginBottom: 16,
+        borderLeftWidth: 3,
+        borderLeftColor: colors.primary,
     },
     essayCard: {
         backgroundColor: colors.background,
@@ -762,5 +1053,61 @@ const styles = StyleSheet.create({
         color: colors.surface,
         fontSize: 16,
         fontWeight: '700',
+    },
+    refreshButton: {
+        marginLeft: 'auto' as any,
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        backgroundColor: colors.primary + '15',
+        borderRadius: 8,
+    },
+    refreshButtonText: {
+        color: colors.primary,
+        fontSize: 13,
+        fontWeight: '600',
+    },
+    emptySubmissions: {
+        paddingVertical: 24,
+        alignItems: 'center' as const,
+    },
+    emptySubmissionsText: {
+        color: colors.textSecondary,
+        fontSize: 14,
+    },
+    submissionItem: {
+        backgroundColor: colors.background,
+        borderRadius: 12,
+        padding: 16,
+        marginBottom: 12,
+        borderWidth: 1,
+        borderColor: colors.border,
+    },
+    submissionHeader: {
+        flexDirection: 'row' as const,
+        alignItems: 'flex-start' as const,
+        marginBottom: 8,
+    },
+    submissionName: {
+        fontSize: 15,
+        fontWeight: '700',
+        color: colors.text,
+    },
+    submissionSchool: {
+        fontSize: 13,
+        color: colors.textSecondary,
+        marginTop: 2,
+    },
+    submissionLink: {
+        fontSize: 13,
+        color: colors.primary,
+        textDecorationLine: 'underline' as const,
+        marginBottom: 8,
+    },
+    submissionMeta: {
+        gap: 2,
+    },
+    submissionMetaText: {
+        fontSize: 12,
+        color: colors.textSecondary,
     },
 });

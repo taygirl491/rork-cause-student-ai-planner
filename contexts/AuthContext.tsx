@@ -17,6 +17,7 @@ import {
 } from 'firebase/auth';
 import { auth } from '@/firebaseConfig';
 import { SubscriptionTier, PERMISSIONS, Features } from '@/constants/permissions';
+import { cancelAllNotifications } from '@/utils/notificationService';
 
 // Initialize auth persistence if not already initialized
 // Note: In a real app, you might want to do this in a separate initialization file
@@ -249,6 +250,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
 
   const logoutMutation = useMutation({
     mutationFn: async () => {
+      await cancelAllNotifications();
       await signOut(auth);
     },
     onSuccess: () => {
