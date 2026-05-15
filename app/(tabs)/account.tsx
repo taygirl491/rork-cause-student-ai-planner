@@ -48,6 +48,7 @@ import apiService from '@/utils/apiService';
 import { TERMS_AND_CONDITIONS, PRIVACY_POLICY } from '@/constants/LegalText';
 import { useStripe } from '@stripe/stripe-react-native';
 import * as Analytics from '@/utils/analytics';
+import { APPLE_PRODUCT_IDS, purchaseSubscription, restorePurchases, initIAP } from '@/utils/iapService';
 import { useResponsive } from '@/utils/responsive';
 import ResponsiveContainer from '@/components/ResponsiveContainer';
 
@@ -95,6 +96,34 @@ export default function AccountScreen() {
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const [deleteStep, setDeleteStep] = useState(1);
   const [deleteReason, setDeleteReason] = useState('');
+
+  // Initialise Apple IAP connection on iOS
+  useEffect(() => {
+    if (Platform.OS === 'ios') {
+      initIAP().catch(console.error);
+    }
+  }, []);
+
+  const handleRestorePurchases = async () => {
+    if (!user?.uid) return;
+    try {
+      const result = await restorePurchases();
+      if (result.success && result.tier) {
+        await apiService.post('/api/iap/activate', {
+          userId: user.uid,
+          productId: 'restored',
+          tier: result.tier,
+        });
+        setCurrentSubscription(result.tier);
+        setShowPaymentModal(false);
+        Alert.alert('Restored', `Your ${result.tier} subscription has been restored.`);
+      } else {
+        Alert.alert('Nothing to Restore', result.error || 'No active subscriptions found.');
+      }
+    } catch {
+      Alert.alert('Error', 'Could not restore purchases. Please try again.');
+    }
+  };
 
   const clearErrors = () => {
     setCurrPassError('');
@@ -170,6 +199,13 @@ export default function AccountScreen() {
 
     try {
       setLoadingSubscription(true);
+
+      // iOS uses Apple IAP — tier is stored in our backend, reflected in currentTier
+      if (Platform.OS === 'ios') {
+        setCurrentSubscription(currentTier as SubscriptionTier);
+        return;
+      }
+
       const response = await apiService.getUserSubscriptions(user.uid);
 
       if (response.success && response.subscriptions && response.subscriptions.length > 0) {
@@ -213,6 +249,19 @@ export default function AccountScreen() {
   };
 
   const handleCancelSubscription = async () => {
+    // iOS: subscriptions are managed by Apple
+    if (Platform.OS === 'ios') {
+      Alert.alert(
+        'Cancel Subscription',
+        'To cancel, go to iPhone Settings → [Your Name] → Subscriptions → Cause Planner.',
+        [
+          { text: 'OK' },
+          { text: 'Open Settings', onPress: () => Linking.openURL('https://apps.apple.com/account/subscriptions') },
+        ]
+      );
+      return;
+    }
+
     if (!activeSubscription || !user?.uid) return;
 
     Alert.alert(
@@ -249,7 +298,54 @@ export default function AccountScreen() {
   const handleUpgrade = async (tier: 'standard' | 'premium' | 'unlimited', interval: 'monthly' | 'yearly') => {
     if (!user?.uid) return;
 
-    // Check if Stripe is initialized (not available in Expo Go)
+    const prices: Record<string, number> = {
+      'standard-monthly': 5, 'standard-yearly': 35,
+      'premium-monthly': 10, 'premium-yearly': 70,
+      'unlimited-monthly': 20, 'unlimited-yearly': 140,
+    };
+    const planLabel = `${tier}-${interval}`;
+
+    // ── iOS: Apple In-App Purchase ──────────────────────────────────────────
+    if (Platform.OS === 'ios') {
+      const appleKeyMap: Record<string, keyof typeof APPLE_PRODUCT_IDS> = {
+        'standard-monthly': 'standardMonthly',
+        'standard-yearly': 'standardYearly',
+        'premium-monthly': 'premiumMonthly',
+        'premium-yearly': 'premiumYearly',
+        'unlimited-monthly': 'unlimitedMonthly',
+        'unlimited-yearly': 'unlimitedYearly',
+      };
+      const productId = APPLE_PRODUCT_IDS[appleKeyMap[planLabel]];
+      if (!productId) { Alert.alert('Error', 'Invalid plan selected.'); return; }
+
+      setLoadingPlan(planLabel);
+      try {
+        Analytics.logCustomEvent('payment_flow_started', { tier, interval, platform: 'ios' });
+        const result = await purchaseSubscription(productId);
+
+        if (result.success && result.tier) {
+          await apiService.post('/api/iap/activate', {
+            userId: user.uid,
+            productId,
+            receiptData: result.purchase?.transactionReceipt,
+          });
+          setCurrentSubscription(result.tier);
+          setShowPaymentModal(false);
+          Analytics.logRevenue(prices[planLabel] || 0, 'USD');
+          Alert.alert('Success!', 'Thank you for subscribing to Cause Planner!');
+          fetchSubscription();
+        } else if (result.error && result.error !== 'cancelled') {
+          Alert.alert('Purchase Failed', result.error);
+        }
+      } catch (error: any) {
+        Alert.alert('Error', error.message || 'Purchase failed. Please try again.');
+      } finally {
+        setLoadingPlan(null);
+      }
+      return;
+    }
+
+    // ── Android: Stripe ─────────────────────────────────────────────────────
     if (!initPaymentSheet || !presentPaymentSheet) {
       Alert.alert(
         'Development Build Required',
@@ -355,17 +451,7 @@ export default function AccountScreen() {
       } else {
         console.log('[Stripe] Payment success');
 
-        // Log revenue based on plan
-        const prices = {
-          'standard-monthly': 5,
-          'standard-yearly': 35,
-          'premium-monthly': 10,
-          'premium-yearly': 70,
-          'unlimited-monthly': 20,
-          'unlimited-yearly': 140
-        };
-        const price = prices[`${tier}-${interval}` as keyof typeof prices] || 0;
-        Analytics.logRevenue(price, 'USD');
+        Analytics.logRevenue(prices[planLabel] || 0, 'USD');
 
         Alert.alert('Success', 'Thank you for subscribing!');
         setCurrentSubscription(tier);
@@ -596,7 +682,7 @@ export default function AccountScreen() {
             <ChevronRight size={20} color={colors.textLight} />
           </TouchableOpacity>
 
-          {activeSubscription && (
+          {(Platform.OS === 'ios' ? currentSubscription !== 'free' : !!activeSubscription) && (
             <TouchableOpacity style={styles.menuItem} onPress={handleCancelSubscription}>
               <View style={styles.menuItemLeft}>
                 <View style={[styles.menuIcon, { backgroundColor: '#FF3B3020' }]}>
@@ -896,6 +982,12 @@ export default function AccountScreen() {
                     supports mental health for everyone!
                   </Text>
                 </View>
+
+                {Platform.OS === 'ios' && (
+                  <TouchableOpacity style={styles.restoreButton} onPress={handleRestorePurchases}>
+                    <Text style={styles.restoreButtonText}>Restore Purchases</Text>
+                  </TouchableOpacity>
+                )}
               </ScrollView>
             </View>
           </View>
@@ -1737,5 +1829,17 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
     fontWeight: '700' as const,
+  },
+  restoreButton: {
+    alignItems: 'center',
+    paddingVertical: 14,
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  restoreButtonText: {
+    fontSize: 14,
+    color: colors.primary,
+    fontWeight: '600' as const,
+    textDecorationLine: 'underline',
   },
 });

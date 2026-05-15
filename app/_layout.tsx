@@ -513,7 +513,7 @@ function RootLayout() {
   return (
     <StripeProvider
       publishableKey={stripeKey}
-      merchantIdentifier="merchant.com.causeai"
+      merchantIdentifier="merchant.com.minatoventures.causeai"
     >
       <QueryClientProvider client={queryClient}>
         <GestureHandlerRootView style={{ flex: 1 }}>

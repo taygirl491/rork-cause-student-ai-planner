@@ -344,7 +344,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     const diffDays = Math.ceil(
       (Date.now() - createdDate.getTime()) / (1000 * 60 * 60 * 24)
     );
-    return diffDays <= 14;
+    return diffDays <= 3;
   };
 
   const getTrialDaysRemaining = () => {
@@ -360,7 +360,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     todayMidnight.setHours(0, 0, 0, 0);
 
     const daysSinceCreation = Math.floor((todayMidnight.getTime() - createdMidnight.getTime()) / (1000 * 60 * 60 * 24));
-    return Math.max(0, 14 - daysSinceCreation);
+    return Math.max(0, 3 - daysSinceCreation);
   };
 
   return {

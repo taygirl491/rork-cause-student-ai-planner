@@ -127,6 +127,15 @@ export function StreakProvider({ children }: { children: ReactNode }) {
                     NotificationService.scheduleStreakWarningNotification(result.newStreakCount).catch(() => {});
                 }
 
+                // Correct the optimistic modal count with the real backend value.
+                // The optimistic count was cachedData.current + 1 which may differ
+                // from the actual backend streak (e.g., streak jumped multiple days
+                // or cache was stale). This keeps the modal in sync with the
+                // gamification tab which reads streakData.current.
+                if (cached && result.newStreakCount > 0) {
+                    setModalStreakCount(result.newStreakCount);
+                }
+
                 // First-time user or cache was cleared: show modal based on backend result.
                 // Set streak data explicitly so modal never reads stale null state.
                 if (!cached && result.increased) {
