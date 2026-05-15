@@ -24,6 +24,7 @@ const uploadRoutes = require("./routes/uploadRoutes");
 const notifyRoutes = require("./routes/notifyRoutes");
 const authRoutes = require("./routes/authRoutes");
 const pepTalkRoutes = require("./routes/pepTalkRoutes");
+const iapRoutes = require("./routes/iapRoutes");
 
 const app = express();
 const server = http.createServer(app);
@@ -291,6 +292,7 @@ app.use("/api/upload", uploadLimiter, uploadRoutes);
 app.use("/api/notify", notifyRoutes);
 app.use("/api/auth", authLimiter, authRoutes);
 app.use("/api/pep-talks", pepTalkRoutes);
+app.use("/api/iap", authenticate, iapRoutes);
 
 // AI Routes
 app.use("/api/ai", aiLimiter, authenticate, aiRoutes);
