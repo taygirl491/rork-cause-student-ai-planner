@@ -48,7 +48,7 @@ import apiService from '@/utils/apiService';
 import { TERMS_AND_CONDITIONS, PRIVACY_POLICY } from '@/constants/LegalText';
 import { useStripe } from '@stripe/stripe-react-native';
 import * as Analytics from '@/utils/analytics';
-import { APPLE_PRODUCT_IDS, purchaseSubscription, restorePurchases, initIAP } from '@/utils/iapService';
+import { APPLE_PRODUCT_IDS, purchaseSubscription, restorePurchases, initIAP, endIAP } from '@/utils/iapService';
 import { useResponsive } from '@/utils/responsive';
 import ResponsiveContainer from '@/components/ResponsiveContainer';
 
@@ -97,11 +97,11 @@ export default function AccountScreen() {
   const [deleteStep, setDeleteStep] = useState(1);
   const [deleteReason, setDeleteReason] = useState('');
 
-  // Initialise Apple IAP connection on iOS
+  // Initialise Apple IAP connection on iOS; clean up on unmount
   useEffect(() => {
-    if (Platform.OS === 'ios') {
-      initIAP().catch(console.error);
-    }
+    if (Platform.OS !== 'ios') return;
+    initIAP().catch(console.error);
+    return () => { endIAP(); };
   }, []);
 
   const handleRestorePurchases = async () => {
@@ -299,9 +299,9 @@ export default function AccountScreen() {
     if (!user?.uid) return;
 
     const prices: Record<string, number> = {
-      'standard-monthly': 5, 'standard-yearly': 35,
-      'premium-monthly': 10, 'premium-yearly': 70,
-      'unlimited-monthly': 20, 'unlimited-yearly': 140,
+      'standard-monthly': 7.99, 'standard-yearly': 49.99,
+      'premium-monthly': 14.99, 'premium-yearly': 99.99,
+      'unlimited-monthly': 29.99, 'unlimited-yearly': 184.99,
     };
     const planLabel = `${tier}-${interval}`;
 
@@ -327,13 +327,12 @@ export default function AccountScreen() {
           await apiService.post('/api/iap/activate', {
             userId: user.uid,
             productId,
-            receiptData: result.purchase?.transactionReceipt,
+            receiptData: result.purchase?.purchaseToken,
           });
           setCurrentSubscription(result.tier);
           setShowPaymentModal(false);
           Analytics.logRevenue(prices[planLabel] || 0, 'USD');
           Alert.alert('Success!', 'Thank you for subscribing to Cause Planner!');
-          fetchSubscription();
         } else if (result.error && result.error !== 'cancelled') {
           Alert.alert('Purchase Failed', result.error);
         }
@@ -842,7 +841,7 @@ export default function AccountScreen() {
                       <Text style={styles.pricingTitle}>Standard</Text>
                       <Text style={styles.pricingBadge}>MONTHLY</Text>
                     </View>
-                    <Text style={styles.pricingPrice}>$5</Text>
+                    <Text style={styles.pricingPrice}>$7.99</Text>
                     <Text style={styles.pricingPeriod}>per month</Text>
                     <View style={styles.pricingDivider} />
                     <Text style={styles.pricingFeatureText}>• Tasks, Calendar, Classes</Text>
@@ -862,13 +861,13 @@ export default function AccountScreen() {
                       </View>
                     )}
                     <View style={styles.recommendedBadge}>
-                      <Text style={styles.recommendedBadgeText}>SAVE $25/YEAR</Text>
+                      <Text style={styles.recommendedBadgeText}>SAVE $46/YEAR</Text>
                     </View>
                     <View style={styles.pricingHeader}>
                       <Text style={styles.pricingTitle}>Standard</Text>
                       <Text style={styles.pricingBadge}>YEARLY</Text>
                     </View>
-                    <Text style={styles.pricingPrice}>$35</Text>
+                    <Text style={styles.pricingPrice}>$49.99</Text>
                     <Text style={styles.pricingPeriod}>per year</Text>
                     <View style={styles.pricingDivider} />
                     <Text style={styles.pricingFeatureText}>• Tasks, Calendar, Classes</Text>
@@ -891,7 +890,7 @@ export default function AccountScreen() {
                       <Text style={styles.pricingTitle}>Premium</Text>
                       <Text style={styles.pricingBadge}>MONTHLY</Text>
                     </View>
-                    <Text style={styles.pricingPrice}>$10</Text>
+                    <Text style={styles.pricingPrice}>$14.99</Text>
                     <Text style={styles.pricingPeriod}>per month</Text>
                     <View style={styles.pricingDivider} />
                     <Text style={styles.pricingFeatureText}>• Everything in Standard</Text>
@@ -911,13 +910,13 @@ export default function AccountScreen() {
                       </View>
                     )}
                     <View style={styles.recommendedBadge}>
-                      <Text style={styles.recommendedBadgeText}>SAVE $50/YEAR</Text>
+                      <Text style={styles.recommendedBadgeText}>SAVE $80/YEAR</Text>
                     </View>
                     <View style={styles.pricingHeader}>
                       <Text style={styles.pricingTitle}>Premium</Text>
                       <Text style={styles.pricingBadge}>YEARLY</Text>
                     </View>
-                    <Text style={styles.pricingPrice}>$70</Text>
+                    <Text style={styles.pricingPrice}>$99.99</Text>
                     <Text style={styles.pricingPeriod}>per year</Text>
                     <View style={styles.pricingDivider} />
                     <Text style={styles.pricingFeatureText}>• Everything in Standard</Text>
@@ -940,7 +939,7 @@ export default function AccountScreen() {
                       <Text style={styles.pricingTitle}>Unlimited</Text>
                       <Text style={styles.pricingBadge}>MONTHLY</Text>
                     </View>
-                    <Text style={styles.pricingPrice}>$20</Text>
+                    <Text style={styles.pricingPrice}>$29.99</Text>
                     <Text style={styles.pricingPeriod}>per month</Text>
                     <View style={styles.pricingDivider} />
                     <Text style={styles.pricingFeatureText}>• Everything in Premium</Text>
@@ -960,13 +959,13 @@ export default function AccountScreen() {
                       </View>
                     )}
                     <View style={styles.recommendedBadge}>
-                      <Text style={styles.recommendedBadgeText}>BEST VALUE - SAVE $100/YEAR</Text>
+                      <Text style={styles.recommendedBadgeText}>BEST VALUE - SAVE $175/YEAR</Text>
                     </View>
                     <View style={styles.pricingHeader}>
                       <Text style={styles.pricingTitle}>Unlimited</Text>
                       <Text style={styles.pricingBadge}>YEARLY</Text>
                     </View>
-                    <Text style={styles.pricingPrice}>$140</Text>
+                    <Text style={styles.pricingPrice}>$184.99</Text>
                     <Text style={styles.pricingPeriod}>per year</Text>
                     <View style={styles.pricingDivider} />
                     <Text style={styles.pricingFeatureText}>• Everything in Premium</Text>

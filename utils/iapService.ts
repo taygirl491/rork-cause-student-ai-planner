@@ -1,11 +1,14 @@
 import { Platform } from 'react-native';
 import {
   initConnection,
+  endConnection,
   getAvailablePurchases,
-  requestSubscription,
+  requestPurchase,
   finishTransaction,
-  type SubscriptionPurchase,
-  type ProductPurchase,
+  purchaseUpdatedListener,
+  purchaseErrorListener,
+  type Purchase,
+  type PurchaseError,
 } from 'react-native-iap';
 
 export type IAPTier = 'standard' | 'premium' | 'unlimited';
@@ -44,29 +47,79 @@ export async function initIAP(): Promise<boolean> {
   }
 }
 
+export async function endIAP(): Promise<void> {
+  if (Platform.OS !== 'ios') return;
+  try {
+    await endConnection();
+  } catch {
+    // ignore — connection may already be closed
+  }
+}
+
+/**
+ * Request an Apple subscription purchase.
+ * v15.x is event-based: result comes through purchaseUpdatedListener,
+ * not the requestPurchase return value. We wrap it in a Promise here.
+ */
 export async function purchaseSubscription(productId: string): Promise<{
   success: boolean;
-  purchase?: SubscriptionPurchase | ProductPurchase;
+  purchase?: Purchase;
   tier?: IAPTier;
   error?: string;
 }> {
-  try {
-    const result = await requestSubscription({
-      sku: productId,
-      andDangerouslyFinishTransactionAutomaticallyIOS: false,
+  return new Promise((resolve) => {
+    let purchaseSub: { remove: () => void } | null = null;
+    let errorSub: { remove: () => void } | null = null;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    let settled = false;
+
+    const cleanup = () => {
+      if (timeoutId) { clearTimeout(timeoutId); timeoutId = null; }
+      purchaseSub?.remove();
+      errorSub?.remove();
+      purchaseSub = null;
+      errorSub = null;
+    };
+
+    const settle = (result: { success: boolean; purchase?: Purchase; tier?: IAPTier; error?: string }) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      resolve(result);
+    };
+
+    purchaseSub = purchaseUpdatedListener(async (purchase: Purchase) => {
+      try {
+        await finishTransaction({ purchase, isConsumable: false });
+        settle({ success: true, purchase, tier: tierForProductId(purchase.productId) });
+      } catch {
+        settle({ success: false, error: 'Failed to finish transaction.' });
+      }
     });
-    const purchase = Array.isArray(result) ? result[0] : result;
-    if (purchase) {
-      await finishTransaction({ purchase, isConsumable: false });
-      return { success: true, purchase, tier: tierForProductId(productId) };
-    }
-    return { success: false, error: 'Purchase not completed.' };
-  } catch (error: any) {
-    if (error.code === 'E_USER_CANCELLED') {
-      return { success: false, error: 'cancelled' };
-    }
-    return { success: false, error: error.message };
-  }
+
+    errorSub = purchaseErrorListener((error: PurchaseError) => {
+      if ((error as any).code === 'E_USER_CANCELLED') {
+        settle({ success: false, error: 'cancelled' });
+      } else {
+        settle({ success: false, error: error.message });
+      }
+    });
+
+    timeoutId = setTimeout(() => {
+      settle({ success: false, error: 'Purchase timed out. Please try again.' });
+    }, 5 * 60 * 1000);
+
+    requestPurchase({
+      request: { apple: { sku: productId } },
+      type: 'subs',
+    }).catch((err: any) => {
+      if (err?.code === 'E_USER_CANCELLED') {
+        settle({ success: false, error: 'cancelled' });
+      } else {
+        settle({ success: false, error: err?.message ?? 'Purchase request failed.' });
+      }
+    });
+  });
 }
 
 export async function restorePurchases(): Promise<{

@@ -25,7 +25,7 @@ const PREMIUM_MONTHLY_PRICE_ID = 'price_1Sl6opP0t2AuYFqKRMdGp5kO';
 
 const PRICING = {
     name: 'Premium Monthly',
-    price: 4.99,
+    price: 14.99,
     features: [
         'Unlimited AI conversations',
         'Advanced quiz generation',

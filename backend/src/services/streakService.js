@@ -119,10 +119,15 @@ async function updateStreak(userId, clientToday) {
 
         user.streak = streakData;
 
+        let updatedPoints = user.points || 0;
+        let updatedLevel = user.level || 1;
+
         if (pointsToAward > 0) {
             try {
                 const gamificationService = require('./gamificationService');
-                await gamificationService.awardPoints(userId, pointsToAward, 'streak', user);
+                const gpResult = await gamificationService.awardPoints(userId, pointsToAward, 'streak', user);
+                updatedPoints = gpResult.points;
+                updatedLevel = gpResult.level;
             } catch (gpError) {
                 console.error("Error awarding streak points:", gpError);
             }
@@ -136,7 +141,9 @@ async function updateStreak(userId, clientToday) {
                 current: streakData.current,
                 longest: streakData.longest,
                 totalTasksCompleted: streakData.totalTasksCompleted,
-                lastCompletionDate: streakData.lastCompletionDate
+                lastCompletionDate: streakData.lastCompletionDate,
+                points: updatedPoints,
+                level: updatedLevel,
             },
             increased,
             milestone,

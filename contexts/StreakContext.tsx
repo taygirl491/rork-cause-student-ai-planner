@@ -293,7 +293,7 @@ export function StreakProvider({ children }: { children: ReactNode }) {
             console.error('[Streak] Error updating streak:', error);
             return { increased: false, milestone: false, backendReachable: false, newStreakCount: 0 };
         }
-    }, [user?.uid, streakData?.current]);
+    }, [user?.uid]);
 
     const refreshStreak = React.useCallback(async (options?: { silent?: boolean }) => {
         await loadStreakData(options);
