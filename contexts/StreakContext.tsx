@@ -128,12 +128,11 @@ export function StreakProvider({ children }: { children: ReactNode }) {
                 }
 
                 // Correct the optimistic modal count with the real backend value.
-                // The optimistic count was cachedData.current + 1 which may differ
-                // from the actual backend streak (e.g., streak jumped multiple days
-                // or cache was stale). This keeps the modal in sync with the
-                // gamification tab which reads streakData.current.
-                if (cached && result.newStreakCount > 0) {
-                    setModalStreakCount(result.newStreakCount);
+                // Always update — including when the streak was reset (newStreakCount=1)
+                // or when the backend returned success:false (newStreakCount=0, use 1).
+                // This keeps the modal in sync with the gamification tab.
+                if (cached) {
+                    setModalStreakCount(Math.max(1, result.newStreakCount));
                 }
 
                 // First-time user or cache was cleared: show modal based on backend result.
@@ -204,9 +203,17 @@ export function StreakProvider({ children }: { children: ReactNode }) {
                         }
 
                         if (hasUpdates) {
-                            AsyncStorage.setItem(STREAK_CACHE_KEY, JSON.stringify(combinedData)).catch(err =>
-                                console.error('[Streak] Error caching streak data:', err)
-                            );
+                            // Don't overwrite cache while a check-in POST is in flight.
+                            // The GET result contains the pre-increment value for `current`
+                            // (which we already skipped above), but the React state at this
+                            // point holds the optimistic count — saving that to AsyncStorage
+                            // would corrupt the cache if the POST later fails.
+                            // updateStreak() writes the confirmed value once the POST resolves.
+                            if (!checkInInProgress.current) {
+                                AsyncStorage.setItem(STREAK_CACHE_KEY, JSON.stringify(combinedData)).catch(err =>
+                                    console.error('[Streak] Error caching streak data:', err)
+                                );
+                            }
                             return combinedData;
                         }
                         return prevData;

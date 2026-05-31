@@ -270,7 +270,7 @@ export default function HomeScreen() {
         </View>
 
         <View style={styles.videoSection}>
-          <Text style={[styles.sectionTitle, { fontSize: normalize(20) }]}>Student Pep Talk</Text>
+          <Text style={[styles.sectionTitle, { fontSize: normalize(20) }]}>College Life TV</Text>
           <Text style={[styles.videoSubtitle, { fontSize: normalize(14) }]}>Lights, Camera, Win!  - Submit your vid for prizes</Text>
           <View style={[styles.videoContainer, isTablet && { maxHeight: 400 }]}>
             <YoutubePlayer
@@ -284,12 +284,16 @@ export default function HomeScreen() {
               }}
             />
           </View>
-          <Text style={[styles.dynamicVideoTitle, { fontSize: normalize(16) }]}>{videoConfig?.homeVideoTitle || "Motivation from students like you"}</Text>
-          {(videoConfig?.homeVideoName || videoConfig?.homeVideoSchool) ? (
-            <Text style={[styles.videoByline, { fontSize: normalize(13) }]}>
-              {videoConfig.homeVideoName ? `By ${videoConfig.homeVideoName}` : ''}
-              {videoConfig.homeVideoName && videoConfig.homeVideoSchool ? ' · ' : ''}
-              {videoConfig.homeVideoSchool || ''}
+          {videoConfig?.homeVideoTitle ? (
+            <Text style={[styles.dynamicVideoTitle, { fontSize: normalize(14) }]}>
+              <Text style={styles.videoMetaLabel}>Title: </Text>
+              {videoConfig.homeVideoTitle}
+            </Text>
+          ) : null}
+          {videoConfig?.homeVideoSchool ? (
+            <Text style={[styles.dynamicVideoTitle, { fontSize: normalize(14) }]}>
+              <Text style={styles.videoMetaLabel}>School: </Text>
+              {videoConfig.homeVideoSchool}
             </Text>
           ) : null}
         </View>
@@ -627,11 +631,15 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   dynamicVideoTitle: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: '400',
     color: colors.text,
     textAlign: 'center',
     marginTop: 4,
+  },
+  videoMetaLabel: {
+    fontWeight: '700',
+    color: colors.text,
   },
   videoByline: {
     color: colors.textSecondary,

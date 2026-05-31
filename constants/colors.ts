@@ -26,6 +26,7 @@ const colors = {
     homework: '#6FCF97',
     work: '#9B59B6',
     internship: '#1ABC9C',
+    'daily habit': '#F06292',
   },
   
   priorityColors: {

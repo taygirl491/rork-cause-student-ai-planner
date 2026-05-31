@@ -1,14 +1,15 @@
 import { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Alert, Image, Keyboard, useWindowDimensions } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Alert, Image, Keyboard, useWindowDimensions, Modal } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Mail, Lock, User as UserIcon, ArrowLeft, Eye, EyeOff } from 'lucide-react-native';
+import { Mail, Lock, User as UserIcon, ArrowLeft, Eye, EyeOff, Check } from 'lucide-react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import colors from '@/constants/colors';
 import * as NotificationService from '@/utils/notificationService';
 import Button from '@/components/Button';
 import { InteractionManager } from 'react-native';
+import { TERMS_AND_CONDITIONS, PRIVACY_POLICY } from '@/constants/LegalText';
 
 export default function RegisterScreen() {
   const [name, setName] = useState('');
@@ -17,6 +18,9 @@ export default function RegisterScreen() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const { register, isRegistering, registerError } = useAuth();
   const router = useRouter();
   const { width } = useWindowDimensions();
@@ -51,6 +55,11 @@ export default function RegisterScreen() {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       Alert.alert('Error', 'Please enter a valid email address');
+      return;
+    }
+
+    if (!agreedToTerms) {
+      Alert.alert('Error', 'Please agree to the Terms & Conditions and Privacy Policy to continue');
       return;
     }
 
@@ -228,6 +237,33 @@ export default function RegisterScreen() {
                 </TouchableOpacity>
               </View>
 
+              <TouchableOpacity
+                style={styles.termsRow}
+                onPress={() => setAgreedToTerms(!agreedToTerms)}
+                activeOpacity={0.7}
+                disabled={isRegistering}
+              >
+                <View style={[styles.checkbox, agreedToTerms && styles.checkboxChecked]}>
+                  {agreedToTerms && <Check size={14} color="#fff" strokeWidth={3} />}
+                </View>
+                <Text style={styles.termsText}>
+                  I agree to the{' '}
+                  <Text
+                    style={styles.termsLink}
+                    onPress={(e) => { e.stopPropagation(); setShowTermsModal(true); }}
+                  >
+                    Terms & Conditions
+                  </Text>
+                  {' '}and{' '}
+                  <Text
+                    style={styles.termsLink}
+                    onPress={(e) => { e.stopPropagation(); setShowPrivacyModal(true); }}
+                  >
+                    Privacy Policy
+                  </Text>
+                </Text>
+              </TouchableOpacity>
+
               <Button
                 title="Create Account"
                 onPress={handleRegister}
@@ -249,6 +285,50 @@ export default function RegisterScreen() {
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
+
+      {/* Terms & Conditions Modal */}
+      <Modal
+        visible={showTermsModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowTermsModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Terms & Conditions</Text>
+              <TouchableOpacity onPress={() => setShowTermsModal(false)}>
+                <Text style={styles.modalClose}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.legalScrollView} showsVerticalScrollIndicator>
+              <Text style={styles.legalText}>{TERMS_AND_CONDITIONS}</Text>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Privacy Policy Modal */}
+      <Modal
+        visible={showPrivacyModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowPrivacyModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Privacy Policy</Text>
+              <TouchableOpacity onPress={() => setShowPrivacyModal(false)}>
+                <Text style={styles.modalClose}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.legalScrollView} showsVerticalScrollIndicator>
+              <Text style={styles.legalText}>{PRIVACY_POLICY}</Text>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </LinearGradient>
   );
 }
@@ -373,5 +453,75 @@ const styles = StyleSheet.create({
   loginLinkTextBold: {
     color: colors.primary,
     fontWeight: '600' as const,
+  },
+  termsRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 16,
+    marginTop: 4,
+    gap: 10,
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: colors.border,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 1,
+    flexShrink: 0,
+  },
+  checkboxChecked: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  termsText: {
+    flex: 1,
+    fontSize: 13,
+    color: colors.textSecondary,
+    lineHeight: 20,
+  },
+  termsLink: {
+    color: colors.primary,
+    fontWeight: '600' as const,
+    textDecorationLine: 'underline',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    height: '80%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700' as const,
+    color: colors.text,
+  },
+  modalClose: {
+    fontSize: 18,
+    color: colors.textSecondary,
+    padding: 4,
+  },
+  legalScrollView: {
+    flex: 1,
+  },
+  legalText: {
+    fontSize: 14,
+    color: colors.text,
+    lineHeight: 22,
   },
 });

@@ -665,31 +665,44 @@ export const [AppProvider, useApp] = createContextHook(() => {
 				} else {
 					// If completed, refresh streaks to update the UI
 					refreshStreak();
-					// Spawn tomorrow's occurrence for daily repeating tasks
+					// Spawn tomorrow's occurrence for daily repeating tasks.
+					// Guard against duplicates: if the user completes → uncompletes → re-completes
+					// the same task, the tomorrow slot may already exist.
 					if (dailyNextDate) {
-						try {
-							const nextTask = await tasksAPI.createTask({
-								userId: user.uid,
-								description: task.description,
-								type: task.type,
-								className: task.className,
-								dueDate: dailyNextDate,
-								dueTime: task.dueTime,
-								priority: task.priority,
-								reminder: task.reminder,
-								customReminderDate: task.customReminderDate || undefined,
-								alarmEnabled: task.alarmEnabled,
-								completed: false,
-								createdAt: new Date().toISOString(),
-								repeat: 'daily',
-							} as any);
-							if (nextTask) {
-								setTasks(prev => [nextTask, ...prev]);
-								if (nextTask.reminder) NotificationService.scheduleTaskReminder(nextTask).catch(() => {});
-								NotificationService.scheduleDueDateNotification(nextTask).catch(() => {});
+						const occurrenceExists = tasks.some(
+							(t) =>
+								t.id !== id &&
+								t.description === task.description &&
+								t.dueDate === dailyNextDate &&
+								t.repeat === 'daily'
+						);
+						if (occurrenceExists) {
+							console.log(`[AppContext] Next occurrence for ${dailyNextDate} already exists — skipping spawn.`);
+						} else {
+							try {
+								const nextTask = await tasksAPI.createTask({
+									userId: user.uid,
+									description: task.description,
+									type: task.type,
+									className: task.className,
+									dueDate: dailyNextDate,
+									dueTime: task.dueTime,
+									priority: task.priority,
+									reminder: task.reminder,
+									customReminderDate: task.customReminderDate || undefined,
+									alarmEnabled: task.alarmEnabled,
+									completed: false,
+									createdAt: new Date().toISOString(),
+									repeat: 'daily',
+								} as any);
+								if (nextTask) {
+									setTasks(prev => [nextTask, ...prev]);
+									if (nextTask.reminder) NotificationService.scheduleTaskReminder(nextTask).catch(() => {});
+									NotificationService.scheduleDueDateNotification(nextTask).catch(() => {});
+								}
+							} catch (e) {
+								console.error('[AppContext] Failed to create next daily task occurrence:', e);
 							}
-						} catch (e) {
-							console.error('[AppContext] Failed to create next daily task occurrence:', e);
 						}
 					}
 				}

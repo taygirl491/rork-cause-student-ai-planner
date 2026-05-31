@@ -2,7 +2,8 @@ import "react-native-get-random-values";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack, useRouter, usePathname } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import * as Updates from "expo-updates";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { View, TouchableOpacity, StyleSheet, Modal, Text, ScrollView, Pressable, StatusBar, Image, Platform, InteractionManager, Animated, AppState, AppStateStatus } from "react-native";
@@ -191,6 +192,44 @@ function RootLayoutNav() {
   const pendingNotifRoute = useRef<NotifRoute | null>(null);
 
   const segments = usePathname();
+  const lastUpdateCheck = useRef<number>(0);
+
+  const checkForUpdate = useCallback(async () => {
+    if (__DEV__ || !Updates.isEnabled) return;
+    const now = Date.now();
+    // Throttle: don't check more than once every 30 minutes
+    if (now - lastUpdateCheck.current < 30 * 60 * 1000) return;
+    lastUpdateCheck.current = now;
+    try {
+      const result = await Updates.checkForUpdateAsync();
+      if (result.isAvailable) {
+        await Updates.fetchUpdateAsync();
+        Alert.alert(
+          'Update Available',
+          'A new version has been downloaded. Restart now to get the latest features.',
+          [
+            { text: 'Later', style: 'cancel' },
+            { text: 'Restart Now', onPress: () => Updates.reloadAsync() },
+          ]
+        );
+      }
+    } catch (e) {
+      console.log('[Updates] Check failed silently:', e);
+    }
+  }, []);
+
+  // Check on first load (once auth settles)
+  useEffect(() => {
+    if (!isLoading) checkForUpdate();
+  }, [isLoading, checkForUpdate]);
+
+  // Check every time the app returns to the foreground
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (next: AppStateStatus) => {
+      if (next === 'active') checkForUpdate();
+    });
+    return () => sub.remove();
+  }, [checkForUpdate]);
 
   // Set Sentry and Analytics user context when user changes
   useEffect(() => {
@@ -329,6 +368,14 @@ function RootLayoutNav() {
     // Request permissions on app start
     NotificationService.requestNotificationPermissions();
 
+    // Clear the iOS app icon badge immediately on launch, and again every time
+    // the app comes to the foreground. Every scheduled notification sets badge:1
+    // so without this the red dot persists indefinitely after any notification fires.
+    NotificationService.clearBadge();
+    const badgeSubscription = AppState.addEventListener('change', (next: AppStateStatus) => {
+      if (next === 'active') NotificationService.clearBadge();
+    });
+
     // Cold start: app was launched by tapping a notification while killed
     Notifications.getLastNotificationResponseAsync().then((response) => {
       if (response) {
@@ -366,12 +413,18 @@ function RootLayoutNav() {
           NotificationService.cancelAllTaskNotifications(taskId).catch(() => {});
         }
 
+        // Clear badge when the user taps any notification to open the app
+        NotificationService.clearBadge();
+
         const route = resolveNotifRoute(data);
         if (route) router.push(route as any);
       }
     );
 
-    return () => subscription.remove();
+    return () => {
+      subscription.remove();
+      badgeSubscription.remove();
+    };
   }, [router]);
 
   // Detect timezone changes and reschedule time-interval notifications accordingly.

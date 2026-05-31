@@ -454,7 +454,7 @@ export default function GoalsScreen() {
 									{goal.habits && goal.habits.length > 0 && (
 										<View style={styles.habitsSection}>
 											<View style={styles.progressHeader}>
-												<Text style={[styles.habitsTitle, { fontSize: normalize(14) }]}>Daily Habits</Text>
+												<Text style={[styles.habitsTitle, { fontSize: normalize(14) }]}>Sub Tasks</Text>
 												<Text style={[styles.progressText, { fontSize: normalize(14) }]}>
 													{Math.round(calculateProgress(goal.habits))}%
 												</Text>
@@ -608,11 +608,11 @@ export default function GoalsScreen() {
                     />
 
 
-                    <Text style={[styles.label, { fontSize: normalize(14) }]}>Daily Habits</Text>
+                    <Text style={[styles.label, { fontSize: normalize(14) }]}>Sub Tasks</Text>
                     <View style={styles.habitInputRow}>
                       <TextInput
                         style={[styles.input, styles.habitInput, { fontSize: normalize(16) }]}
-                        placeholder="Add a habit "
+                        placeholder="Add a sub task"
                         placeholderTextColor={colors.textLight}
                         value={newHabit}
                         onChangeText={setNewHabit}

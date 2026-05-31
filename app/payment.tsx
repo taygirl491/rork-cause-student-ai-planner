@@ -7,6 +7,7 @@ import {
     ScrollView,
     Alert,
     Linking,
+    Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, Check, CreditCard, Sparkles, Zap, ExternalLink } from 'lucide-react-native';
@@ -14,6 +15,7 @@ import { useRouter } from 'expo-router';
 import Button from '@/components/Button';
 import colors from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
+import { TERMS_AND_CONDITIONS, PRIVACY_POLICY } from '@/constants/LegalText';
 
 import { useStripe } from '@stripe/stripe-react-native';
 import apiService from '@/utils/apiService';
@@ -40,6 +42,8 @@ export default function PaymentScreen() {
     const router = useRouter();
     const { user } = useAuth();
     const [loading, setLoading] = useState(false);
+    const [showTermsModal, setShowTermsModal] = useState(false);
+    const [showPrivacyModal, setShowPrivacyModal] = useState(false);
     const { initPaymentSheet, presentPaymentSheet } = useStripe();
 
     const handlePayment = async () => {
@@ -225,6 +229,18 @@ export default function PaymentScreen() {
                             icon={<CreditCard size={20} color={colors.surface} />}
                             style={styles.subscribeButton}
                         />
+
+                        <Text style={styles.legalNotice}>
+                            By subscribing, you agree to our{' '}
+                            <Text style={styles.legalLink} onPress={() => setShowTermsModal(true)}>
+                                Terms & Conditions
+                            </Text>
+                            {' '}and{' '}
+                            <Text style={styles.legalLink} onPress={() => setShowPrivacyModal(true)}>
+                                Privacy Policy
+                            </Text>
+                            . Subscription auto-renews monthly at ${PRICING.price.toFixed(2)} unless cancelled at least 24 hours before the end of the current period.
+                        </Text>
                     </View>
                 </View>
 
@@ -258,6 +274,50 @@ export default function PaymentScreen() {
                     </Text>
                 </View>
             </ScrollView>
+
+            {/* Terms & Conditions Modal */}
+            <Modal
+                visible={showTermsModal}
+                transparent
+                animationType="slide"
+                onRequestClose={() => setShowTermsModal(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>Terms & Conditions</Text>
+                            <TouchableOpacity onPress={() => setShowTermsModal(false)}>
+                                <Text style={styles.modalClose}>✕</Text>
+                            </TouchableOpacity>
+                        </View>
+                        <ScrollView style={styles.legalScrollView} showsVerticalScrollIndicator>
+                            <Text style={styles.legalText}>{TERMS_AND_CONDITIONS}</Text>
+                        </ScrollView>
+                    </View>
+                </View>
+            </Modal>
+
+            {/* Privacy Policy Modal */}
+            <Modal
+                visible={showPrivacyModal}
+                transparent
+                animationType="slide"
+                onRequestClose={() => setShowPrivacyModal(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>Privacy Policy</Text>
+                            <TouchableOpacity onPress={() => setShowPrivacyModal(false)}>
+                                <Text style={styles.modalClose}>✕</Text>
+                            </TouchableOpacity>
+                        </View>
+                        <ScrollView style={styles.legalScrollView} showsVerticalScrollIndicator>
+                            <Text style={styles.legalText}>{PRIVACY_POLICY}</Text>
+                        </ScrollView>
+                    </View>
+                </View>
+            </Modal>
         </SafeAreaView>
     );
 }
@@ -515,5 +575,53 @@ const styles = StyleSheet.create({
         color: colors.textLight,
         marginTop: 4,
         textAlign: 'center',
+    },
+    legalNotice: {
+        fontSize: 12,
+        color: colors.textSecondary,
+        textAlign: 'center',
+        lineHeight: 18,
+        marginTop: 16,
+    },
+    legalLink: {
+        color: colors.primary,
+        fontWeight: '600' as const,
+        textDecorationLine: 'underline',
+    },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'flex-end',
+    },
+    modalContent: {
+        backgroundColor: '#fff',
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
+        padding: 24,
+        height: '80%',
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 16,
+    },
+    modalTitle: {
+        fontSize: 18,
+        fontWeight: '700' as const,
+        color: colors.text,
+    },
+    modalClose: {
+        fontSize: 18,
+        color: colors.textSecondary,
+        padding: 4,
+    },
+    legalScrollView: {
+        flex: 1,
+    },
+    legalText: {
+        fontSize: 14,
+        color: colors.text,
+        lineHeight: 22,
     },
 });

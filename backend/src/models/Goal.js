@@ -43,7 +43,19 @@ const goalSchema = new mongoose.Schema({
         completed: {
             type: Boolean,
             default: false,
-        }
+        },
+        reminderEnabled: {
+            type: Boolean,
+            default: false,
+        },
+        reminderTime: {
+            type: String,
+            default: '',
+        },
+        notificationId: {
+            type: String,
+            default: '',
+        },
     }],
 }, {
     timestamps: false,

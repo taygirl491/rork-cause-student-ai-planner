@@ -865,6 +865,20 @@ export async function scheduleStreakWarningNotification(streakCount: number): Pr
 }
 
 /**
+ * Clear the iOS app icon badge. Call this whenever the app becomes active so
+ * the badge (set to 1 by notification payloads) is dismissed once the user opens
+ * the app. No-op on Android (badges are managed by the launcher there).
+ */
+export async function clearBadge(): Promise<void> {
+  if (Platform.OS !== 'ios') return;
+  try {
+    await Notifications.setBadgeCountAsync(0);
+  } catch (e) {
+    console.error('[Notification] Error clearing badge:', e);
+  }
+}
+
+/**
  * Schedule a simple push notification
  */
 export async function schedulePushNotification(content: { title: string, body: string, data?: any }) {

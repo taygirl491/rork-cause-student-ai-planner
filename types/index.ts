@@ -1,4 +1,4 @@
-export type TaskType = 'task' | 'event' | 'exam' | 'paper' | 'appointment' | 'homework' | 'work' | 'internship';
+export type TaskType = 'task' | 'event' | 'exam' | 'paper' | 'appointment' | 'homework' | 'work' | 'internship' | 'daily habit';
 export type Priority = 'low' | 'medium' | 'high';
 export type ReminderTime = 'none' | '1h' | '2h' | '1d' | '2d' | 'custom';
 

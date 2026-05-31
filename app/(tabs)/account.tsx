@@ -48,7 +48,7 @@ import apiService from '@/utils/apiService';
 import { TERMS_AND_CONDITIONS, PRIVACY_POLICY } from '@/constants/LegalText';
 import { useStripe } from '@stripe/stripe-react-native';
 import * as Analytics from '@/utils/analytics';
-import { APPLE_PRODUCT_IDS, purchaseSubscription, restorePurchases, initIAP, endIAP } from '@/utils/iapService';
+import { APPLE_PRODUCT_IDS, ANDROID_PRODUCT_IDS, purchaseSubscription, restorePurchases, initIAP, endIAP } from '@/utils/iapService';
 import { useResponsive } from '@/utils/responsive';
 import ResponsiveContainer from '@/components/ResponsiveContainer';
 
@@ -99,7 +99,6 @@ export default function AccountScreen() {
 
   // Initialise Apple IAP connection on iOS; clean up on unmount
   useEffect(() => {
-    if (Platform.OS !== 'ios') return;
     initIAP().catch(console.error);
     return () => { endIAP(); };
   }, []);
@@ -344,123 +343,32 @@ export default function AccountScreen() {
       return;
     }
 
-    // ── Android: Stripe ─────────────────────────────────────────────────────
-    if (!initPaymentSheet || !presentPaymentSheet) {
-      Alert.alert(
-        'Development Build Required',
-        'Stripe payments are not available in Expo Go preview mode.\n\nTo test payments, you need to build a development version:\n\n1. Run: npx eas build --profile development --platform android\n2. Install the .apk on your device\n3. Try the payment again',
-        [{ text: 'OK' }]
-      );
-      return;
-    }
+    // ── Android: Google Play IAP ─────────────────────────────────────────────
+    const androidProductId = ANDROID_PRODUCT_IDS[planLabel];
+    if (!androidProductId) { Alert.alert('Error', 'Invalid plan selected.'); return; }
 
+    setLoadingPlan(planLabel);
     try {
-      setLoadingPlan(`${tier}-${interval}`);
-      setLoadingSubscription(true);
+      Analytics.logCustomEvent('payment_flow_started', { tier, interval, platform: 'android' });
+      const result = await purchaseSubscription(androidProductId);
 
-      Analytics.logCustomEvent('payment_flow_started', {
-        tier,
-        interval,
-        plan_id: `${tier}-${interval}`
-      });
-
-      let clientSecret, customerId, response;
-
-      // Build the plan key from tier and interval
-      const planKey = `${tier}${interval.charAt(0).toUpperCase() + interval.slice(1)}` as keyof typeof SUBSCRIPTION_PLANS;
-      const priceId = SUBSCRIPTION_PLANS[planKey];
-
-      if (!priceId) {
-        throw new Error('Invalid subscription plan selected');
-      }
-
-      response = await apiService.createSubscription(user.uid, priceId);
-      console.log('[Stripe] Subscription response:', response);
-
-      if (!response.success) {
-        throw new Error(response.details || response.error || 'Failed to initialize subscription');
-      }
-
-      clientSecret = response.clientSecret;
-      customerId = response.customerId;
-
-      setLoadingSubscription(false);
-
-      if (!clientSecret || typeof clientSecret !== 'string') {
-        console.error('[Stripe] Invalid clientSecret:', clientSecret);
-        throw new Error('Invalid payment details received from server');
-      }
-
-      const initParams = {
-        merchantDisplayName: 'Cause Planner',
-        customerId: customerId,
-        customerEphemeralKeySecret: response.ephemeralKey,
-        allowsDelayedPaymentMethods: true,
-        returnURL: 'causeai://stripe-redirect',
-      };
-
-      console.log('[Stripe] Initializing Payment Sheet with params:', JSON.stringify({
-        ...initParams,
-        customerEphemeralKeySecret: '***',
-      }, null, 2));
-
-      let initOptions;
-      if (clientSecret.startsWith('pi_')) {
-        initOptions = {
-          ...initParams,
-          paymentIntentClientSecret: clientSecret,
-        };
-      } else {
-        initOptions = {
-          ...initParams,
-          setupIntentClientSecret: clientSecret,
-        };
-      }
-
-      const { error } = await initPaymentSheet(initOptions);
-
-      if (error) {
-        console.error('[Stripe] initPaymentSheet error:', error);
-        Alert.alert('Error', error.message);
-        return;
-      }
-      console.log('[Stripe] initPaymentSheet success');
-
-      if (Platform.OS === 'android') {
-        // Close modal before presenting - essential for Android reliability
+      if (result.success && result.tier) {
+        await apiService.post('/api/iap/activate', {
+          userId: user.uid,
+          productId: androidProductId,
+          platform: 'android',
+          purchaseToken: result.purchase?.purchaseToken,
+        });
+        setCurrentSubscription(result.tier);
         setShowPaymentModal(false);
-        // Small delay to allow modal to clear before presenting native sheet
-        await new Promise(resolve => setTimeout(resolve, 500));
-      }
-
-      const { error: paymentError } = await presentPaymentSheet();
-      
-      if (Platform.OS === 'ios') {
-        // On iOS, close the modal after the Payment Sheet
-        setShowPaymentModal(false);
-      }
-
-      if (paymentError) {
-        if (paymentError.code !== 'Canceled') {
-          console.error('[Stripe] presentPaymentSheet error:', paymentError);
-          Alert.alert('Error', paymentError.message);
-        } else {
-          console.log('[Stripe] Payment canceled by user');
-        }
-      } else {
-        console.log('[Stripe] Payment success');
-
         Analytics.logRevenue(prices[planLabel] || 0, 'USD');
-
-        Alert.alert('Success', 'Thank you for subscribing!');
-        setCurrentSubscription(tier);
-        fetchSubscription();
+        Alert.alert('Success!', 'Thank you for subscribing to Cause Planner!');
+      } else if (result.error && result.error !== 'cancelled') {
+        Alert.alert('Purchase Failed', result.error);
       }
     } catch (error: any) {
-      console.error('Payment error:', error);
-      Alert.alert('Error', error.message || 'Something went wrong');
+      Alert.alert('Error', error.message || 'Purchase failed. Please try again.');
     } finally {
-      setLoadingSubscription(false);
       setLoadingPlan(null);
     }
   };

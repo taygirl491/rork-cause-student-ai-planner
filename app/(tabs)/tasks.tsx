@@ -134,7 +134,7 @@ export default function TasksScreen() {
     }
   }, [showDetailModal, detailScaleAnim]);
 
-  const taskTypes: TaskType[] = ['task', 'event', 'exam', 'paper', 'appointment', 'homework', 'work', 'internship'];
+  const taskTypes: TaskType[] = ['task', 'event', 'exam', 'paper', 'appointment', 'homework', 'work', 'internship', 'daily habit'];
   const priorities: Priority[] = ['low', 'medium', 'high'];
   const reminders: ReminderTime[] = ['none', '1h', '2h', '1d', '2d', 'custom'];
 
@@ -192,6 +192,7 @@ export default function TasksScreen() {
 
     if (isEditing && selectedTask) {
       // Optimistic — state updates instantly, no need to await
+      // Reset completed to false: editing a task makes it active again
       updateTask(selectedTask.id, {
         description,
         type: taskType,
@@ -203,6 +204,7 @@ export default function TasksScreen() {
         reminder,
         customReminderDate: reminder === 'custom' ? formatLocalDateTime(customReminderDate) : undefined,
         alarmEnabled,
+        completed: false,
       });
     } else {
       const newTask: Task = {
@@ -1062,6 +1064,7 @@ export default function TasksScreen() {
 const styles = StyleSheet.create({
   safeAreaModal: {
     flex: 1,
+    backgroundColor: 'transparent',
   },
   container: {
     flex: 1,

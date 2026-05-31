@@ -45,7 +45,7 @@ const FAQ_DATA = [
         id: '5',
         question: 'How do I track my goals?',
         answer:
-            "In the 'Goals' tab, you can create long-term goals and break them down into daily habits. Check off habits daily to build your streak!",
+            "In the 'Goals' tab, you can create long-term goals and break them down into sub tasks. Check off sub tasks daily to build your streak!",
     },
     {
         id: '6',

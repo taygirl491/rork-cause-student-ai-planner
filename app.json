@@ -2,7 +2,15 @@
   "expo": {
     "name": "Cause Planner",
     "slug": "cause-student-ai-planner",
-    "version": "1.0.0",
+    "version": "1.0.1",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "enabled": true,
+      "fallbackToCacheTimeout": 0,
+      "url": "https://u.expo.dev/4f03b063-7906-41bc-bbe8-fb11613e296e"
+    },
     "orientation": "default",
     "icon": "./assets/images/ios-light.png",
     "scheme": "causeai",
